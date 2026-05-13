@@ -4,11 +4,12 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { createClient } from "@/utils/supabase/client";
 
-
-type Stock = {
+type Repository = {
   ticker: string;
-  price: number;
-  stars: number;
+  current_price: number;
+  description: string;
+  category: string;
+  raw_stars: number;
 };
 
 type SystemMessage = {
@@ -23,11 +24,11 @@ type Holding = {
 };
 
 export default function TradingTerminal() {
-  const [stocks, setStocks] = useState<Stock[]>([]);
+  const [discoveryData, setDiscoveryData] = useState<Record<string, Repository[]>>({});
   const [message, setMessage] = useState<SystemMessage>(null);
   const [processingTicker, setProcessingTicker] = useState<string | null>(null);
   
-  //dynamic states
+  // dynamic states
   const [userId, setUserId] = useState<string | null>(null);
   const [isInitializing, setIsInitializing] = useState(true);
   const [balance, setBalance] = useState<number | null>(null);
@@ -85,18 +86,20 @@ export default function TradingTerminal() {
       fetchBalance();
     }
 
-    const fetchMarket = async () => {
+    const fetchDiscovery = async () => {
       try {
-        const res = await fetch("http://localhost:8000/api/market");
-        const data = await res.json();
-        setStocks(data.market || []);
+        const res = await fetch("http://localhost:8080/api/discovery");
+        if (res.ok) {
+          const data = await res.json();
+          setDiscoveryData(data);
+        }
       } catch (error) {
-        console.error("Market offline");
+        console.error("Discovery offline");
       }
     };
 
-    fetchMarket();
-    const interval = setInterval(fetchMarket, 5000);
+    fetchDiscovery();
+    const interval = setInterval(fetchDiscovery, 5000);
     return () => clearInterval(interval);
   }, [userId]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -185,7 +188,7 @@ export default function TradingTerminal() {
         </header>
 
         <main className="max-w-7xl mx-auto px-6 py-12">
-          <div className="mb-8 flex justify-between items-end">
+          <div className="mb-12 flex justify-between items-end">
             <div>
               <h1 className="text-3xl font-semibold tracking-tighter mb-1">The Repo Exchange</h1>
               <p className="text-sm text-neutral-500 font-mono">B2C Quantitative Repository Pricing</p>
@@ -201,67 +204,67 @@ export default function TradingTerminal() {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-0 border border-neutral-200 bg-white shadow-sm">
-            {stocks.length === 0 ? (
-              <div className="col-span-3 p-12 text-center text-sm font-mono text-neutral-400">
-                INITIALIZING...
+          <div className="space-y-12">
+            {Object.keys(discoveryData).length === 0 ? (
+              <div className="p-12 text-center text-sm font-mono text-neutral-400 border border-neutral-200 bg-white shadow-sm">
+                INITIALIZING DISCOVERY...
               </div>
             ) : (
-              stocks.map((stock, index) => (
-                <div 
-                  key={stock.ticker} 
-                  className={`p-6 flex flex-col justify-between group hover:bg-neutral-50 transition-colors duration-200 ${
-                    index !== 0 && index % 3 !== 0 ? 'lg:border-l border-neutral-200' : ''
-                  } ${index > 2 ? 'border-t border-neutral-200' : ''} ${index !== stocks.length - 1 ? 'border-b lg:border-b-0 border-neutral-200' : ''}`}
-                >
-                  <div className="flex justify-between items-start mb-12">
-                    <div>
-                      <p className="text-[9px] font-mono uppercase tracking-[0.15em] text-neutral-400 mb-1.5">Ticker</p>
-                      <Link 
-                        href={`/asset/${stock.ticker.split('/')[0].toLowerCase()}/${stock.ticker.split('/')[1].toLowerCase()}`}
-                        className="block hover:text-neutral-500 transition-colors cursor-pointer"
-                      >
-                        <h2 className="text-xl font-bold tracking-tighter text-black inherit">
-                          {stock.ticker.split('/')[1].toUpperCase()}
-                        </h2>
-                        <p className="text-xs text-neutral-500 mt-0.5 inherit">{stock.ticker.split('/')[0]}</p>
-                      </Link>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-[9px] font-mono uppercase tracking-[0.15em] text-neutral-400 mb-1.5">Vol (Stars)</p>
-                      <p className="text-sm font-mono font-medium text-black">{stock.stars.toLocaleString()}</p>
-                    </div>
-                  </div>
-                  
-                  <div className="flex justify-between items-end">
-                    <div>
-                      <p className="text-[9px] font-mono uppercase tracking-[0.15em] text-neutral-400 mb-1.5">Mark Price</p>
-                      <div className="flex items-baseline gap-1">
-                        <span className="text-sm text-neutral-400 font-mono">$</span>
-                        <span className="text-3xl font-light tracking-tighter text-black font-mono">
-                          {stock.price.toLocaleString("en-US", { minimumFractionDigits: 2 })}
-                        </span>
+              Object.entries(discoveryData).map(([category, repos]) => (
+                <div key={category}>
+                  <h2 className="text-[11px] tracking-[0.25em] font-bold uppercase text-neutral-500 mb-4">{category}</h2>
+                  <div className="flex overflow-x-auto gap-4 pb-4 snap-x [&::-webkit-scrollbar]:hidden" style={{ scrollbarWidth: 'none' }}>
+                    {repos.map((repo) => (
+                      <div key={repo.ticker} className="flex-none w-72 snap-center border border-neutral-200 bg-white p-5 flex flex-col justify-between hover:bg-neutral-50 transition-colors duration-200">
+                        <div className="mb-8">
+                          <Link 
+                            href={`/asset/${repo.ticker.split('/')[0].toLowerCase()}/${repo.ticker.split('/')[1].toLowerCase()}`}
+                            className="block hover:text-neutral-500 transition-colors cursor-pointer mb-3"
+                          >
+                            <h3 className="text-lg font-bold tracking-tighter text-black inherit truncate">
+                              {repo.ticker.split('/')[1].toUpperCase()}
+                            </h3>
+                            <p className="text-[10px] text-neutral-500 mt-0.5 inherit truncate">
+                              {repo.ticker.split('/')[0]}
+                            </p>
+                          </Link>
+                          <p className="text-[10px] text-neutral-400 font-mono line-clamp-2 h-7 leading-tight overflow-hidden">
+                            {repo.description || "No description available."}
+                          </p>
+                        </div>
+                        
+                        <div className="flex justify-between items-end mt-auto">
+                          <div>
+                            <p className="text-[9px] font-mono uppercase tracking-[0.15em] text-neutral-400 mb-1">Mark Price</p>
+                            <div className="flex items-baseline gap-1">
+                              <span className="text-sm text-neutral-400 font-mono">$</span>
+                              <span className="text-2xl font-light tracking-tighter text-black font-mono">
+                                {Number(repo.current_price).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                              </span>
+                            </div>
+                          </div>
+                          
+                          <button 
+                            onClick={() => handleBuy(repo.ticker)}
+                            disabled={processingTicker === repo.ticker}
+                            className={`h-8 px-4 text-[10px] font-bold tracking-widest uppercase transition-all duration-150 ${
+                              processingTicker === repo.ticker 
+                                ? "bg-neutral-100 text-neutral-400 cursor-not-allowed border border-neutral-200" 
+                                : "bg-black text-white hover:bg-neutral-800 active:scale-[0.98]"
+                            }`}
+                          >
+                            {processingTicker === repo.ticker ? "Routing..." : "Buy"}
+                          </button>
+                        </div>
                       </div>
-                    </div>
-                    
-                    <button 
-                      onClick={() => handleBuy(stock.ticker)}
-                      disabled={processingTicker === stock.ticker}
-                      className={`h-9 px-5 text-xs font-bold tracking-wide uppercase transition-all duration-150 ${
-                        processingTicker === stock.ticker 
-                          ? "bg-neutral-100 text-neutral-400 cursor-not-allowed border border-neutral-200" 
-                          : "bg-black text-white hover:bg-neutral-800 active:scale-[0.98]"
-                      }`}
-                    >
-                      {processingTicker === stock.ticker ? "Routing..." : "Buy"}
-                    </button>
+                    ))}
                   </div>
                 </div>
               ))
             )}
           </div>
 
-          <div className="mt-12">
+          <div className="mt-16">
             <h2 className="text-xl font-semibold tracking-tighter mb-4 text-black">Current Holdings</h2>
             <div className="border border-neutral-200 bg-white">
               {portfolio.length === 0 ? (
