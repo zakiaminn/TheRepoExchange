@@ -128,4 +128,21 @@ app.get('/api/history/:owner/:repo', async (req, res) => {
     }
 });
 
+app.get('/api/discovery', async (req, res) => {
+    try {
+        const result = await pool.query('SELECT ticker, current_price, description, category, raw_stars FROM repositories');
+        const grouped = result.rows.reduce((acc, repo) => {
+            if (!acc[repo.category]) {
+                acc[repo.category] = [];
+            }
+            acc[repo.category].push(repo);
+            return acc;
+        }, {});
+        res.json(grouped);
+    } catch (error) {
+        console.error(`[Ledger Error] Discovery query failed: ${error.message}`);
+        res.status(500).json({ error: "Could not fetch discovery data." });
+    }
+});
+
 app.listen(8080, () => console.log(`[Ledger] Online on port 8080`));
