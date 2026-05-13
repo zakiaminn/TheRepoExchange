@@ -17,3 +17,4 @@ build/
 dist/
 .DS_Store
 Thumbs.db
+documentation.txt
