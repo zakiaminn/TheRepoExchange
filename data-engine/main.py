@@ -45,6 +45,15 @@ def save_to_db(ticker, price):
             query,
             (ticker, price)
         )
+        
+        history_query = """ INSERT INTO price_history (ticker, price)
+                            VALUES (%s, %s);
+                        """
+        cur.execute(
+            history_query,
+            (ticker, price)
+        )
+        
         conn.commit()
         cur.close()
         conn.close()
@@ -90,19 +99,19 @@ def market_worker():
                     "price": price,
                     "stars": metrics["stars"]
                 })
-            time.sleep(1) # Prevent GitHub rate limiting
+            time.sleep(1) # prevent hitting GitHub rate limits
             
         live_market_data = new_data
         print("[Data Engine] Market data updated.")
         time.sleep(60)
 
-# Start the background worker when the API starts
+# starting background woekr on app startup
 @app.on_event("startup")
 def startup_event():
     thread = threading.Thread(target=market_worker, daemon=True)
     thread.start()
 
-# The endpoint our Next.js frontend will hit
+# endpoint for frontend to fetch live market data
 @app.get("/api/market")
 def get_market_data():
     return {"market": live_market_data}

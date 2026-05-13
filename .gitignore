@@ -1,4 +1,19 @@
 .env
-env/
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+node_modules/
+jspm_packages/
+package-lock.json (Optional, some prefer to keep this)
 __pycache__/
+*.py[cod]
+*$py.class
 venv/
+.venv/
+.next/
+out/
+build/
+dist/
+.DS_Store
+Thumbs.db

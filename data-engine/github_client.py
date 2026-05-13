@@ -2,7 +2,7 @@ import os
 import requests
 from dotenv import load_dotenv
 
-# Load the environment variables from your .env file
+# load env variables from .env
 load_dotenv()
 
 GITHUB_TOKEN = os.getenv("GITHUB_TOKEN")
@@ -49,7 +49,6 @@ def fetch_repo_metrics(owner_repo: str) -> dict:
         return None
 
 # --- Quick Test Block ---
-# This only runs if you execute this file directly
 if __name__ == "__main__":
     print("Testing GitHub API Connection...")
     test_repo = fetch_repo_metrics("vercel/next.js")
