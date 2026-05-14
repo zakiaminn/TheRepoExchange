@@ -19,10 +19,11 @@ app.post('/api/buy', async (req, res) => {
         await client.query('BEGIN'); // start transaction
 
         // current price
-        const stockRes = await client.query('SELECT current_price FROM repositories WHERE ticker = $1', [ticker]);
+        const stockRes = await client.query('SELECT ticker, current_price FROM repositories WHERE ticker ILIKE $1', [ticker]);
         if (stockRes.rows.length === 0) throw new Error("Stock not found.");
         const price = stockRes.rows[0].current_price;
         const totalCost = price * shares;
+        const trueTicker = stockRes.rows[0].ticker; // get the exact ticker from DB (case-sensitive)
 
         // balcance check
         const userRes = await client.query('SELECT cash_balance FROM users WHERE id = $1', [userId]);
@@ -43,19 +44,62 @@ app.post('/api/buy', async (req, res) => {
                 shares = portfolios.shares + $3,
                 average_price = ((portfolios.shares * portfolios.average_price) + ($3 * $4)) / (portfolios.shares + $3);
         `;
-        await client.query(portfolioQuery, [userId, ticker, shares, price]);
+        await client.query(portfolioQuery, [userId, trueTicker, shares, price]);
 
         // logging of transaction
         await client.query(
             'INSERT INTO transactions (user_id, ticker, action, shares, execution_price) VALUES ($1, $2, $3, $4, $5)',
-            [userId, ticker, 'BUY', shares, price]
+            [userId, trueTicker, 'BUY', shares, price]
         );
 
         await client.query('COMMIT'); // done with all queries, commit the transaction
-        res.json({ success: true, message: `Bought ${shares} shares of ${ticker}.` });
+        res.json({ success: true, message: `Bought ${shares} shares of ${trueTicker}.` });
 
     } catch (error) {
         await client.query('ROLLBACK'); // refunds incase of error
+        res.status(500).json({ error: error.message });
+    } finally {
+        client.release();
+    }
+});
+
+app.post('/api/sell', async (req, res) => {
+    const { userId, ticker, shares } = req.body;
+    const client = await pool.connect();
+
+    try {
+        await client.query('BEGIN'); // start transaction
+
+        // current price
+        const stockRes = await client.query('SELECT ticker, current_price FROM repositories WHERE ticker ILIKE $1', [ticker]);
+        if (stockRes.rows.length === 0) throw new Error("Stock not found.");
+        const price = stockRes.rows[0].current_price;
+        const trueTicker = stockRes.rows[0].ticker; // get the exact ticker from DB (case-sensitive)
+        const totalValue = price * shares;
+
+        // portfolio check
+        const portRes = await client.query('SELECT shares FROM portfolios WHERE user_id = $1 AND ticker = $2', [userId, trueTicker]);
+        if (portRes.rows.length === 0 || portRes.rows[0].shares < shares) {
+            throw new Error("Insufficient shares to sell.");
+        }
+
+        // update cash balance
+        await client.query('UPDATE users SET cash_balance = cash_balance + $1 WHERE id = $2', [totalValue, userId]);
+
+        // update portfolio
+        await client.query('UPDATE portfolios SET shares = shares - $1 WHERE user_id = $2 AND ticker = $3', [shares, userId, trueTicker]);
+
+        // logging of transaction
+        await client.query(
+            'INSERT INTO transactions (user_id, ticker, action, shares, execution_price) VALUES ($1, $2, $3, $4, $5)',
+            [userId, trueTicker, 'SELL', shares, price]
+        );
+
+        await client.query('COMMIT');
+        res.json({ success: true, message: `Sold ${shares} shares of ${trueTicker}.` });
+
+    } catch (error) {
+        await client.query('ROLLBACK');
         res.status(500).json({ error: error.message });
     } finally {
         client.release();
@@ -83,10 +127,13 @@ app.get('/api/portfolio/:userId', async (req, res) => {
     const { userId } = req.params;
     
     try {
-        const result = await pool.query(
-            'SELECT ticker, shares, average_price FROM portfolios WHERE user_id = $1 AND shares > 0',
-            [userId]
-        );
+        const query = `
+            SELECT p.ticker, p.shares, p.average_price, r.current_price
+            FROM portfolios p
+            JOIN repositories r ON p.ticker = r.ticker
+            WHERE p.user_id = $1 AND p.shares > 0
+        `;
+        const result = await pool.query(query, [userId]);
         res.json({ portfolio: result.rows });
     } catch (error) {
         console.error(`[Ledger Error] Portfolio query failed: ${error.message}`);
@@ -96,30 +143,52 @@ app.get('/api/portfolio/:userId', async (req, res) => {
 
 app.get('/api/history/:owner/:repo', async (req, res) => {
     const { owner, repo } = req.params;
-    const ticker = `${owner}/${repo}`.toUpperCase();
+    const { period } = req.query;
+    const ticker = `${owner}/${repo}`;
     
     try {
         const result = await pool.query(
-            "SELECT TO_CHAR(created_at, 'YYYY-MM-DD') AS time, price AS value FROM price_history WHERE ticker = $1 ORDER BY created_at ASC",
+            "SELECT TO_CHAR(created_at, 'YYYY-MM-DD HH24:MI:SS') AS full_time, TO_CHAR(created_at, 'YYYY-MM-DD') AS time, price AS value FROM price_history WHERE ticker ILIKE $1 ORDER BY created_at ASC",
             [ticker]
         );
-        //filtering out duplicate dates (keep the latest price of the day)
-        // keeping one price per day
-        const uniqueHistory = [];
-        const seenDates = new Set();
         
-        //keeping latest price of day by iterating in reverse (latest first)
-        const reversedRows = [...result.rows].reverse();
-        
-        for (const row of reversedRows) {
-            if (!seenDates.has(row.time)) {
-                seenDates.add(row.time);
-                uniqueHistory.push({ time: row.time, value: Number(row.value) });
+        let uniqueHistory = [];
+
+        if (period === '1D') {
+            // Return the last 24 rows (hourly data points)
+            const last24 = result.rows.slice(-24);
+            uniqueHistory = last24.map(row => ({ 
+                time: row.time, 
+                value: Number(row.value)
+            }));
+        } else {
+            // Filtering out duplicate dates (keep the latest price of the day)
+            const seenDates = new Set();
+            const dailyData = [];
+            
+            // keeping latest price of day by iterating in reverse (latest first)
+            const reversedRows = [...result.rows].reverse();
+            
+            for (const row of reversedRows) {
+                if (!seenDates.has(row.time)) {
+                    seenDates.add(row.time);
+                    dailyData.push({ time: row.time, value: Number(row.value) });
+                }
+            }
+            
+            // reversing to chronological order
+            dailyData.reverse();
+
+            if (period === '1W') {
+                uniqueHistory = dailyData.slice(-7);
+            } else if (period === '1M') {
+                uniqueHistory = dailyData.slice(-30);
+            } else if (period === '1Y') {
+                uniqueHistory = dailyData.slice(-365);
+            } else {
+                uniqueHistory = dailyData;
             }
         }
-        
-        // reversing to chronological order
-        uniqueHistory.reverse();
 
         res.json({ history: uniqueHistory });
     } catch (error) {

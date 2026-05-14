@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, use } from "react";
 import { createChart, ColorType, IChartApi, ISeriesApi, AreaSeries } from "lightweight-charts";
 import Link from "next/link";
+import { createClient } from "@/utils/supabase/client";
 
 interface PageProps {
   params: Promise<{
@@ -16,10 +17,16 @@ type ChartData = {
   value: number;
 };
 
+type SystemMessage = {
+  text: string;
+  type: "success" | "error";
+} | null;
+
 export default function AssetChartPage(props: PageProps) {
   // Unwrap the Promise-based params in Next.js 15+
   const params = use(props.params);
   const { owner, repo } = params;
+  const ticker = `${owner}/${repo}`.toUpperCase();
   
   const chartContainerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
@@ -30,7 +37,60 @@ export default function AssetChartPage(props: PageProps) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const ticker = `${owner}/${repo}`.toUpperCase();
+  // Trade state
+  const [userId, setUserId] = useState<string | null>(null);
+  const [balance, setBalance] = useState<number | null>(null);
+  const [ownedShares, setOwnedShares] = useState<number>(0);
+  const [tradeQuantity, setTradeQuantity] = useState<number>(1);
+  const [message, setMessage] = useState<SystemMessage>(null);
+  const [processingAction, setProcessingAction] = useState<"BUY" | "SELL" | null>(null);
+
+  const supabase = createClient();
+
+  useEffect(() => {
+    const checkAuth = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        window.location.href = "/login";
+      } else {
+        setUserId(user.id);
+      }
+    };
+    checkAuth();
+  }, [supabase]);
+
+  const fetchBalance = async (uid: string) => {
+    try {
+      const res = await fetch(`http://localhost:8080/api/balance/${uid}`);
+      if (res.ok) {
+        const data = await res.json();
+        setBalance(data.balance);
+      }
+    } catch (err) {
+      console.error("Ledger offline");
+    }
+  };
+
+  const fetchPortfolio = async (uid: string) => {
+    try {
+      const res = await fetch(`http://localhost:8080/api/portfolio/${uid}`);
+      if (res.ok) {
+        const data = await res.json();
+        const portfolio = data.portfolio || [];
+        const holding = portfolio.find((h: any) => h.ticker.toLowerCase() === ticker.toLowerCase());
+        setOwnedShares(holding ? holding.shares : 0);
+      }
+    } catch (err) {
+      console.error("Ledger offline");
+    }
+  };
+
+  useEffect(() => {
+    if (userId) {
+      fetchBalance(userId);
+      fetchPortfolio(userId);
+    }
+  }, [userId, ticker]);
 
   useEffect(() => {
     const fetchHistory = async () => {
@@ -119,8 +179,46 @@ export default function AssetChartPage(props: PageProps) {
     };
   }, [history]);
 
+  const handleTrade = async (action: "BUY" | "SELL") => {
+    if (!userId) return;
+    if (tradeQuantity <= 0) return;
+    if (action === "SELL" && ownedShares < tradeQuantity) return;
+
+    setProcessingAction(action);
+    setMessage(null);
+
+    try {
+      const endpoint = action === "BUY" ? "/api/buy" : "/api/sell";
+      const response = await fetch(`http://localhost:8080${endpoint}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          userId: userId,
+          ticker: ticker,
+          shares: tradeQuantity,
+        }),
+      });
+
+      const result = await response.json();
+
+      if (response.ok) {
+        setMessage({ text: `Filled: ${action} ${tradeQuantity} QTY of ${ticker} @ Market`, type: "success" });
+        fetchBalance(userId);
+        fetchPortfolio(userId);
+        setTradeQuantity(1); // reset after successful trade
+      } else {
+        setMessage({ text: `Rejected: ${result.error}`, type: "error" });
+      }
+    } catch (err) {
+      setMessage({ text: "Connection refused by Ledger.", type: "error" });
+    } finally {
+      setProcessingAction(null);
+      setTimeout(() => setMessage(null), 4000);
+    }
+  };
+
   return (
-    <div className="min-h-screen bg-[#FAFAFA] text-black font-sans relative selection:bg-black selection:text-white">
+    <div className="min-h-screen bg-[#FAFAFA] text-black font-sans relative selection:bg-black selection:text-white pb-20">
       <div className="absolute inset-0 z-0 bg-[radial-gradient(#e5e7eb_1px,transparent_1px)] [background-size:16px_16px] pointer-events-none"></div>
 
       <div className="relative z-10">
@@ -137,6 +235,14 @@ export default function AssetChartPage(props: PageProps) {
             </div>
             
             <div className="flex items-center gap-4 text-right">
+              <div>
+                <span className="text-[10px] font-mono uppercase tracking-[0.2em] text-neutral-400 mr-3">Cash</span>
+                <span className="text-xs font-mono bg-neutral-100 px-2 py-1 text-neutral-600 border border-neutral-200">
+                  {balance !== null 
+                    ? new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(balance)
+                    : "---"}
+                </span>
+              </div>
               <Link 
                 href="/"
                 className="text-[10px] font-mono uppercase tracking-widest text-neutral-400 hover:text-black transition-colors"
@@ -170,7 +276,7 @@ export default function AssetChartPage(props: PageProps) {
             </div>
           </div>
 
-          <div className="border border-neutral-200 bg-white p-6 shadow-sm">
+          <div className="border border-neutral-200 bg-white p-6 shadow-sm mb-8">
             {loading ? (
               <div className="h-[400px] flex items-center justify-center font-mono text-sm text-neutral-400">
                 INITIALIZING DATA STREAM...
@@ -183,8 +289,71 @@ export default function AssetChartPage(props: PageProps) {
               <div ref={chartContainerRef} className="w-full h-[400px]" />
             )}
           </div>
+
+          {/* Trade Panel */}
+          <div className="border border-neutral-200 bg-white p-6 shadow-sm flex flex-col md:flex-row items-center justify-between gap-6">
+            <div className="flex flex-col">
+              <span className="text-[10px] font-mono uppercase tracking-[0.2em] text-neutral-400 mb-1">Position</span>
+              <span className="text-xl font-mono tracking-tighter text-black">
+                {ownedShares} <span className="text-sm text-neutral-500">SHRS</span>
+              </span>
+            </div>
+
+            <div className="flex items-center gap-4 w-full md:w-auto">
+              <div className="flex flex-col">
+                <label htmlFor="qty" className="text-[10px] font-mono uppercase tracking-[0.2em] text-neutral-400 mb-1">Quantity</label>
+                <input 
+                  id="qty"
+                  type="number"
+                  min="1"
+                  value={tradeQuantity}
+                  onChange={(e) => setTradeQuantity(parseInt(e.target.value) || 0)}
+                  className="w-24 h-10 px-3 border border-neutral-300 font-mono text-center focus:outline-none focus:border-black"
+                />
+              </div>
+
+              <div className="flex gap-2 items-end h-full">
+                <button 
+                  onClick={() => handleTrade("BUY")}
+                  disabled={processingAction !== null}
+                  className={`h-10 px-8 text-xs font-bold tracking-widest uppercase transition-all duration-150 ${
+                    processingAction === "BUY"
+                      ? "bg-neutral-100 text-neutral-400 cursor-not-allowed border border-neutral-200"
+                      : "bg-black text-white hover:bg-neutral-800 active:scale-[0.98] border border-black"
+                  }`}
+                >
+                  {processingAction === "BUY" ? "Routing" : "Buy"}
+                </button>
+                
+                <button 
+                  onClick={() => handleTrade("SELL")}
+                  disabled={processingAction !== null || ownedShares === 0 || tradeQuantity > ownedShares}
+                  className={`h-10 px-8 text-xs font-bold tracking-widest uppercase transition-all duration-150 ${
+                    processingAction === "SELL" || ownedShares === 0 || tradeQuantity > ownedShares
+                      ? "bg-neutral-100 text-neutral-400 cursor-not-allowed border border-neutral-200"
+                      : "bg-white text-black hover:bg-neutral-50 active:scale-[0.98] border border-black"
+                  }`}
+                >
+                  {processingAction === "SELL" ? "Routing" : "Sell"}
+                </button>
+              </div>
+            </div>
+          </div>
         </main>
       </div>
+
+      {message && (
+        <div className="fixed bottom-6 right-6 z-50 animate-in slide-in-from-bottom-4 fade-in duration-300">
+          <div className={`px-4 py-3 border text-sm font-mono shadow-xl flex items-center gap-3 ${
+            message.type === 'success' 
+              ? 'bg-white border-black text-black' 
+              : 'bg-black border-black text-white'
+          }`}>
+            <div className={`h-2 w-2 rounded-full ${message.type === 'success' ? 'bg-black' : 'bg-red-500'}`}></div>
+            {message.text}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
