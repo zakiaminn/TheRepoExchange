@@ -54,23 +54,23 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#FAFAFA] flex items-center justify-center font-sans selection:bg-black selection:text-white relative">
-      <div className="absolute inset-0 z-0 bg-[radial-gradient(#e5e7eb_1px,transparent_1px)] [background-size:16px_16px] pointer-events-none"></div>
+    <div className="min-h-screen bg-white dark:bg-[#121212] flex items-center justify-center font-sans selection:bg-gray-900 selection:text-white dark:selection:bg-white dark:selection:text-gray-900 relative transition-colors duration-300">
+      <div className="absolute inset-0 z-0 bg-[radial-gradient(#e5e7eb_1px,transparent_1px)] dark:bg-[radial-gradient(#374151_1px,transparent_1px)] [background-size:16px_16px] pointer-events-none"></div>
 
       <div className="w-full max-w-sm relative z-10">
         <div className="text-center mb-10">
-          <h1 className="text-3xl font-bold tracking-tighter text-black mb-2">TRX.EXCHANGE</h1>
-          <p className="text-[10px] font-mono uppercase tracking-[0.2em] text-neutral-500">
-            Secure Authentication Gateway
+          <h1 className="text-3xl font-bold tracking-tighter text-gray-900 dark:text-gray-100 mb-2">TRX.EXCHANGE</h1>
+          <p className="text-[10px] font-mono uppercase tracking-[0.2em] text-gray-500 dark:text-gray-400">
+            Sign in to your account
           </p>
         </div>
 
-        <div className="bg-white border border-neutral-200 p-8 shadow-sm">
+        <div className="bg-white dark:bg-[#121212] border border-gray-200 dark:border-gray-800 p-8 shadow-sm">
           
           <div className="space-y-3 mb-8">
             <button 
               onClick={() => handleOAuthLogin('google')}
-              className="w-full h-10 border border-neutral-200 bg-white hover:bg-neutral-50 text-sm font-medium tracking-tight text-black flex items-center justify-center gap-3 transition-colors"
+              className="w-full h-10 border border-gray-200 dark:border-gray-800 bg-white dark:bg-[#121212] hover:bg-gray-50 dark:hover:bg-gray-800 text-sm font-medium tracking-tight text-gray-900 dark:text-gray-100 flex items-center justify-center gap-3 transition-colors"
             >
               <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
                 <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
@@ -83,7 +83,7 @@ export default function LoginPage() {
             
             <button 
               onClick={() => handleOAuthLogin('apple')}
-              className="w-full h-10 border border-neutral-200 bg-white hover:bg-neutral-50 text-sm font-medium tracking-tight text-black flex items-center justify-center gap-3 transition-colors"
+              className="w-full h-10 border border-gray-200 dark:border-gray-800 bg-white dark:bg-[#121212] hover:bg-gray-50 dark:hover:bg-gray-800 text-sm font-medium tracking-tight text-gray-900 dark:text-gray-100 flex items-center justify-center gap-3 transition-colors"
             >
               <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
                 <path d="M12.152 6.896c-.948 0-2.415-1.078-3.96-1.04-2.04.027-3.91 1.183-4.961 3.014-2.117 3.675-.546 9.103 1.519 12.09 1.013 1.454 2.208 3.09 3.792 3.039 1.52-.065 2.09-.987 3.935-.987 1.831 0 2.35.987 3.96.948 1.641-.026 2.676-1.48 3.676-2.948 1.156-1.688 1.636-3.325 1.662-3.415-.039-.013-3.182-1.221-3.22-4.857-.026-3.04 2.48-4.494 2.597-4.559-1.429-2.09-3.623-2.324-4.39-2.376-2-.156-3.675 1.09-4.61 1.09zM15.53 3.83c.843-1.012 1.4-2.427 1.245-3.83-1.207.052-2.662.805-3.532 1.818-.78.896-1.454 2.338-1.273 3.714 1.338.104 2.715-.688 3.56-1.702z"/>
@@ -93,15 +93,15 @@ export default function LoginPage() {
           </div>
 
           <div className="flex items-center mb-8">
-            <div className="flex-1 h-[1px] bg-neutral-200"></div>
-            <span className="px-3 text-[10px] font-mono uppercase tracking-widest text-neutral-400">Or</span>
-            <div className="flex-1 h-[1px] bg-neutral-200"></div>
+            <div className="flex-1 h-[1px] bg-gray-200 dark:bg-gray-800"></div>
+            <span className="px-3 text-[10px] font-mono uppercase tracking-widest text-gray-400 dark:text-gray-500">Or</span>
+            <div className="flex-1 h-[1px] bg-gray-200 dark:bg-gray-800"></div>
           </div>
 
           
           {message && (
             <div className={`mb-6 px-3 py-2 text-xs font-mono border flex items-center gap-2 ${
-              message.type === 'error' ? 'bg-red-50 text-red-600 border-red-200' : 'bg-green-50 text-green-600 border-green-200'
+              message.type === 'error' ? 'bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 border-red-200 dark:border-red-900/50' : 'bg-green-50 dark:bg-green-900/20 text-green-600 dark:text-green-400 border-green-200 dark:border-green-900/50'
             }`}>
               <div className={`h-1.5 w-1.5 rounded-full ${message.type === 'error' ? 'bg-red-500' : 'bg-green-500'}`}></div>
               {message.text}
@@ -110,7 +110,7 @@ export default function LoginPage() {
 
           <form onSubmit={handleEmailLogin} className="space-y-5">
             <div>
-              <label className="block text-[10px] font-mono uppercase tracking-[0.15em] text-neutral-500 mb-2">
+              <label className="block text-[10px] font-mono uppercase tracking-[0.15em] text-gray-500 dark:text-gray-400 mb-2">
                 Email/Username
               </label>
               <input 
@@ -118,14 +118,14 @@ export default function LoginPage() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
-                className="w-full h-10 px-3 bg-neutral-50 border border-neutral-200 text-sm focus:outline-none focus:border-black focus:ring-1 focus:ring-black transition-all"
+                className="w-full h-10 px-3 bg-gray-50 dark:bg-[#1a1a1a] border border-gray-200 dark:border-gray-800 text-gray-900 dark:text-gray-100 text-sm focus:outline-none focus:border-gray-900 dark:focus:border-gray-100 focus:ring-1 focus:ring-gray-900 dark:focus:ring-gray-100 transition-all"
                 placeholder="user@trx.com"
               />
             </div>
 
             <div>
               <div className="flex justify-between items-baseline mb-2">
-                <label className="block text-[10px] font-mono uppercase tracking-[0.15em] text-neutral-500">
+                <label className="block text-[10px] font-mono uppercase tracking-[0.15em] text-gray-500 dark:text-gray-400">
                   Password
                 </label>
               </div>
@@ -134,7 +134,7 @@ export default function LoginPage() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
-                className="w-full h-10 px-3 bg-neutral-50 border border-neutral-200 text-sm focus:outline-none focus:border-black focus:ring-1 focus:ring-black transition-all"
+                className="w-full h-10 px-3 bg-gray-50 dark:bg-[#1a1a1a] border border-gray-200 dark:border-gray-800 text-gray-900 dark:text-gray-100 text-sm focus:outline-none focus:border-gray-900 dark:focus:border-gray-100 focus:ring-1 focus:ring-gray-900 dark:focus:ring-gray-100 transition-all"
                 placeholder="••••••••"
               />
             </div>
@@ -143,7 +143,9 @@ export default function LoginPage() {
               type="submit" 
               disabled={isLoading}
               className={`w-full h-10 mt-2 text-xs font-bold tracking-wide uppercase transition-all duration-150 flex items-center justify-center ${
-                isLoading ? 'bg-neutral-200 text-neutral-400 cursor-not-allowed' : 'bg-black text-white hover:bg-neutral-800 active:scale-[0.98]'
+                isLoading 
+                  ? 'bg-gray-200 dark:bg-gray-800 text-gray-400 dark:text-gray-500 cursor-not-allowed' 
+                  : 'bg-gray-900 text-white dark:bg-white dark:text-gray-900 hover:opacity-90 active:scale-[0.98]'
               }`}
             >
               {isLoading ? 'Authenticating...' : 'Sign In'}
