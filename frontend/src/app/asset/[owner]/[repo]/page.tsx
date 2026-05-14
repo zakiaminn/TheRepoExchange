@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, use } from "react";
 import { createChart, ColorType, IChartApi, ISeriesApi, AreaSeries } from "lightweight-charts";
 import Link from "next/link";
 import { createClient } from "@/utils/supabase/client";
+import { useTheme } from "next-themes";
 
 interface PageProps {
   params: Promise<{
@@ -45,6 +46,7 @@ export default function AssetChartPage(props: PageProps) {
   const [message, setMessage] = useState<SystemMessage>(null);
   const [processingAction, setProcessingAction] = useState<"BUY" | "SELL" | null>(null);
 
+  const { resolvedTheme } = useTheme();
   const supabase = createClient();
 
   useEffect(() => {
@@ -118,10 +120,17 @@ export default function AssetChartPage(props: PageProps) {
   useEffect(() => {
     if (!chartContainerRef.current || history.length === 0) return;
 
+    const isDark = resolvedTheme === "dark";
+    const textColor = isDark ? "#9ca3af" : "#6b7280";
+    const lineColor = isDark ? "#ffffff" : "#000000";
+    const crosshairColor = isDark ? "#ffffff" : "#000000";
+    const areaTopColor = isDark ? "rgba(255, 255, 255, 0.05)" : "rgba(0, 0, 0, 0.05)";
+    const areaBottomColor = isDark ? "rgba(255, 255, 255, 0.0)" : "rgba(0, 0, 0, 0.0)";
+
     const chart = createChart(chartContainerRef.current, {
       layout: {
-        background: { type: ColorType.Solid, color: "#FFFFFF" },
-        textColor: "#000000",
+        background: { type: ColorType.Solid, color: "transparent" },
+        textColor: textColor,
       },
       grid: {
         vertLines: { visible: false },
@@ -129,16 +138,16 @@ export default function AssetChartPage(props: PageProps) {
       },
       crosshair: {
         vertLine: {
-          color: "#000000",
+          color: crosshairColor,
           width: 1,
           style: 3, // Dotted
-          labelBackgroundColor: "#000000",
+          labelBackgroundColor: crosshairColor,
         },
         horzLine: {
-          color: "#000000",
+          color: crosshairColor,
           width: 1,
           style: 3,
-          labelBackgroundColor: "#000000",
+          labelBackgroundColor: crosshairColor,
         },
       },
       rightPriceScale: {
@@ -153,9 +162,9 @@ export default function AssetChartPage(props: PageProps) {
     });
 
     const newSeries = chart.addSeries(AreaSeries, {
-      lineColor: "#000000",
-      topColor: "rgba(0, 0, 0, 0.05)",
-      bottomColor: "rgba(0, 0, 0, 0.0)",
+      lineColor: lineColor,
+      topColor: areaTopColor,
+      bottomColor: areaBottomColor,
       lineWidth: 2,
     });
 
@@ -177,7 +186,7 @@ export default function AssetChartPage(props: PageProps) {
       window.removeEventListener("resize", handleResize);
       chart.remove();
     };
-  }, [history]);
+  }, [history, resolvedTheme]);
 
   const handleTrade = async (action: "BUY" | "SELL") => {
     if (!userId) return;
@@ -218,26 +227,26 @@ export default function AssetChartPage(props: PageProps) {
   };
 
   return (
-    <div className="min-h-screen bg-[#FAFAFA] text-black font-sans relative selection:bg-black selection:text-white pb-20">
-      <div className="absolute inset-0 z-0 bg-[radial-gradient(#e5e7eb_1px,transparent_1px)] [background-size:16px_16px] pointer-events-none"></div>
+    <div className="min-h-screen bg-white dark:bg-[#121212] text-gray-900 dark:text-gray-100 font-sans relative selection:bg-gray-900 selection:text-white dark:selection:bg-white dark:selection:text-gray-900 pb-20 transition-colors duration-300">
+      <div className="absolute inset-0 z-0 bg-[radial-gradient(#e5e7eb_1px,transparent_1px)] dark:bg-[radial-gradient(#374151_1px,transparent_1px)] [background-size:16px_16px] pointer-events-none"></div>
 
       <div className="relative z-10">
-        <header className="border-b border-neutral-200 bg-white/80 backdrop-blur-sm">
+        <header className="border-b border-gray-200 dark:border-gray-800 bg-white/80 dark:bg-[#121212]/80 backdrop-blur-sm">
           <div className="max-w-7xl mx-auto px-6 h-14 flex items-center justify-between">
             <div className="flex items-center gap-6">
-              <Link href="/" className="font-mono text-sm font-bold tracking-tight hover:text-neutral-500 transition-colors">
+              <Link href="/" className="font-mono text-sm font-bold tracking-tight hover:text-gray-500 dark:hover:text-gray-400 transition-colors">
                 TRX.EXCHANGE
               </Link>
-              <div className="h-4 w-[1px] bg-neutral-300"></div>
+              <div className="h-4 w-[1px] bg-gray-300 dark:bg-gray-700"></div>
               <div className="flex items-center gap-2">
-                <span className="text-[10px] font-mono uppercase tracking-[0.2em] text-neutral-500">Asset View</span>
+                <span className="text-[10px] font-mono uppercase tracking-[0.2em] text-gray-500 dark:text-gray-400">Asset View</span>
               </div>
             </div>
             
             <div className="flex items-center gap-4 text-right">
               <div>
-                <span className="text-[10px] font-mono uppercase tracking-[0.2em] text-neutral-400 mr-3">Cash</span>
-                <span className="text-xs font-mono bg-neutral-100 px-2 py-1 text-neutral-600 border border-neutral-200">
+                <span className="text-[10px] font-mono uppercase tracking-[0.2em] text-gray-500 dark:text-gray-400 mr-3">Cash</span>
+                <span className="text-xs font-mono bg-gray-100 dark:bg-gray-800 px-2 py-1 text-gray-600 dark:text-gray-300 border border-gray-200 dark:border-gray-700">
                   {balance !== null 
                     ? new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(balance)
                     : "---"}
@@ -245,7 +254,7 @@ export default function AssetChartPage(props: PageProps) {
               </div>
               <Link 
                 href="/"
-                className="text-[10px] font-mono uppercase tracking-widest text-neutral-400 hover:text-black transition-colors"
+                className="text-[10px] font-mono uppercase tracking-widest text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 transition-colors"
               >
                 Back to Terminal
               </Link>
@@ -254,35 +263,35 @@ export default function AssetChartPage(props: PageProps) {
         </header>
 
         <main className="max-w-4xl mx-auto px-6 py-12">
-          <div className="mb-12 border-b border-neutral-200 pb-8 flex justify-between items-end">
+          <div className="mb-12 border-b border-gray-200 dark:border-gray-800 pb-8 flex justify-between items-end">
             <div>
-              <p className="text-[10px] font-mono uppercase tracking-[0.2em] text-neutral-400 mb-2">Ticker</p>
-              <h1 className="text-4xl font-bold tracking-tighter text-black mb-1">{repo.toUpperCase()}</h1>
-              <p className="text-sm text-neutral-500 font-mono">{owner}</p>
+              <p className="text-[10px] font-mono uppercase tracking-[0.2em] text-gray-500 dark:text-gray-400 mb-2">Ticker</p>
+              <h1 className="text-4xl font-bold tracking-tighter text-gray-900 dark:text-gray-100 mb-1">{repo.toUpperCase()}</h1>
+              <p className="text-sm text-gray-500 dark:text-gray-400 font-mono">{owner}</p>
             </div>
             
             <div className="text-right">
-              <p className="text-[10px] font-mono uppercase tracking-[0.2em] text-neutral-400 mb-2">Current Mark</p>
+              <p className="text-[10px] font-mono uppercase tracking-[0.2em] text-gray-500 dark:text-gray-400 mb-2">Current Mark</p>
               {currentPrice !== null ? (
                 <div className="flex items-baseline justify-end gap-1">
-                  <span className="text-xl text-neutral-400 font-mono">$</span>
-                  <span className="text-5xl font-light tracking-tighter text-black font-mono">
+                  <span className="text-xl text-gray-500 dark:text-gray-400 font-mono">$</span>
+                  <span className="text-5xl font-light tracking-tighter text-gray-900 dark:text-gray-100 font-mono">
                     {currentPrice.toLocaleString("en-US", { minimumFractionDigits: 2 })}
                   </span>
                 </div>
               ) : (
-                <div className="text-xl font-mono tracking-tighter text-neutral-400">---</div>
+                <div className="text-xl font-mono tracking-tighter text-gray-500 dark:text-gray-400">---</div>
               )}
             </div>
           </div>
 
-          <div className="border border-neutral-200 bg-white p-6 shadow-sm mb-8">
+          <div className="border border-gray-200 dark:border-gray-800 bg-white dark:bg-[#121212] p-6 shadow-sm mb-8">
             {loading ? (
-              <div className="h-[400px] flex items-center justify-center font-mono text-sm text-neutral-400">
+              <div className="h-[400px] flex items-center justify-center font-mono text-sm text-gray-500 dark:text-gray-400">
                 INITIALIZING DATA STREAM...
               </div>
             ) : error ? (
-              <div className="h-[400px] flex items-center justify-center font-mono text-sm text-neutral-400">
+              <div className="h-[400px] flex items-center justify-center font-mono text-sm text-gray-500 dark:text-gray-400">
                 {error}
               </div>
             ) : (
@@ -291,24 +300,24 @@ export default function AssetChartPage(props: PageProps) {
           </div>
 
           {/* Trade Panel */}
-          <div className="border border-neutral-200 bg-white p-6 shadow-sm flex flex-col md:flex-row items-center justify-between gap-6">
+          <div className="border border-gray-200 dark:border-gray-800 bg-white dark:bg-[#121212] p-6 shadow-sm flex flex-col md:flex-row items-center justify-between gap-6">
             <div className="flex flex-col">
-              <span className="text-[10px] font-mono uppercase tracking-[0.2em] text-neutral-400 mb-1">Position</span>
-              <span className="text-xl font-mono tracking-tighter text-black">
-                {ownedShares} <span className="text-sm text-neutral-500">SHRS</span>
+              <span className="text-[10px] font-mono uppercase tracking-[0.2em] text-gray-500 dark:text-gray-400 mb-1">Position</span>
+              <span className="text-xl font-mono tracking-tighter text-gray-900 dark:text-gray-100">
+                {ownedShares} <span className="text-sm text-gray-500 dark:text-gray-400">SHRS</span>
               </span>
             </div>
 
             <div className="flex items-center gap-4 w-full md:w-auto">
               <div className="flex flex-col">
-                <label htmlFor="qty" className="text-[10px] font-mono uppercase tracking-[0.2em] text-neutral-400 mb-1">Quantity</label>
+                <label htmlFor="qty" className="text-[10px] font-mono uppercase tracking-[0.2em] text-gray-500 dark:text-gray-400 mb-1">Quantity</label>
                 <input 
                   id="qty"
                   type="number"
                   min="1"
                   value={tradeQuantity}
                   onChange={(e) => setTradeQuantity(parseInt(e.target.value) || 0)}
-                  className="w-24 h-10 px-3 border border-neutral-300 font-mono text-center focus:outline-none focus:border-black"
+                  className="w-24 h-10 px-3 border border-gray-300 dark:border-gray-700 bg-white dark:bg-[#1a1a1a] font-mono text-center text-gray-900 dark:text-gray-100 focus:outline-none focus:border-gray-900 dark:focus:border-gray-100"
                 />
               </div>
 
@@ -318,8 +327,8 @@ export default function AssetChartPage(props: PageProps) {
                   disabled={processingAction !== null}
                   className={`h-10 px-8 text-xs font-bold tracking-widest uppercase transition-all duration-150 ${
                     processingAction === "BUY"
-                      ? "bg-neutral-100 text-neutral-400 cursor-not-allowed border border-neutral-200"
-                      : "bg-black text-white hover:bg-neutral-800 active:scale-[0.98] border border-black"
+                      ? "bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-500 cursor-not-allowed border border-gray-200 dark:border-gray-800"
+                      : "bg-gray-900 text-white dark:bg-white dark:text-gray-900 hover:opacity-90 active:scale-[0.98] border border-gray-900 dark:border-white"
                   }`}
                 >
                   {processingAction === "BUY" ? "Routing" : "Buy"}
@@ -330,8 +339,8 @@ export default function AssetChartPage(props: PageProps) {
                   disabled={processingAction !== null || ownedShares === 0 || tradeQuantity > ownedShares}
                   className={`h-10 px-8 text-xs font-bold tracking-widest uppercase transition-all duration-150 ${
                     processingAction === "SELL" || ownedShares === 0 || tradeQuantity > ownedShares
-                      ? "bg-neutral-100 text-neutral-400 cursor-not-allowed border border-neutral-200"
-                      : "bg-white text-black hover:bg-neutral-50 active:scale-[0.98] border border-black"
+                      ? "bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-500 cursor-not-allowed border border-gray-200 dark:border-gray-800"
+                      : "bg-white text-gray-900 dark:bg-[#121212] dark:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-800 active:scale-[0.98] border border-gray-900 dark:border-gray-100"
                   }`}
                 >
                   {processingAction === "SELL" ? "Routing" : "Sell"}
@@ -346,10 +355,10 @@ export default function AssetChartPage(props: PageProps) {
         <div className="fixed bottom-6 right-6 z-50 animate-in slide-in-from-bottom-4 fade-in duration-300">
           <div className={`px-4 py-3 border text-sm font-mono shadow-xl flex items-center gap-3 ${
             message.type === 'success' 
-              ? 'bg-white border-black text-black' 
-              : 'bg-black border-black text-white'
+              ? 'bg-white dark:bg-[#121212] border-gray-900 dark:border-gray-100 text-gray-900 dark:text-gray-100' 
+              : 'bg-gray-900 dark:bg-gray-100 border-gray-900 dark:border-gray-100 text-white dark:text-gray-900'
           }`}>
-            <div className={`h-2 w-2 rounded-full ${message.type === 'success' ? 'bg-black' : 'bg-red-500'}`}></div>
+            <div className={`h-2 w-2 rounded-full ${message.type === 'success' ? 'bg-gray-900 dark:bg-white' : 'bg-red-500'}`}></div>
             {message.text}
           </div>
         </div>

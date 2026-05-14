@@ -8,87 +8,87 @@ from psycopg2.extras import execute_batch
 from dotenv import load_dotenv
 from datetime import datetime, timedelta
 
-logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
-logger = logging.getLogger(__name__)
+logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s") #configure logging to include timestamps and log levels
+logger = logging.getLogger(__name__) #create a logger for this module
 
 # Load environment variables
 load_dotenv()
 
-GITHUB_TOKEN = os.getenv("GITHUB_TOKEN")
-DATABASE_URL = os.getenv("DATABASE_URL")
+GITHUB_TOKEN = os.getenv("GITHUB_TOKEN") #github api
+DATABASE_URL = os.getenv("DATABASE_URL") #database connection string
 
-CATEGORIES = {
+CATEGORIES = { # predefined search queries for different categories to discover new trending repositories
     "AI & Machine Learning": "topic:machine-learning stars:>10000",
     "Blue Chip Systems": "language:rust language:c++ stars:>20000",
     "Web Frameworks": "language:typescript language:javascript stars:>30000"
 }
 
-GITHUB_SEARCH_URL = "https://api.github.com/search/repositories"
+GITHUB_SEARCH_URL = "https://api.github.com/search/repositories" #github search api ENDPOINT
 
-def get_db_connection():
+def get_db_connection(): # establish a connection to the postgres database
     """Establish and return a connection to the PostgreSQL database."""
-    if not DATABASE_URL:
+    if not DATABASE_URL: # if database url not set, raise an error
         raise ValueError("DATABASE_URL environment variable is not set.")
     return psycopg2.connect(DATABASE_URL)
 
-def fetch_repositories_for_category(category_name: str, query: str) -> list:
+def fetch_repositories_for_category(category_name: str, query: str) -> list: # fetch repositories from github search api for a given category query
     """Fetch the top 10 repositories from GitHub for a given category query."""
     headers = {
-        "Accept": "application/vnd.github.v3+json",
-        "User-Agent": "Quantitative-Exchange-Worker"
+        "Accept": "application/vnd.github.v3+json", #github api versioning
+        "User-Agent": "Quantitative-Exchange-Worker" #identifying worker (debugging don't touch!!!)
     }
-    if GITHUB_TOKEN:
-        headers["Authorization"] = f"Bearer {GITHUB_TOKEN}"
+    if GITHUB_TOKEN: #if github tokem i set
+        headers["Authorization"] = f"Bearer {GITHUB_TOKEN}" # add auth header for github api requests to increase rate limits
     else:
-        logger.warning("GITHUB_TOKEN is not set. API rate limits will be strictly limited.")
+        logger.warning("GITHUB_TOKEN is not set. API rate limits will be strictly limited.") #worker will function but api limit issue
 
-    params = {
-        "q": query,
-        "sort": "stars",
-        "order": "desc",
-        "per_page": 10
+    params = { #query parameters for github search api request
+        "q": query, #search query for category
+        "sort": "stars", #sort by stars
+        "order": "desc", #sort by stars descending to get the most popular repositories for the category
+        "per_page": 10 #only fetch top 10 results to limit data and stay within rate limits
     }
 
     try:
-        response = requests.get(GITHUB_SEARCH_URL, headers=headers, params=params, timeout=10)
+        response = requests.get(GITHUB_SEARCH_URL, headers=headers, params=params, timeout=10) #make api request to github ENDPOINT and set timeout for 10s 
         
-        if response.status_code == 429:
-            retry_after = int(response.headers.get("Retry-After", 60))
+        if response.status_code == 429: #handle rate limit error and retry after 60 sec
+            retry_after = int(response.headers.get("Retry-After", 60)) #
             logger.error(f"Rate limit exceeded (HTTP 429). Retrying after {retry_after} seconds.")
-            time.sleep(retry_after)
-            return fetch_repositories_for_category(category_name, query)
+            time.sleep(retry_after) #sleep for the specified retry time before retrying the request
+            return fetch_repositories_for_category(category_name, query) #recursive call to retry the request after sleeping
         
-        response.raise_for_status()
-        data = response.json()
-        return data.get("items", [])
+        response.raise_for_status() #raise exception for any other https errors
+        data = response.json() #parse the json response from github api
+        return data.get("items", []) #return the list of repositories from the response, default to empty list if not found
 
-    except requests.exceptions.RequestException as e:
-        logger.error(f"Failed to fetch repositories for {category_name}: {e}")
-        return []
+    except requests.exceptions.RequestException as e: #handle any exceptions that occur during the api request and log the error
+        logger.error(f"Failed to fetch repositories for {category_name}: {e}") #log the error
+        return [] #return an empty list if there was an error fetching the repositories for the category
 
-def update_known_assets(conn) -> set:
-    """Phase 1: Fetch all existing tickers, update their prices, or mark as inactive if 404."""
+def update_known_assets(conn) -> set: 
+    """Phase 1: Fetch all existing tickers, update their prices, or mark as inactive if 404.""" #  query the database for all known tickers and update their prices or mark as inactive if 404
     logger.info("Phase 1: Updating known assets.")
-    known_tickers = set()
+    known_tickers = set() 
     
     try:
         with conn.cursor() as cursor:
-            # Query all existing tickers
+            # query all existing tickers
             cursor.execute("SELECT ticker FROM repositories")
             rows = cursor.fetchall()
             
-            if not rows:
-                logger.info("No known assets found in database.")
-                return known_tickers
+            if not rows: # if no known tickers in the database 
+                logger.info("No known assets found in database.") #log
+                return known_tickers #and return empty set
                 
             headers = {
-                "Accept": "application/vnd.github.v3+json",
-                "User-Agent": "Quantitative-Exchange-Worker"
+                "Accept": "application/vnd.github.v3+json", #github api versioning
+                "User-Agent": "Quantitative-Exchange-Worker" #identifying worker (debugging don't touch!!!)
             }
-            if GITHUB_TOKEN:
-                headers["Authorization"] = f"Bearer {GITHUB_TOKEN}"
+            if GITHUB_TOKEN: 
+                headers["Authorization"] = f"Bearer {GITHUB_TOKEN}" # add auth header for github api requests to increase rate limits
                 
-            for row in rows:
+            for row in rows: # iterate through each known ticker and update its price or mark as inactive if 404
                 ticker = row[0]
                 known_tickers.add(ticker)
                 
@@ -96,42 +96,42 @@ def update_known_assets(conn) -> set:
                 
                 while True: # simple retry loop for rate limit
                     try:
-                        response = requests.get(url, headers=headers, timeout=10)
+                        response = requests.get(url, headers=headers, timeout=10) #make api request to github to get the repository details for the ticker and set timeout for 10s
                         
-                        if response.status_code == 429:
-                            retry_after = int(response.headers.get("Retry-After", 60))
+                        if response.status_code == 429: #handle rate limit error and retry after 60 sec
+                            retry_after = int(response.headers.get("Retry-After", 60)) 
                             logger.error(f"Rate limit exceeded (HTTP 429). Sleeping for {retry_after} seconds.")
                             time.sleep(retry_after)
                             continue # retry the request
                             
                         if response.status_code == 404:
-                            logger.warning(f"Repository {ticker} not found (404). Marking as inactive.")
-                            cursor.execute("UPDATE repositories SET is_active = FALSE WHERE ticker = %s", (ticker,))
+                            logger.warning(f"Repository {ticker} not found (404). Marking as inactive.") #if repo removed from github
+                            cursor.execute("UPDATE repositories SET is_active = FALSE WHERE ticker = %s", (ticker,)) #mark the repository as inactive in the database
                             break # done with this ticker
                             
-                        response.raise_for_status()
-                        data = response.json()
+                        response.raise_for_status() #raise exception for any other https errors
+                        data = response.json() #parse the json response from github api to get the repository details
                         
-                        raw_stars = data.get("stargazers_count", 0)
-                        current_price = raw_stars / 100.0
-                        current_time = datetime.now()
+                        raw_stars = data.get("stargazers_count", 0) #get the number of stars for the repository, default to 0 if not found
+                        current_price = raw_stars / 100.0 #get the current price for the repository based on the number of stars (not gonna even log it prolly)
+                        current_time = datetime.now() #get the current time for price history record
                         
                         # Update repo
                         update_query = """
                             UPDATE repositories SET
-                                current_price = %s,
+                                current_price = %s, 
                                 raw_stars = %s,
                                 is_active = TRUE
                             WHERE ticker = %s;
                         """
                         cursor.execute(update_query, (current_price, raw_stars, ticker))
                         
-                        # Insert price history
+                        # insert price history
                         history_query = """
                             INSERT INTO price_history (ticker, price, created_at)
                             VALUES (%s, %s, %s)
                         """
-                        cursor.execute(history_query, (ticker, current_price, current_time))
+                        cursor.execute(history_query, (ticker, current_price, current_time)) #insert a new price history record for the repository with the current price and time
                         
                         logger.info(f"Updated known asset {ticker} (Stars: {raw_stars}).")
                         break # success, move to next ticker
@@ -141,30 +141,30 @@ def update_known_assets(conn) -> set:
                         break # on other errors, just skip to next
                 
                 # Sleep briefly to respect API limits
-                time.sleep(1)
+                time.sleep(1) 
                 
-            conn.commit()
-            logger.info("Phase 1 complete.")
+            conn.commit() #commit all the updates to the database after processing all known tickers
+            logger.info("Phase 1 complete.") #log completion of phase 1
     except Exception as e:
         conn.rollback()
         logger.error(f"Database error during Phase 1: {e}")
         
     return known_tickers
 
-def process_and_upsert_new_repositories(category_name: str, items: list, known_tickers: set, conn):
+def process_and_upsert_new_repositories(category_name: str, items: list, known_tickers: set, conn): # process the repos fetched from github
     """Phase 2: Process only new repositories discovered via search."""
     records = []
     
     for item in items:
-        owner = item.get("owner", {}).get("login", "")
+        owner = item.get("owner", {}).get("login", "") #get the owner login for the repository, default to empty string if not found
         name = item.get("name", "")
         ticker = f"{owner}/{name}"
         
-        # Filter against the list of known tickers
+        # filtering against the list of known tickers
         if ticker in known_tickers:
             continue
             
-        raw_stars = item.get("stargazers_count", 0)
+        raw_stars = item.get("stargazers_count", 0) 
         description = item.get("description", "")
         
         if description and len(description) > 500:
@@ -174,8 +174,8 @@ def process_and_upsert_new_repositories(category_name: str, items: list, known_t
         records.append((ticker, current_price, description, category_name, raw_stars))
 
     if not records:
-        logger.info(f"No new records to insert for category {category_name}.")
-        return
+        logger.info(f"No new records to insert for category {category_name}.") #log if no new records to insert for the category and
+        return #exit the function
 
     upsert_query = """
         INSERT INTO repositories (ticker, current_price, description, category, raw_stars, is_active)
@@ -188,8 +188,8 @@ def process_and_upsert_new_repositories(category_name: str, items: list, known_t
             current_price = EXCLUDED.current_price,
             is_active = TRUE;
     """
-
-    try:
+ 
+    try: # upsert the new repositories into the database and also insert synthetic price history records for the new repositories to create a more robust dataset for the frontend to display and analyze (BETA TEST)
         with conn.cursor() as cursor:
             execute_batch(cursor, upsert_query, records)
             
@@ -216,27 +216,27 @@ def process_and_upsert_new_repositories(category_name: str, items: list, known_t
             """
             execute_batch(cursor, history_query, history_records)
 
-        conn.commit()
+        conn.commit() #commit the upsert and history inserts to the database
         logger.info(f"Successfully processed and backfilled {len(records)} NEW repositories for {category_name}.")
-    except Exception as e:
+    except Exception as e: #handle any exceptions that occur during the database operations and log the error
         conn.rollback()
         logger.error(f"Database error during Phase 2 upsert for {category_name}: {e}")
 
-def run_ingestion_pipeline():
+def run_ingestion_pipeline(): #function to run entire ingestion pipeline
     """Main execution function for the GitHub ingestion worker."""
-    logger.info("Starting GitHub ingestion pipeline.")
+    logger.info("Starting GitHub ingestion pipeline.") #log the start of the ingestion pipeline
     
-    try:
+    try: #establish a connection to the database and log any connection errors
         conn = get_db_connection()
     except Exception as e:
         logger.error(f"Failed to connect to the database: {e}")
         return
 
     try:
-        # Phase 1: Update known
+        # updating known assets and getting the set of known tickers
         known_tickers = update_known_assets(conn)
         
-        # Phase 2: Scout new
+        # scouting for new trending assets across categories
         logger.info("Phase 2: Scouting for new trending assets.")
         for category_name, query in CATEGORIES.items():
             logger.info(f"Scouting category: {category_name}")
@@ -245,17 +245,17 @@ def run_ingestion_pipeline():
                 process_and_upsert_new_repositories(category_name, items, known_tickers, conn)
             # Sleep briefly to respect API limits between category queries
             time.sleep(2)
-    finally:
+    finally: #ensure the database connection is closed after the pipeline runs, even if there are errors
         if conn:
             conn.close()
             logger.info("Database connection closed.")
             
     logger.info("GitHub ingestion pipeline completed.")
 
-if __name__ == "__main__":
-    while True:
+if __name__ == "__main__": #main entry point for worker
+    while True: #run ingestion pipeline in infinite loop
         logger.info("Heartbeat: Starting scheduled ingestion cycle.")
         run_ingestion_pipeline()
         
-        logger.info("Cycle complete. Sleeping for an hour before next cycle.")
-        time.sleep(3600) #one hour sleep between cycles
+        logger.info("Cycle complete. Sleeping for an hour before next cycle.") #log completion
+        time.sleep(3600) #one hour sleep between cycles 

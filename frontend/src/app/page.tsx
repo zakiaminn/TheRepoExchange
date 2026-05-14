@@ -28,7 +28,6 @@ export default function TradingTerminal() {
   const [message, setMessage] = useState<SystemMessage>(null);
   const [processingTicker, setProcessingTicker] = useState<string | null>(null);
   
-  // dynamic states
   const [userId, setUserId] = useState<string | null>(null);
   const [isInitializing, setIsInitializing] = useState(true);
   const [balance, setBalance] = useState<number | null>(null);
@@ -37,24 +36,21 @@ export default function TradingTerminal() {
   const supabase = createClient();
 
   useEffect(() => {
-    // check auth user
     const checkAuth = async () => {
       const { data: { user } } = await supabase.auth.getUser();
       
-      if (!user) {
-        // no user -> redirect to login
+      if (!user) { //wrong user sends back to login
         window.location.href = "/login";
       } else {
-        // if correct, store on database and fetch balance/portfolio
         setUserId(user.id);
         setIsInitializing(false);
       }
     };
 
     checkAuth();
-  }, []);
+  }, [supabase.auth]);
 
-  const fetchBalance = async () => {
+  const fetchBalance = async () => { // fetch purchasing power balance from ledger
     if (!userId) return;
     try {
       const res = await fetch(`http://localhost:8080/api/balance/${userId}`);
@@ -67,7 +63,7 @@ export default function TradingTerminal() {
     }
   };
 
-  const fetchPortfolio = async () => {
+  const fetchPortfolio = async () => { // fetch holdings from ledger
     if (!userId) return;
     try {
       const res = await fetch(`http://localhost:8080/api/portfolio/${userId}`);
@@ -80,13 +76,13 @@ export default function TradingTerminal() {
     }
   };
 
-  useEffect(() => {
+  useEffect(() => { // initial fetch of balance and portfolio on login, and refetch every time userId changes 
     if (userId) {
       fetchPortfolio();
       fetchBalance();
     }
 
-    const fetchDiscovery = async () => {
+    const fetchDiscovery = async () => { // fetch discovery data from backend every 5 seconds, which in turn fetches from the database every 5 seconds
       try {
         const res = await fetch("http://localhost:8080/api/discovery");
         if (res.ok) {
@@ -101,102 +97,68 @@ export default function TradingTerminal() {
     fetchDiscovery();
     const interval = setInterval(fetchDiscovery, 5000);
     return () => clearInterval(interval);
-  }, [userId]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [userId]); // only fetch discovery data after confirming user is authenticated and has a userId, then continue to refetch every 5 seconds to keep data fresh
 
-  const handleBuy = async (ticker: string) => {
-    if (!userId) return;
+  const handleBuy = async (ticker: string) => { // handle buy order for a ticker
+    if (!userId) return; // if for some reason userId is not set, do not proceed with buy
     
-    setProcessingTicker(ticker);
-    setMessage(null);
+    setProcessingTicker(ticker); // set the currently processing ticker to disable its buy button and show "Routing..." text
+    setMessage(null); // clear any existing system messages
     
-    try {
-      const response = await fetch("http://localhost:8080/api/buy", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          userId: userId, // use real-ids for trading
-          ticker: ticker,
-          shares: 1,
+    try { // send buy request to ledger
+      const response = await fetch("http://localhost:8080/api/buy", { // standard RESTful API design with POST method for creating a new buy order
+        method: "POST", // using POST method to indicate creation of a new buy order
+        headers: { "Content-Type": "application/json" }, // setting content type to JSON for the request body
+        body: JSON.stringify({ // sending userId and ticker in the request body for the ledger to process the buy order
+          userId: userId, // passing userId to identify which user's balance and portfolio to update
+          ticker: ticker, // passing ticker to specify which asset the user wants to buy
+          shares: 1, // hardcoding shares to 1 for simplicity, can be extended to allow user input for number of shares in the future
         }),
       });
 
-      const result = await response.json();
+      const result = await response.json(); // parsing the JSON response from the ledger, which should  either a success confirmation or an error message
       
-      if (response.ok) {
-        setMessage({ text: `Filled: 1 QTY of ${ticker} @ Market`, type: "success" });
-        fetchBalance();
-        fetchPortfolio();
-      } else {
-        setMessage({ text: `Rejected: ${result.error}`, type: "error" });
+      if (response.ok) { // if the response status is in the 200-299 range, consider it a successful buy order
+        setMessage({ text: `Filled: 1 QTY of ${ticker} @ Market`, type: "success" }); // showing a success message with the filled order details, in a real application this could include the actual filled price and timestamp returned from the ledger
+        fetchBalance(); // refetch balance to update purchasing power after the buy order
+        fetchPortfolio(); // refetch portfolio to update holdings after the buy order
+      } else { 
+        setMessage({ text: `Rejected: ${result.error}`, type: "error" }); // if the response status indicates an error, 
+                                                                          // show the error message returned from the ledger, 
+                                                                          // which could be due to insufficient balance, invalid ticker, 
+                                                                          // or any other business logic enforced by the ledger
       }
     } catch (err) {
-      setMessage({ text: "Connection refused by Ledger.", type: "error" });
+      setMessage({ text: "Connection refused by Ledger.", type: "error" }); // if there is a network error or the ledger is offline shpw mesage
     } finally {
-      setProcessingTicker(null);
-      setTimeout(() => setMessage(null), 4000);
+      setProcessingTicker(null); // reset the processing ticker to re-enable the buy button and reset its text, this happens regardless of success or failure of the buy order
+      setTimeout(() => setMessage(null), 4000); //clear message after 4 seconds
     }
   };
 
-  const handleLogout = async () => {
-    await supabase.auth.signOut();
-    window.location.href = "/login";
-  };
-
-  // prevent flashing of terminal before auth check
-  if (isInitializing) {
-    return (
-      <div className="min-h-screen bg-[#FAFAFA] flex items-center justify-center font-mono text-sm text-neutral-400">
+  if (isInitializing) { // while checking auth stat
+    return ( //show this
+      <div className="min-h-screen bg-white dark:bg-[#121212] flex items-center justify-center text-sm text-gray-500 dark:text-gray-400">
         SECURING CONNECTION...
       </div>
-    );
+    ); //prevents flashing
   }
 
   return (
-    <div className="min-h-screen bg-[#FAFAFA] text-black font-sans relative selection:bg-black selection:text-white">
-      <div className="absolute inset-0 z-0 bg-[radial-gradient(#e5e7eb_1px,transparent_1px)] [background-size:16px_16px] pointer-events-none"></div>
+    <div className="min-h-screen bg-white dark:bg-[#121212] text-gray-900 dark:text-gray-100 font-sans relative selection:bg-gray-900 selection:text-white dark:selection:bg-white dark:selection:text-gray-900 transition-colors duration-300">
+      <div className="absolute inset-0 z-0 bg-[radial-gradient(#e5e7eb_1px,transparent_1px)] dark:bg-[radial-gradient(#374151_1px,transparent_1px)] [background-size:16px_16px] pointer-events-none"></div>
 
       <div className="relative z-10">
-        <header className="border-b border-neutral-200 bg-white/80 backdrop-blur-sm">
-          <div className="max-w-7xl mx-auto px-6 h-14 flex items-center justify-between">
-            <div className="flex items-center gap-6">
-              <span className="font-mono text-sm font-bold tracking-tight">TRX.EXCHANGE</span>
-              <div className="h-4 w-[1px] bg-neutral-300"></div>
-              <div className="flex items-center gap-2">
-                <span className="relative flex h-1.5 w-1.5">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-black opacity-40"></span>
-                  <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-black"></span>
-                </span>
-                <span className="text-[10px] font-mono uppercase tracking-[0.2em] text-neutral-500">System Live</span>
-              </div>
-            </div>
-            
-            <div className="flex items-center gap-4 text-right">
-              <div>
-                <span className="text-[10px] font-mono uppercase tracking-[0.2em] text-neutral-400 mr-3">Session</span>
-                <span className="text-xs font-mono bg-neutral-100 px-2 py-1 text-neutral-600 border border-neutral-200">
-                  {userId?.split('-')[0]}
-                </span>
-              </div>
-              <button 
-                onClick={handleLogout}
-                className="text-[10px] font-mono uppercase tracking-widest text-neutral-400 hover:text-black transition-colors"
-              >
-                End
-              </button>
-            </div>
-          </div>
-        </header>
-
-        <main className="max-w-7xl mx-auto px-6 py-12">
+        <main className="max-w-7xl mx-auto px-6 py-12"> 
           <div className="mb-12 flex justify-between items-end">
             <div>
               <h1 className="text-3xl font-semibold tracking-tighter mb-1">The Repo Exchange</h1>
-              <p className="text-sm text-neutral-500 font-mono">B2C Quantitative Repository Pricing</p>
+              <p className="text-sm text-gray-500 dark:text-gray-400">B2C Quantitative Repository Pricing</p>
             </div>
             
             <div className="text-right">
-              <p className="text-[9px] font-mono uppercase tracking-[0.15em] text-neutral-400 mb-1">Purchasing Power</p>
-              <p className="text-xl font-mono tracking-tighter text-black">
+              <p className="text-[9px] uppercase tracking-[0.15em] text-gray-500 dark:text-gray-400 mb-1">Purchasing Power</p>
+              <p className="text-xl font-mono tracking-tighter text-gray-900 dark:text-gray-100">
                 {balance !== null 
                   ? new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(balance)
                   : "Awaiting Ledger..."}
@@ -206,39 +168,39 @@ export default function TradingTerminal() {
 
           <div className="space-y-12">
             {Object.keys(discoveryData).length === 0 ? (
-              <div className="p-12 text-center text-sm font-mono text-neutral-400 border border-neutral-200 bg-white shadow-sm">
+              <div className="p-12 text-center text-sm text-gray-500 dark:text-gray-400 border border-gray-200 dark:border-gray-800 bg-white dark:bg-[#121212] shadow-sm">
                 INITIALIZING DISCOVERY...
               </div>
             ) : (
               Object.entries(discoveryData).map(([category, repos]) => (
                 <div key={category}>
-                  <h2 className="text-[11px] tracking-[0.25em] font-bold uppercase text-neutral-500 mb-4">{category}</h2>
+                  <h2 className="text-[11px] tracking-[0.25em] font-bold uppercase text-gray-500 dark:text-gray-400 mb-4">{category}</h2>
                   <div className="flex overflow-x-auto gap-4 pb-4 snap-x [&::-webkit-scrollbar]:hidden" style={{ scrollbarWidth: 'none' }}>
                     {repos.map((repo) => (
-                      <div key={repo.ticker} className="flex-none w-72 snap-center border border-neutral-200 bg-white p-5 flex flex-col justify-between hover:bg-neutral-50 transition-colors duration-200">
+                      <div key={repo.ticker} className="flex-none w-72 snap-center border border-gray-200 dark:border-gray-800 bg-white dark:bg-[#121212] p-5 flex flex-col justify-between hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors duration-200">
                         <div className="mb-8">
                           <Link 
                             href={`/asset/${repo.ticker.split('/')[0].toLowerCase()}/${repo.ticker.split('/')[1].toLowerCase()}`}
-                            className="block hover:text-neutral-500 transition-colors cursor-pointer mb-3"
+                            className="block hover:text-gray-600 dark:hover:text-gray-300 transition-colors cursor-pointer mb-3"
                           >
-                            <h3 className="text-lg font-bold tracking-tighter text-black inherit truncate">
+                            <h3 className="text-lg font-bold tracking-tighter text-gray-900 dark:text-gray-100 inherit truncate">
                               {repo.ticker.split('/')[1].toUpperCase()}
                             </h3>
-                            <p className="text-[10px] text-neutral-500 mt-0.5 inherit truncate">
+                            <p className="text-[10px] text-gray-500 dark:text-gray-400 mt-0.5 inherit truncate">
                               {repo.ticker.split('/')[0]}
                             </p>
                           </Link>
-                          <p className="text-[10px] text-neutral-400 font-mono line-clamp-2 h-7 leading-tight overflow-hidden">
+                          <p className="text-[10px] text-gray-500 dark:text-gray-400 line-clamp-2 h-7 leading-tight overflow-hidden">
                             {repo.description || "No description available."}
                           </p>
                         </div>
                         
                         <div className="flex justify-between items-end mt-auto">
                           <div>
-                            <p className="text-[9px] font-mono uppercase tracking-[0.15em] text-neutral-400 mb-1">Mark Price</p>
+                            <p className="text-[9px] uppercase tracking-[0.15em] text-gray-500 dark:text-gray-400 mb-1">Mark Price</p>
                             <div className="flex items-baseline gap-1">
-                              <span className="text-sm text-neutral-400 font-mono">$</span>
-                              <span className="text-2xl font-light tracking-tighter text-black font-mono">
+                              <span className="text-sm text-gray-500 dark:text-gray-400 font-mono">$</span>
+                              <span className="text-2xl font-light tracking-tighter text-gray-900 dark:text-gray-100 font-mono">
                                 {Number(repo.current_price).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                               </span>
                             </div>
@@ -249,8 +211,8 @@ export default function TradingTerminal() {
                             disabled={processingTicker === repo.ticker}
                             className={`h-8 px-4 text-[10px] font-bold tracking-widest uppercase transition-all duration-150 ${
                               processingTicker === repo.ticker 
-                                ? "bg-neutral-100 text-neutral-400 cursor-not-allowed border border-neutral-200" 
-                                : "bg-black text-white hover:bg-neutral-800 active:scale-[0.98]"
+                                ? "bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 cursor-not-allowed border border-gray-200 dark:border-gray-800" 
+                                : "bg-black text-white dark:bg-white dark:text-black hover:opacity-90 active:scale-[0.98]"
                             }`}
                           >
                             {processingTicker === repo.ticker ? "Routing..." : "Buy"}
@@ -265,33 +227,33 @@ export default function TradingTerminal() {
           </div>
 
           <div className="mt-16">
-            <h2 className="text-xl font-semibold tracking-tighter mb-4 text-black">Current Holdings</h2>
-            <div className="border border-neutral-200 bg-white">
+            <h2 className="text-xl font-semibold tracking-tighter mb-4 text-gray-900 dark:text-gray-100">Current Holdings</h2>
+            <div className="border border-gray-200 dark:border-gray-800 bg-white dark:bg-[#121212]">
               {portfolio.length === 0 ? (
-                <div className="p-12 text-center text-sm font-mono text-neutral-400">
+                <div className="p-12 text-center text-sm text-gray-500 dark:text-gray-400">
                   NO ASSETS HELD
                 </div>
               ) : (
-                <div className="w-full text-left font-mono">
-                  <div className="grid grid-cols-3 border-b border-neutral-200 bg-neutral-50 px-6 py-3">
-                    <div className="text-[10px] uppercase tracking-[0.2em] text-neutral-500">Ticker</div>
-                    <div className="text-[10px] uppercase tracking-[0.2em] text-neutral-500 text-right">Total Shares</div>
-                    <div className="text-[10px] uppercase tracking-[0.2em] text-neutral-500 text-right">Avg Entry Price</div>
+                <div className="w-full text-left">
+                  <div className="grid grid-cols-3 border-b border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-[#1a1a1a] px-6 py-3">
+                    <div className="text-[10px] uppercase tracking-[0.2em] text-gray-500 dark:text-gray-400">Ticker</div>
+                    <div className="text-[10px] uppercase tracking-[0.2em] text-gray-500 dark:text-gray-400 text-right">Total Shares</div>
+                    <div className="text-[10px] uppercase tracking-[0.2em] text-gray-500 dark:text-gray-400 text-right">Avg Entry Price</div>
                   </div>
                   {portfolio.map((holding, index) => (
                     <div 
                       key={holding.ticker} 
-                      className={`grid grid-cols-3 px-6 py-4 items-center group hover:bg-neutral-50 transition-colors duration-200 ${
-                        index !== portfolio.length - 1 ? 'border-b border-neutral-200' : ''
+                      className={`grid grid-cols-3 px-6 py-4 items-center group hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors duration-200 ${
+                        index !== portfolio.length - 1 ? 'border-b border-gray-200 dark:border-gray-800' : ''
                       }`}
                     >
-                      <div className="font-bold tracking-tighter text-sm text-black">
+                      <div className="font-bold tracking-tighter text-sm text-gray-900 dark:text-gray-100">
                         {holding.ticker}
                       </div>
-                      <div className="text-sm tracking-tighter text-black text-right">
+                      <div className="text-sm tracking-tighter text-gray-900 dark:text-gray-100 text-right font-mono">
                         {holding.shares.toLocaleString()}
                       </div>
-                      <div className="text-sm tracking-tighter text-black text-right">
+                      <div className="text-sm tracking-tighter text-gray-900 dark:text-gray-100 text-right font-mono">
                         {new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(holding.average_price)}
                       </div>
                     </div>
@@ -305,12 +267,12 @@ export default function TradingTerminal() {
 
       {message && (
         <div className="fixed bottom-6 right-6 z-50 animate-in slide-in-from-bottom-4 fade-in duration-300">
-          <div className={`px-4 py-3 border text-sm font-mono shadow-xl flex items-center gap-3 ${
+          <div className={`px-4 py-3 border text-sm shadow-xl flex items-center gap-3 ${
             message.type === 'success' 
-              ? 'bg-white border-black text-black' 
-              : 'bg-black border-black text-white'
+              ? 'bg-white dark:bg-[#121212] border-gray-200 dark:border-gray-800 text-gray-900 dark:text-gray-100' 
+              : 'bg-gray-900 dark:bg-gray-100 border-gray-900 dark:border-gray-100 text-white dark:text-gray-900'
           }`}>
-            <div className={`h-2 w-2 rounded-full ${message.type === 'success' ? 'bg-black' : 'bg-red-500'}`}></div>
+            <div className={`h-2 w-2 rounded-full ${message.type === 'success' ? 'bg-black dark:bg-white' : 'bg-red-500'}`}></div>
             {message.text}
           </div>
         </div>
