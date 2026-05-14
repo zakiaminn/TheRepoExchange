@@ -1,4 +1,5 @@
 import os
+import sys
 import time
 import logging
 import requests
@@ -230,7 +231,7 @@ def run_ingestion_pipeline(): #function to run entire ingestion pipeline
         conn = get_db_connection()
     except Exception as e:
         logger.error(f"Failed to connect to the database: {e}")
-        return
+        raise
 
     try:
         # updating known assets and getting the set of known tickers
@@ -253,9 +254,11 @@ def run_ingestion_pipeline(): #function to run entire ingestion pipeline
     logger.info("GitHub ingestion pipeline completed.")
 
 if __name__ == "__main__": #main entry point for worker
-    while True: #run ingestion pipeline in infinite loop
-        logger.info("Heartbeat: Starting scheduled ingestion cycle.")
+    logger.info("Starting single-execution ingestion cycle.")
+    try:
         run_ingestion_pipeline()
-        
-        logger.info("Cycle complete. Sleeping for an hour before next cycle.") #log completion
-        time.sleep(3600) #one hour sleep between cycles 
+        logger.info("Cycle complete. Exiting gracefully.")
+        sys.exit(0)
+    except Exception as e:
+        logger.critical(f"Unhandled exception in ingestion pipeline: {e}")
+        sys.exit(1)
