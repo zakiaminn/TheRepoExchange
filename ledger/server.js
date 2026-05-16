@@ -269,18 +269,33 @@ app.get('/api/history/:owner/:repo', async (req, res) => { // ENDPOINT for fetch
     }
 });
 
-app.get('/api/discovery', async (req, res) => { // ENDPOINT for fetching discovery data (list of repositories with their current price, description, category, and raw stars, grouped by category)
+app.get('/api/discovery', async (req, res) => {
     try {
         const result = await pool.query('SELECT ticker, current_price, description, category, raw_stars FROM repositories');
+        
+        // Handle empty table gracefully
+        if (!result.rows || result.rows.length === 0) {
+            return res.json({});
+        }
+
         const grouped = result.rows.reduce((acc, repo) => {
-            if (!acc[repo.category]) { // if the category does not exist in the accumulator object
-                acc[repo.category] = []; //initialize it with an empty array
+            // Guard against null categories
+            const categoryName = repo.category || "Uncategorized";
+            if (!acc[categoryName]) {
+                acc[categoryName] = [];
             }
-            acc[repo.category].push(repo); 
+            acc[categoryName].push(repo); 
             return acc;
         }, {});
-        res.json(grouped); // respond with the discovery data grouped by category in JSON format, where each key is a category and the value is an array of repositories belonging to that category, including their ticker, current price, description, and raw stars
+        
+        res.json(grouped);
     } catch (error) {
+        // Specifically catch "relation does not exist" (table not created yet)
+        if (error.code === '42P01') {
+            console.warn(`[Ledger Warning] Repositories table does not exist yet. Returning empty state.`);
+            return res.json({});
+        }
+        
         console.error(`[Ledger Error] Discovery query failed: ${error.message}`);
         res.status(500).json({ error: "Could not fetch discovery data.", details: error.message });
     }
