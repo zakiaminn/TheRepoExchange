@@ -167,7 +167,7 @@ export default function TradingTerminal() {
             <div>
               <h1 className="text-3xl font-semibold tracking-tighter mb-1">The Repo Exchange</h1>
               <p className="text-sm text-gray-500 dark:text-gray-400">
-                B2C Quantitative Repository Pricing
+                The Stock Market for Code
               </p>
             </div>
             
