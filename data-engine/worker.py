@@ -255,10 +255,13 @@ def run_ingestion_pipeline(): #function to run entire ingestion pipeline
 
 if __name__ == "__main__": #main entry point for worker
     logger.info("Starting single-execution ingestion cycle.")
-    try:
-        run_ingestion_pipeline()
-        logger.info("Cycle complete. Exiting gracefully.")
-        sys.exit(0)
-    except Exception as e:
-        logger.critical(f"Unhandled exception in ingestion pipeline: {e}")
-        sys.exit(1)
+    while True:
+        try:
+            run_ingestion_pipeline()
+            logger.info("Cycle complete. Sleeping for 1 hour...")
+            time.sleep(3600) 
+            
+        except Exception as e:
+            logger.critical(f"Unhandled exception in ingestion pipeline: {e}")
+            logger.info("Sleeping for 5 minutes before retry...")
+            time.sleep(300)
