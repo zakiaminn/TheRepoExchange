@@ -55,7 +55,7 @@ export default function TradingTerminal() {
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) return;
-      const res = await fetch(`http://localhost:8080/api/balance/${userId}`, {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/balance/${userId}`, {
         headers: { Authorization: `Bearer ${session.access_token}` }
       });
       if (res.ok) {
@@ -72,7 +72,7 @@ export default function TradingTerminal() {
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) return;
-      const res = await fetch(`http://localhost:8080/api/portfolio/${userId}`, {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/portfolio/${userId}`, {
         headers: { Authorization: `Bearer ${session.access_token}` }
       });
       if (res.ok) {
@@ -92,7 +92,7 @@ export default function TradingTerminal() {
 
     const fetchDiscovery = async () => { // fetch discovery data from backend every 5 seconds, which in turn fetches from the database every 5 seconds
       try {
-        const res = await fetch("http://localhost:8080/api/discovery");
+        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/discovery`);
         if (res.ok) {
           const data = await res.json();
           setDiscoveryData(data);
@@ -107,7 +107,7 @@ export default function TradingTerminal() {
     return () => clearInterval(interval);
   }, [userId]); // only fetch discovery data after confirming user is authenticated and has a userId, then continue to refetch every 5 seconds to keep data fresh
 
-  const handleBuy = async (ticker: string) => { // handle buy order for a ticker
+  const handleBuy = async (ticker: string, currentPrice: number) => { // handle buy order for a ticker
     if (!userId) return; // if for some reason userId is not set, do not proceed with buy
     
     setProcessingTicker(ticker); // set the currently processing ticker to disable its buy button and show "Routing..." text
@@ -116,7 +116,7 @@ export default function TradingTerminal() {
     try { // send buy request to ledger
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) throw new Error("No session");
-      const response = await fetch("http://localhost:8080/api/buy", { // standard RESTful API design with POST method for creating a new buy order
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/buy`, { // standard RESTful API design with POST method for creating a new buy order
         method: "POST", // using POST method to indicate creation of a new buy order
         headers: { 
           "Content-Type": "application/json",
@@ -125,6 +125,7 @@ export default function TradingTerminal() {
         body: JSON.stringify({ // sending userId and ticker in the request body for the ledger to process the buy order
           ticker: ticker, // passing ticker to specify which asset the user wants to buy
           shares: 1, // hardcoding shares to 1 for simplicity, can be extended to allow user input for number of shares in the future
+          expectedPrice: currentPrice // passing the current price as the expected price for the buy order, this can be used by the ledger to check for slippage or price changes before filling the order
         }),
       });
 
@@ -219,7 +220,7 @@ export default function TradingTerminal() {
                           </div>
                           
                           <button 
-                            onClick={() => handleBuy(repo.ticker)}
+                            onClick={() => handleBuy(repo.ticker, repo.current_price)}
                             disabled={processingTicker === repo.ticker}
                             className={`h-8 px-4 text-[10px] font-bold tracking-widest uppercase transition-all duration-150 ${
                               processingTicker === repo.ticker 

@@ -2,17 +2,54 @@ require('dotenv').config(); // load environment variables from .env file
 const express = require('express'); // web framework for building the API
 const cors = require('cors'); // middleware for handling CORS
 const { Pool } = require('pg'); // postgres client for database interactions
+const { createClient } = require('@supabase/supabase-js');
 
 const app = express(); // create an Express application instance
-app.use(cors()); //enabling cors ew
+const allowedOrigin = process.env.CLIENT_ORIGIN || 'http://localhost:3000';
+app.use(cors({
+    origin: allowedOrigin,
+    methods: ['GET', 'POST'],
+    credentials: true
+}));
 app.use(express.json()); //middleware for json parsing
 
 const pool = new Pool({ //create postgress connction pool 
     connectionString: process.env.DATABASE_URL, //haha you wont get it!
 });
 
-app.post('/api/buy', async (req, res) => { // ENDPOINT for buying stocks
-    const { userId, ticker, shares } = req.body; // extract userId, ticker, and shares from the request body
+const supabaseUrl = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
+const supabaseKey = process.env.SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+const supabase = createClient(supabaseUrl, supabaseKey);
+
+const verifyAuth = async (req, res, next) => {
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+        return res.status(401).json({ error: "Unauthorized: Missing token" });
+    }
+    
+    const token = authHeader.split(' ')[1];
+    const { data, error } = await supabase.auth.getUser(token);
+    
+    if (error || !data.user) {
+        return res.status(401).json({ error: "Unauthorized: Invalid token" });
+    }
+    
+    req.user = data.user;
+    next();
+};
+
+app.post('/api/buy', verifyAuth, async (req, res) => { // ENDPOINT for buying stocks
+    const { ticker, shares, expectedPrice } = req.body; // extract ticker, and shares from the request body
+    const userId = req.user.id;
+
+    if (typeof expectedPrice !== 'number' || expectedPrice <= 0) {
+        return res.status(400).json({ error: "Invalid expected price" });
+    }
+
+    if (typeof shares !== 'number' || !Number.isInteger(shares) || shares <= 0) {
+        return res.status(400).json({ error: "Invalid share quantity" });
+    }
+
     const client = await pool.connect(); // get a client from the connection pool
 
     try {
@@ -22,11 +59,16 @@ app.post('/api/buy', async (req, res) => { // ENDPOINT for buying stocks
         const stockRes = await client.query('SELECT ticker, current_price FROM repositories WHERE ticker ILIKE $1', [ticker]); // query the repositories table to get the current price of the stock (using ILIKE for case sensiticity)
         if (stockRes.rows.length === 0) throw new Error("Stock not found.");
         const price = stockRes.rows[0].current_price; // get the current price of the stock from the repositories table
-        const totalCost = price * shares; // calculate the total cost of the purchase (price * shares)
+        
+        if (Math.abs(price - expectedPrice) / expectedPrice > 0.01) {
+            throw new Error(`Slippage error: Asset price shifted to ${price}. Trade rejected.`);
+        }
+
+        const totalCost = Number((price * shares).toFixed(2)); // calculate the total cost of the purchase (price * shares)
         const trueTicker = stockRes.rows[0].ticker; // get the exact ticker from DB (case-sensitive)
 
         // balcance check
-        const userRes = await client.query('SELECT cash_balance FROM users WHERE id = $1', [userId]); // query the users table to get the cash balance of the user
+        const userRes = await client.query('SELECT cash_balance FROM users WHERE id = $1 FOR UPDATE', [userId]); // query the users table to get the cash balance of the user
         if (userRes.rows.length === 0) throw new Error("User not found."); // if user is not found in the users table, throw an error
         const cash = userRes.rows[0].cash_balance; // get the cash balance of the user from the users table
 
@@ -42,7 +84,7 @@ app.post('/api/buy', async (req, res) => { // ENDPOINT for buying stocks
             ON CONFLICT (user_id, ticker)
             DO UPDATE SET 
                 shares = portfolios.shares + $3,
-                average_price = ((portfolios.shares * portfolios.average_price) + ($3 * $4)) / (portfolios.shares + $3);
+                average_price = CAST(((portfolios.shares * portfolios.average_price) + ($3 * $4)) / (portfolios.shares + $3) AS NUMERIC(15,2));
         `;
         await client.query(portfolioQuery, [userId, trueTicker, shares, price]);
 
@@ -63,8 +105,18 @@ app.post('/api/buy', async (req, res) => { // ENDPOINT for buying stocks
     }
 });
 
-app.post('/api/sell', async (req, res) => { // ENDPOINT for selling stocks
-    const { userId, ticker, shares } = req.body; // extract userId, ticker, and shares from the request body
+app.post('/api/sell', verifyAuth, async (req, res) => { // ENDPOINT for selling stocks
+    const { ticker, shares, expectedPrice } = req.body; // extract ticker, and shares from the request body
+    const userId = req.user.id;
+
+    if (typeof expectedPrice !== 'number' || expectedPrice <= 0) {
+        return res.status(400).json({ error: "Invalid expected price" });
+    }
+
+    if (typeof shares !== 'number' || !Number.isInteger(shares) || shares <= 0) {
+        return res.status(400).json({ error: "Invalid share quantity" });
+    }
+
     const client = await pool.connect(); // get a client from the connection pool
 
     try {
@@ -74,11 +126,16 @@ app.post('/api/sell', async (req, res) => { // ENDPOINT for selling stocks
         const stockRes = await client.query('SELECT ticker, current_price FROM repositories WHERE ticker ILIKE $1', [ticker]); // query the repositories table to get the current price of the stock (using ILIKE for case sensiticity)
         if (stockRes.rows.length === 0) throw new Error("Stock not found.");
         const price = stockRes.rows[0].current_price; // get the current price of the stock from the repositories table
+        
+        if (Math.abs(price - expectedPrice) / expectedPrice > 0.01) {
+            throw new Error(`Slippage error: Asset price shifted to ${price}. Trade rejected.`);
+        }
+
         const trueTicker = stockRes.rows[0].ticker; // get the exact ticker from DB (case-sensitive)
-        const totalValue = price * shares;
+        const totalValue = Number((price * shares).toFixed(2));
 
         // portfolio check
-        const portRes = await client.query('SELECT shares FROM portfolios WHERE user_id = $1 AND ticker = $2', [userId, trueTicker]); // query the portfolios table to get the number of shares the user owns for the specified stock
+        const portRes = await client.query('SELECT shares FROM portfolios WHERE user_id = $1 AND ticker = $2 FOR UPDATE', [userId, trueTicker]); // query the portfolios table to get the number of shares the user owns for the specified stock
         if (portRes.rows.length === 0 || portRes.rows[0].shares < shares) { 
             throw new Error("Insufficient shares to sell."); // lol you're broke in stocks too?
         }
@@ -106,8 +163,8 @@ app.post('/api/sell', async (req, res) => { // ENDPOINT for selling stocks
     }
 });
 
-app.get('/api/balance/:userId', async (req, res) => { // ENDPOINT for fetching user's cash balance
-    const { userId } = req.params; // extract userId from the request parameters
+app.get('/api/balance/:userId', verifyAuth, async (req, res) => { // ENDPOINT for fetching user's cash balance
+    const userId = req.user.id;
     
     try {
         const result = await pool.query('SELECT cash_balance FROM users WHERE id = $1', [userId]); // query the users table to get the cash balance of the user with the specified userId
@@ -123,8 +180,8 @@ app.get('/api/balance/:userId', async (req, res) => { // ENDPOINT for fetching u
     }
 });
 
-app.get('/api/portfolio/:userId', async (req, res) => { // ENDPOINT for fetching user's portfolio (stocks owned)
-    const { userId } = req.params; // extract userId from the request parameters
+app.get('/api/portfolio/:userId', verifyAuth, async (req, res) => { // ENDPOINT for fetching user's portfolio (stocks owned)
+    const userId = req.user.id;
     
     try {
         const query = `
@@ -143,7 +200,6 @@ app.get('/api/portfolio/:userId', async (req, res) => { // ENDPOINT for fetching
 
 app.get('/api/history/:owner/:repo', async (req, res) => { // ENDPOINT for fetching price history of a stock (repository) based on the owner and repo name
     const { owner, repo } = req.params; // extract owner and repo from the request parameters
-    const { period } = req.query; // extract period from the query parameters to determine the time range for the price history (e.g., 1D, 1W, 1M, 1Y) ===== BETA NOT WOKRING!!!=====
     const ticker = `${owner}/${repo}`;
     
     try {
@@ -151,46 +207,47 @@ app.get('/api/history/:owner/:repo', async (req, res) => { // ENDPOINT for fetch
             "SELECT TO_CHAR(created_at, 'YYYY-MM-DD HH24:MI:SS') AS full_time, TO_CHAR(created_at, 'YYYY-MM-DD') AS time, price AS value FROM price_history WHERE ticker ILIKE $1 ORDER BY created_at ASC",
             [ticker] 
         );
-        
-        let uniqueHistory = []; // this will hold the filtered price history data based on the specified period
 
-        if (period === '1D') {
-            // Return the last 24 rows (hourly data points)
-            const last24 = result.rows.slice(-24);
-            uniqueHistory = last24.map(row => ({ 
-                time: row.time, 
+        if (result.rows.length > 0) {
+            const formattedHistory = result.rows.map(row => ({
+                time: row.time,
                 value: Number(row.value)
             }));
-        } else {
-            // Filtering out duplicate dates (keep the latest price of the day)
-            const seenDates = new Set();
-            const dailyData = [];
-            
-            // keeping latest price of day by iterating in reverse (latest first)
-            const reversedRows = [...result.rows].reverse();
-            
-            for (const row of reversedRows) {
-                if (!seenDates.has(row.time)) {
-                    seenDates.add(row.time);
-                    dailyData.push({ time: row.time, value: Number(row.value) });
-                }
-            }
-            
-            // reversing to chronological order
-            dailyData.reverse();
-
-            if (period === '1W') {
-                uniqueHistory = dailyData.slice(-7); // get the last 7 unique daily data points for 1 week history
-            } else if (period === '1M') {
-                uniqueHistory = dailyData.slice(-30); // get the last 30 unique daily data points for 1 month history
-            } else if (period === '1Y') {
-                uniqueHistory = dailyData.slice(-365); // get the last 365 unique daily data points for 1 year history
-            } else {
-                uniqueHistory = dailyData; // if no valid period is specified, return all unique daily data points (default to full history)
-            }
+            return res.json({ history: formattedHistory });
         }
 
-        res.json({ history: uniqueHistory }); // respond with the filtered price history data in JSON format, where each entry contains the time and value (price) for that time point
+        const githubRes = await fetch(`https://api.github.com/repos/${owner}/${repo}`);
+        if (githubRes.status === 404) {
+            return res.status(404).json({ error: "Repository not found on GitHub" });
+        }
+        if (!githubRes.ok) {
+            return res.status(500).json({ error: "Error fetching repository data from GitHub." });
+        }
+        
+        const githubData = await githubRes.json();
+        const { stargazers_count, description, language } = githubData;
+        const current_price = stargazers_count / 100;
+        const category = language || "Unknown";
+        
+        await pool.query(
+            `INSERT INTO repositories (ticker, current_price, description, category, raw_stars, is_active) 
+             VALUES ($1, $2, $3, $4, $5, TRUE) 
+             ON CONFLICT (ticker) 
+             DO UPDATE SET 
+                current_price = EXCLUDED.current_price,
+                description = EXCLUDED.description,
+                category = EXCLUDED.category,
+                raw_stars = EXCLUDED.raw_stars,
+                is_active = TRUE`,
+            [ticker, current_price, description, category, stargazers_count]
+        );
+        
+        const historyInsert = await pool.query(
+            "INSERT INTO price_history (ticker, price, created_at) VALUES ($1, $2, NOW()) RETURNING TO_CHAR(created_at, 'YYYY-MM-DD') AS time",
+            [ticker, current_price]
+        );
+        
+        return res.json({ history: [{ time: historyInsert.rows[0].time, value: current_price }] });
     } catch (error) {
         console.error(`[Ledger Error] History query failed: ${error.message}`);
         res.status(500).json({ error: "Could not fetch history data." });

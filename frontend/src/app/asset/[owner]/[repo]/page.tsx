@@ -66,7 +66,7 @@ export default function AssetChartPage(props: PageProps) {
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) return;
-      const res = await fetch(`http://localhost:8080/api/balance/${uid}`, {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/balance/${uid}`, {
         headers: { Authorization: `Bearer ${session.access_token}` }
       });
       if (res.ok) {
@@ -82,7 +82,7 @@ export default function AssetChartPage(props: PageProps) {
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) return;
-      const res = await fetch(`http://localhost:8080/api/portfolio/${uid}`, {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/portfolio/${uid}`, {
         headers: { Authorization: `Bearer ${session.access_token}` }
       });
       if (res.ok) {
@@ -106,7 +106,7 @@ export default function AssetChartPage(props: PageProps) {
   useEffect(() => {
     const fetchHistory = async () => {
       try {
-        const res = await fetch(`http://localhost:8080/api/history/${owner}/${repo}`);
+        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/history/${owner}/${repo}`);
         if (!res.ok) {
           setAssetExists(false);
           throw new Error("Failed to fetch historical data");
@@ -220,6 +220,7 @@ export default function AssetChartPage(props: PageProps) {
   }, [history, resolvedTheme, assetExists]);
 
   const handleTrade = async (action: "BUY" | "SELL") => {
+    if (currentPrice === null) return;
     if (!userId || assetExists !== true) return;
     if (tradeQuantity === "" || tradeQuantity <= 0) return;
     if (action === "SELL" && ownedShares < tradeQuantity) return;
@@ -231,7 +232,7 @@ export default function AssetChartPage(props: PageProps) {
       const endpoint = action === "BUY" ? "/api/buy" : "/api/sell";
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) throw new Error("No session");
-      const response = await fetch(`http://localhost:8080${endpoint}`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}${endpoint}`, {
         method: "POST",
         headers: { 
           "Content-Type": "application/json",
@@ -240,6 +241,7 @@ export default function AssetChartPage(props: PageProps) {
         body: JSON.stringify({
           ticker: ticker,
           shares: tradeQuantity,
+          expectedPrice: currentPrice,
         }),
       });
 

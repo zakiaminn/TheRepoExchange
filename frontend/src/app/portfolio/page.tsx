@@ -37,8 +37,8 @@ export default function PortfolioPage() {
     const fetchData = async () => {
       try {
         const [balanceRes, portfolioRes] = await Promise.all([
-          fetch(`http://localhost:8080/api/balance/${userId}`),
-          fetch(`http://localhost:8080/api/portfolio/${userId}`)
+          fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/balance/${userId}`),
+          fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/portfolio/${userId}`)
         ]);
 
         if (balanceRes.ok) {
