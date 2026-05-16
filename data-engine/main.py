@@ -10,12 +10,13 @@ from dotenv import load_dotenv
 
 load_dotenv()
 DATABASE_URL = os.getenv("DATABASE_URL")
+CLIENT_ORIGIN = os.getenv("CLIENT_ORIGIN", "*")
 
 app = FastAPI()
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=[CLIENT_ORIGIN],
     allow_methods=["*"],
     allow_headers=["*"],
 )
