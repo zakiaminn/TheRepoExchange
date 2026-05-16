@@ -31,14 +31,20 @@ export default function PortfolioPage() {
     checkAuth();
   }, [supabase]);
 
-  useEffect(() => {
+useEffect(() => {
     if (!userId) return;
 
     const fetchData = async () => {
       try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) return;
+        const fetchOptions = {
+          headers: { Authorization: `Bearer ${session.access_token}` }
+        };
+
         const [balanceRes, portfolioRes] = await Promise.all([
-          fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/balance/${userId}`),
-          fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/portfolio/${userId}`)
+          fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/balance/${userId}`, fetchOptions),
+          fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/portfolio/${userId}`, fetchOptions)
         ]);
 
         if (balanceRes.ok) {
@@ -58,7 +64,7 @@ export default function PortfolioPage() {
     };
 
     fetchData();
-  }, [userId]);
+  }, [userId, supabase.auth]);
 
   // Calculations
   const cash = balance || 0;
