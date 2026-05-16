@@ -15,8 +15,9 @@ app.use(cors({
         
         if (allowedOrigins.includes(origin)) {
             callback(null, true);
-        } 
+        } else{
             return callback(new Error('Not allowed by CORS policy'));
+        }
         
     },
     methods: ['GET', 'POST', 'OPTIONS'],
