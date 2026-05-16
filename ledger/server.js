@@ -45,7 +45,7 @@ const verifyAuth = async (req, res, next) => {
     const { data, error } = await supabase.auth.getUser(token);
     
     if (error || !data.user) {
-        return res.status(401).json({ error: "Unauthorized: Invalid token" });
+        return res.status(401).json({ error: "Unauthorized: Invalid token", details: error ? error.message : "No user found" });
     }
     
     req.user = data.user;
@@ -281,7 +281,7 @@ app.get('/api/discovery', async (req, res) => { // ENDPOINT for fetching discove
         res.json(grouped); // respond with the discovery data grouped by category in JSON format, where each key is a category and the value is an array of repositories belonging to that category, including their ticker, current price, description, and raw stars
     } catch (error) {
         console.error(`[Ledger Error] Discovery query failed: ${error.message}`);
-        res.status(500).json({ error: "Could not fetch discovery data." });
+        res.status(500).json({ error: "Could not fetch discovery data.", details: error.message });
     }
 });
 
