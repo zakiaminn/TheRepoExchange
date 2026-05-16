@@ -5,7 +5,7 @@ const { Pool } = require('pg'); // postgres client for database interactions
 const { createClient } = require('@supabase/supabase-js');
 
 const app = express(); // create an Express application instance
-const allowedOrigin = process.env.CLIENT_ORIGIN
+const allowedOrigins = process.env.CLIENT_ORIGIN
 ? process.env.CLIENT_ORIGIN.split(',') 
   : ['http://localhost:3000'];
 app.use(cors({
