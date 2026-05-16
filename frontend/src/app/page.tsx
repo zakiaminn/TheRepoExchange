@@ -125,7 +125,7 @@ export default function TradingTerminal() {
         body: JSON.stringify({ // sending userId and ticker in the request body for the ledger to process the buy order
           ticker: ticker, // passing ticker to specify which asset the user wants to buy
           shares: 1, // hardcoding shares to 1 for simplicity, can be extended to allow user input for number of shares in the future
-          expectedPrice: currentPrice // passing the current price as the expected price for the buy order, this can be used by the ledger to check for slippage or price changes before filling the order
+          expectedPrice: Number(currentPrice) // passing the current price as the expected price for the buy order, this can be used by the ledger to check for slippage or price changes before filling the order
         }),
       });
 
