@@ -15,12 +15,13 @@ app.use(cors({
         
         if (allowedOrigins.includes(origin)) {
             callback(null, true);
-        } else {
-            callback(new Error('Not allowed by CORS policy'));
-        }
+        } 
+            return callback(new Error('Not allowed by CORS policy'));
+        
     },
-    methods: ['GET', 'POST'],
-    credentials: true
+    methods: ['GET', 'POST', 'OPTIONS'],
+    credentials: true,
+    optionsSuccessStatus: 200
 }));
 app.use(express.json()); //middleware for json parsing
 
