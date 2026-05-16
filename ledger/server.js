@@ -6,19 +6,20 @@ const { createClient } = require('@supabase/supabase-js');
 
 const app = express(); // create an Express application instance
 const allowedOrigins = process.env.CLIENT_ORIGIN
-? process.env.CLIENT_ORIGIN.split(',') 
+? process.env.CLIENT_ORIGIN.split(',').map(o => o.trim().replace(/\/$/, ''))
   : ['http://localhost:3000'];
+
 app.use(cors({
     origin: function (origin, callback) {
         // Allow server-to-server or tools like Postman/Curl (which have no origin header)
         if (!origin) return callback(null, true);
         
-        if (allowedOrigins.includes(origin)) {
+        if (allowedOrigins.includes(origin.replace(/\/$/, ''))) {
             callback(null, true);
-        } else{
-            return callback(new Error('Not allowed by CORS policy'));
+        } else {
+            console.warn(`CORS rejected origin: ${origin}`);
+            callback(null, false);
         }
-        
     },
     methods: ['GET', 'POST', 'OPTIONS'],
     credentials: true,
