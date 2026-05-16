@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, use } from "react";
-import { createChart, ColorType, IChartApi, ISeriesApi, AreaSeries } from "lightweight-charts";
+import { createChart, ColorType, IChartApi, ISeriesApi, AreaSeries, Time } from "lightweight-charts";
 import Link from "next/link";
 import { createClient } from "@/utils/supabase/client";
 import { useTheme } from "next-themes";
@@ -14,7 +14,7 @@ interface PageProps {
 }
 
 type ChartData = {
-  time: string;
+  time: Time;
   value: number;
 };
 
@@ -37,12 +37,13 @@ export default function AssetChartPage(props: PageProps) {
   const [currentPrice, setCurrentPrice] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [assetExists, setAssetExists] = useState<boolean | null>(null);
 
   // Trade state
   const [userId, setUserId] = useState<string | null>(null);
   const [balance, setBalance] = useState<number | null>(null);
   const [ownedShares, setOwnedShares] = useState<number>(0);
-  const [tradeQuantity, setTradeQuantity] = useState<number>(1);
+  const [tradeQuantity, setTradeQuantity] = useState<number | "">(1);
   const [message, setMessage] = useState<SystemMessage>(null);
   const [processingAction, setProcessingAction] = useState<"BUY" | "SELL" | null>(null);
 
@@ -63,7 +64,11 @@ export default function AssetChartPage(props: PageProps) {
 
   const fetchBalance = async (uid: string) => {
     try {
-      const res = await fetch(`http://localhost:8080/api/balance/${uid}`);
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+      const res = await fetch(`http://localhost:8080/api/balance/${uid}`, {
+        headers: { Authorization: `Bearer ${session.access_token}` }
+      });
       if (res.ok) {
         const data = await res.json();
         setBalance(data.balance);
@@ -75,7 +80,11 @@ export default function AssetChartPage(props: PageProps) {
 
   const fetchPortfolio = async (uid: string) => {
     try {
-      const res = await fetch(`http://localhost:8080/api/portfolio/${uid}`);
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+      const res = await fetch(`http://localhost:8080/api/portfolio/${uid}`, {
+        headers: { Authorization: `Bearer ${session.access_token}` }
+      });
       if (res.ok) {
         const data = await res.json();
         const portfolio = data.portfolio || [];
@@ -98,16 +107,38 @@ export default function AssetChartPage(props: PageProps) {
     const fetchHistory = async () => {
       try {
         const res = await fetch(`http://localhost:8080/api/history/${owner}/${repo}`);
-        if (!res.ok) throw new Error("Failed to fetch historical data");
+        if (!res.ok) {
+          setAssetExists(false);
+          throw new Error("Failed to fetch historical data");
+        }
+        
         const data = await res.json();
         
         if (data.history && data.history.length > 0) {
-          setHistory(data.history);
-          setCurrentPrice(data.history[data.history.length - 1].value);
+          const dataMap = new Map<number, number>();
+          data.history.forEach((item: any) => {
+            const unixTime = Math.floor(new Date(item.time).getTime() / 1000);
+            dataMap.set(unixTime, item.value);
+          });
+
+          const sortedArray = Array.from(dataMap.entries())
+            .map(([time, value]) => ({ time, value }))
+            .sort((a, b) => a.time - b.time);
+
+          const formattedHistory = sortedArray.map(item => ({
+            time: item.time as Time,
+            value: item.value
+          }));
+
+          setHistory(formattedHistory);
+          setCurrentPrice(formattedHistory[formattedHistory.length - 1].value);
+          setAssetExists(true);
         } else {
+          setAssetExists(false);
           setError("NO HISTORICAL DATA");
         }
       } catch (err) {
+        setAssetExists(false);
         setError("DATA ENGINE OFFLINE");
       } finally {
         setLoading(false);
@@ -118,7 +149,7 @@ export default function AssetChartPage(props: PageProps) {
   }, [owner, repo]);
 
   useEffect(() => {
-    if (!chartContainerRef.current || history.length === 0) return;
+    if (!chartContainerRef.current || history.length === 0 || assetExists === false) return;
 
     const isDark = resolvedTheme === "dark";
     const textColor = isDark ? "#9ca3af" : "#6b7280";
@@ -186,11 +217,11 @@ export default function AssetChartPage(props: PageProps) {
       window.removeEventListener("resize", handleResize);
       chart.remove();
     };
-  }, [history, resolvedTheme]);
+  }, [history, resolvedTheme, assetExists]);
 
   const handleTrade = async (action: "BUY" | "SELL") => {
-    if (!userId) return;
-    if (tradeQuantity <= 0) return;
+    if (!userId || assetExists !== true) return;
+    if (tradeQuantity === "" || tradeQuantity <= 0) return;
     if (action === "SELL" && ownedShares < tradeQuantity) return;
 
     setProcessingAction(action);
@@ -198,11 +229,15 @@ export default function AssetChartPage(props: PageProps) {
 
     try {
       const endpoint = action === "BUY" ? "/api/buy" : "/api/sell";
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error("No session");
       const response = await fetch(`http://localhost:8080${endpoint}`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { 
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.access_token}`
+        },
         body: JSON.stringify({
-          userId: userId,
           ticker: ticker,
           shares: tradeQuantity,
         }),
@@ -272,7 +307,9 @@ export default function AssetChartPage(props: PageProps) {
             
             <div className="text-right">
               <p className="text-[10px] font-mono uppercase tracking-[0.2em] text-gray-500 dark:text-gray-400 mb-2">Current Mark</p>
-              {currentPrice !== null ? (
+              {assetExists === false ? (
+                <div className="text-xl font-mono tracking-tighter text-gray-500 dark:text-gray-400">N/A</div>
+              ) : currentPrice !== null ? (
                 <div className="flex items-baseline justify-end gap-1">
                   <span className="text-xl text-gray-500 dark:text-gray-400 font-mono">$</span>
                   <span className="text-5xl font-light tracking-tighter text-gray-900 dark:text-gray-100 font-mono">
@@ -286,9 +323,16 @@ export default function AssetChartPage(props: PageProps) {
           </div>
 
           <div className="border border-gray-200 dark:border-gray-800 bg-white dark:bg-[#121212] p-6 shadow-sm mb-8">
-            {loading ? (
+            {assetExists === null ? (
               <div className="h-[400px] flex items-center justify-center font-mono text-sm text-gray-500 dark:text-gray-400">
-                INITIALIZING DATA STREAM...
+                VERIFYING ASSET DATA...
+              </div>
+            ) : assetExists === false ? (
+              <div className="h-[400px] flex flex-col items-center justify-center font-mono text-center p-6 bg-gray-50 dark:bg-[#1a1a1a] border border-gray-200 dark:border-gray-800">
+                <div className="text-2xl font-bold tracking-widest text-gray-900 dark:text-gray-100 mb-2">ASSET NOT FOUND</div>
+                <div className="text-sm text-gray-500 dark:text-gray-400 max-w-md">
+                  The repository {owner}/{repo} either does not exist on GitHub or is private. Trading is suspended.
+                </div>
               </div>
             ) : error ? (
               <div className="h-[400px] flex items-center justify-center font-mono text-sm text-gray-500 dark:text-gray-400">
@@ -300,7 +344,7 @@ export default function AssetChartPage(props: PageProps) {
           </div>
 
           {/* Trade Panel */}
-          <div className="border border-gray-200 dark:border-gray-800 bg-white dark:bg-[#121212] p-6 shadow-sm flex flex-col md:flex-row items-center justify-between gap-6">
+          <div className={`border border-gray-200 dark:border-gray-800 bg-white dark:bg-[#121212] p-6 shadow-sm flex flex-col md:flex-row items-center justify-between gap-6 ${assetExists === false ? "opacity-50" : ""}`}>
             <div className="flex flex-col">
               <span className="text-[10px] font-mono uppercase tracking-[0.2em] text-gray-500 dark:text-gray-400 mb-1">Position</span>
               <span className="text-xl font-mono tracking-tighter text-gray-900 dark:text-gray-100">
@@ -316,17 +360,18 @@ export default function AssetChartPage(props: PageProps) {
                   type="number"
                   min="1"
                   value={tradeQuantity}
-                  onChange={(e) => setTradeQuantity(parseInt(e.target.value) || 0)}
-                  className="w-24 h-10 px-3 border border-gray-300 dark:border-gray-700 bg-white dark:bg-[#1a1a1a] font-mono text-center text-gray-900 dark:text-gray-100 focus:outline-none focus:border-gray-900 dark:focus:border-gray-100"
+                  onChange={(e) => setTradeQuantity(e.target.value === "" ? "" : parseInt(e.target.value))}
+                  disabled={assetExists === false}
+                  className={`w-24 h-10 px-3 border border-gray-300 dark:border-gray-700 bg-white dark:bg-[#1a1a1a] font-mono text-center text-gray-900 dark:text-gray-100 focus:outline-none focus:border-gray-900 dark:focus:border-gray-100 ${assetExists === false ? "cursor-not-allowed bg-gray-100 dark:bg-gray-800" : ""}`}
                 />
               </div>
 
               <div className="flex gap-2 items-end h-full">
                 <button 
                   onClick={() => handleTrade("BUY")}
-                  disabled={processingAction !== null}
+                  disabled={assetExists === false || processingAction !== null || tradeQuantity === ""}
                   className={`h-10 px-8 text-xs font-bold tracking-widest uppercase transition-all duration-150 ${
-                    processingAction === "BUY"
+                    assetExists === false || processingAction === "BUY" || tradeQuantity === ""
                       ? "bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-500 cursor-not-allowed border border-gray-200 dark:border-gray-800"
                       : "bg-gray-900 text-white dark:bg-white dark:text-gray-900 hover:opacity-90 active:scale-[0.98] border border-gray-900 dark:border-white"
                   }`}
@@ -336,9 +381,9 @@ export default function AssetChartPage(props: PageProps) {
                 
                 <button 
                   onClick={() => handleTrade("SELL")}
-                  disabled={processingAction !== null || ownedShares === 0 || tradeQuantity > ownedShares}
+                  disabled={assetExists === false || processingAction !== null || ownedShares === 0 || tradeQuantity === "" || tradeQuantity > ownedShares}
                   className={`h-10 px-8 text-xs font-bold tracking-widest uppercase transition-all duration-150 ${
-                    processingAction === "SELL" || ownedShares === 0 || tradeQuantity > ownedShares
+                    assetExists === false || processingAction === "SELL" || ownedShares === 0 || tradeQuantity === "" || tradeQuantity > ownedShares
                       ? "bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-500 cursor-not-allowed border border-gray-200 dark:border-gray-800"
                       : "bg-white text-gray-900 dark:bg-[#121212] dark:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-800 active:scale-[0.98] border border-gray-900 dark:border-gray-100"
                   }`}

@@ -53,7 +53,11 @@ export default function TradingTerminal() {
   const fetchBalance = async () => { // fetch purchasing power balance from ledger
     if (!userId) return;
     try {
-      const res = await fetch(`http://localhost:8080/api/balance/${userId}`);
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+      const res = await fetch(`http://localhost:8080/api/balance/${userId}`, {
+        headers: { Authorization: `Bearer ${session.access_token}` }
+      });
       if (res.ok) {
         const data = await res.json();
         setBalance(data.balance);
@@ -66,7 +70,11 @@ export default function TradingTerminal() {
   const fetchPortfolio = async () => { // fetch holdings from ledger
     if (!userId) return;
     try {
-      const res = await fetch(`http://localhost:8080/api/portfolio/${userId}`);
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+      const res = await fetch(`http://localhost:8080/api/portfolio/${userId}`, {
+        headers: { Authorization: `Bearer ${session.access_token}` }
+      });
       if (res.ok) {
         const data = await res.json();
         setPortfolio(data.portfolio || []);
@@ -106,11 +114,15 @@ export default function TradingTerminal() {
     setMessage(null); // clear any existing system messages
     
     try { // send buy request to ledger
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error("No session");
       const response = await fetch("http://localhost:8080/api/buy", { // standard RESTful API design with POST method for creating a new buy order
         method: "POST", // using POST method to indicate creation of a new buy order
-        headers: { "Content-Type": "application/json" }, // setting content type to JSON for the request body
+        headers: { 
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.access_token}`
+        }, // setting content type to JSON for the request body
         body: JSON.stringify({ // sending userId and ticker in the request body for the ledger to process the buy order
-          userId: userId, // passing userId to identify which user's balance and portfolio to update
           ticker: ticker, // passing ticker to specify which asset the user wants to buy
           shares: 1, // hardcoding shares to 1 for simplicity, can be extended to allow user input for number of shares in the future
         }),
@@ -240,7 +252,9 @@ export default function TradingTerminal() {
                     <div className="text-[10px] uppercase tracking-[0.2em] text-gray-500 dark:text-gray-400 text-right">Total Shares</div>
                     <div className="text-[10px] uppercase tracking-[0.2em] text-gray-500 dark:text-gray-400 text-right">Avg Entry Price</div>
                   </div>
-                  {portfolio.map((holding, index) => (
+                  {portfolio.map((holding, index) => {
+                    const [owner, repo] = holding.ticker.split('/');
+                    return (
                     <div 
                       key={holding.ticker} 
                       className={`grid grid-cols-3 px-6 py-4 items-center group hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors duration-200 ${
@@ -248,7 +262,12 @@ export default function TradingTerminal() {
                       }`}
                     >
                       <div className="font-bold tracking-tighter text-sm text-gray-900 dark:text-gray-100">
-                        {holding.ticker}
+                        <Link 
+                          href={`/asset/${owner.toLowerCase()}/${repo.toLowerCase()}`}
+                          className="hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+                        >
+                          {holding.ticker}
+                        </Link>
                       </div>
                       <div className="text-sm tracking-tighter text-gray-900 dark:text-gray-100 text-right font-mono">
                         {holding.shares.toLocaleString()}
@@ -257,7 +276,8 @@ export default function TradingTerminal() {
                         {new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(holding.average_price)}
                       </div>
                     </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </div>
