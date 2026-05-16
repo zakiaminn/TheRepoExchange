@@ -269,16 +269,45 @@ app.get('/api/history/:owner/:repo', async (req, res) => { // ENDPOINT for fetch
     }
 });
 
-app.get('/api/discovery', async (req, res) => {
+const rateLimit = require('express-rate-limit');
+
+// Security Layer 1: IP Rate Limiting
+// The frontend polls every 5s (12 req/min). We set the limit to 60 req/min per IP to allow a generous buffer for organic refreshes, but block brute-force spam.
+const discoveryLimiter = rateLimit({
+    windowMs: 60 * 1000, // 1 minute
+    max: 60, 
+    message: { error: "Rate limit exceeded. Please wait a moment." },
+    standardHeaders: true,
+    legacyHeaders: false,
+});
+
+// Security Layer 2: In-Memory Cache
+// Prevents database exhaustion. No matter how many requests hit the server, 
+// the DB is queried a maximum of once every 5 seconds.
+let cachedDiscoveryData = null;
+let lastCacheTime = 0;
+const CACHE_TTL_MS = 5000; 
+
+app.get('/api/discovery', discoveryLimiter, async (req, res) => {
+    const now = Date.now();
+
+    // Serve from RAM if the cache is still fresh
+    if (cachedDiscoveryData && (now - lastCacheTime < CACHE_TTL_MS)) {
+        // Optional: Add a custom header so we can verify the cache is working in DevTools
+        res.setHeader('X-Cache', 'HIT'); 
+        return res.json(cachedDiscoveryData);
+    }
+
     try {
-        const result = await pool.query('SELECT ticker, current_price, description, category, raw_stars FROM repositories');
+        // Cache expired. Fetch fresh data from the database.
+        const result = await pool.query('SELECT ticker, current_price, description, category, raw_stars FROM repositories WHERE is_active = TRUE ORDER BY raw_stars DESC');
         
         // Handle empty table gracefully
         if (!result.rows || result.rows.length === 0) {
             return res.json({});
         }
 
-        const grouped = result.rows.reduce((acc, repo) => {
+        const groupedData = result.rows.reduce((acc, repo) => {
             // Guard against null categories
             const categoryName = repo.category || "Uncategorized";
             if (!acc[categoryName]) {
@@ -288,7 +317,12 @@ app.get('/api/discovery', async (req, res) => {
             return acc;
         }, {});
         
-        res.json(grouped);
+        // Update the global cache
+        cachedDiscoveryData = groupedData;
+        lastCacheTime = now;
+
+        res.setHeader('X-Cache', 'MISS');
+        res.json(cachedDiscoveryData);
     } catch (error) {
         // Specifically catch "relation does not exist" (table not created yet)
         if (error.code === '42P01') {
@@ -296,8 +330,8 @@ app.get('/api/discovery', async (req, res) => {
             return res.json({});
         }
         
-        console.error(`[Ledger Error] Discovery query failed: ${error.message}`);
-        res.status(500).json({ error: "Could not fetch discovery data.", details: error.message });
+        console.error("[DB ERROR] Discovery fetch failed:", error);
+        res.status(500).json({ error: "Internal server error" });
     }
 });
 
