@@ -7,12 +7,13 @@ import { useEffect, useState } from "react";
 import { createClient } from "@/utils/supabase/client";
 import { usePathname, useRouter } from "next/navigation";
 
-export function Header() { //header component
-  const { resolvedTheme, setTheme } = useTheme(); // theme toggling using next-themes
-  const [mounted, setMounted] = useState(false); //only render theme after component is mounted
-  const [user, setUser] = useState<any>(null); // user state to determine if user logged in
-  const supabase = createClient(); // supabase client for auth and user management
-  const pathname = usePathname(); // get current pathname to conditionally render header on login page, we don't want to show the header on the login page
+export function Header() {
+  const { resolvedTheme, setTheme } = useTheme();
+  const [mounted, setMounted] = useState(false);
+  const [user, setUser] = useState<any>(null);
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const supabase = createClient();
+  const pathname = usePathname();
   const router = useRouter();
   const [searchQuery, setSearchQuery] = useState("");
 
@@ -24,21 +25,36 @@ export function Header() { //header component
     }
   };
 
-  useEffect(() => { //hydration mismatch fix
-    setMounted(true); //set mounted to true
-    const getUser = async () => { //get user from supabase auth
-      const { data: { user } } = await supabase.auth.getUser(); // set user state to auth user
+  useEffect(() => {
+    setMounted(true);
+    const getUser = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
       setUser(user);
     };
-    getUser(); // call getUser on component mount to check if user is logged in and set user state accordingly
-  }, [supabase.auth]); //dependency array to only run on mount and when supabase auth changes
+    getUser();
+  }, [supabase.auth]);
 
-  const handleLogout = async () => { // handle user logout, sign out from supabase and redirect to login page
+  const handleLogout = async () => {
     await supabase.auth.signOut();
     window.location.href = "/login";
   };
 
-  if (pathname === "/login") return null; //dont render header on login page
+  if (pathname === "/login") return null;
+
+  let userInitials = "U";
+  let userFullName = "User";
+
+  if (user?.user_metadata) {
+    const firstName = user.user_metadata.first_name || "";
+    const lastName = user.user_metadata.last_name || "";
+    if (firstName && lastName) {
+      userInitials = `${firstName[0]}${lastName[0]}`.toUpperCase();
+      userFullName = `${firstName} ${lastName}`;
+    } else if (user.email) {
+      userInitials = user.email[0].toUpperCase();
+      userFullName = user.email.split('@')[0];
+    }
+  }
 
   return (
     <header className="border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-[#121212] transition-colors duration-300">
@@ -67,7 +83,7 @@ export function Header() { //header component
           />
         </form>
 
-        <div className="flex items-center gap-6 text-sm">
+        <div className="flex items-center gap-6 text-sm relative">
           {user && (
             <Link 
               href="/portfolio"
@@ -75,7 +91,6 @@ export function Header() { //header component
             >
               Portfolio  
             </Link> 
-            // only show portfolio link if user logged in
           )}
           
           {mounted && (
@@ -89,16 +104,39 @@ export function Header() { //header component
           )}
 
           {user && (
-            <div className="flex items-center gap-4 border-l border-gray-200 dark:border-gray-800 pl-6">
-              <span className="text-gray-500 dark:text-gray-400">
-                {user.id?.split('-')[0]}
-              </span>
-              <button 
-                onClick={handleLogout} //onclick event for logout
-                className="font-medium text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors"
+            <div className="relative border-l border-gray-200 dark:border-gray-800 pl-6">
+              <button
+                onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+                className="flex items-center gap-3 hover:opacity-80 transition-opacity"
               >
-                Sign Out
+                <div className="h-8 w-8 rounded-full bg-gray-900 dark:bg-white text-white dark:text-gray-900 flex items-center justify-center text-xs font-bold tracking-wider">
+                  {userInitials}
+                </div>
+                <span className="font-medium text-gray-900 dark:text-gray-100">
+                  {userFullName}
+                </span>
               </button>
+
+              {isDropdownOpen && (
+                <div className="absolute right-0 top-10 mt-2 w-48 border border-gray-200 dark:border-gray-800 bg-white dark:bg-[#121212] shadow-sm z-50 py-1">
+                  <Link
+                    href="/settings"
+                    className="block px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+                    onClick={() => setIsDropdownOpen(false)}
+                  >
+                    Account Settings
+                  </Link>
+                  <button
+                    onClick={() => {
+                      setIsDropdownOpen(false);
+                      handleLogout();
+                    }}
+                    className="w-full text-left block px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+                  >
+                    Sign Out
+                  </button>
+                </div>
+              )}
             </div>
           )}
         </div>
