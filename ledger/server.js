@@ -5,9 +5,20 @@ const { Pool } = require('pg'); // postgres client for database interactions
 const { createClient } = require('@supabase/supabase-js');
 
 const app = express(); // create an Express application instance
-const allowedOrigin = process.env.CLIENT_ORIGIN || 'http://localhost:3000';
+const allowedOrigin = process.env.CLIENT_ORIGIN
+? process.env.CLIENT_ORIGIN.split(',') 
+  : ['http://localhost:3000'];
 app.use(cors({
-    origin: allowedOrigin,
+    origin: function (origin, callback) {
+        // Allow server-to-server or tools like Postman/Curl (which have no origin header)
+        if (!origin) return callback(null, true);
+        
+        if (allowedOrigins.includes(origin)) {
+            callback(null, true);
+        } else {
+            callback(new Error('Not allowed by CORS policy'));
+        }
+    },
     methods: ['GET', 'POST'],
     credentials: true
 }));
