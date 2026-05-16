@@ -166,7 +166,9 @@ export default function TradingTerminal() {
           <div className="mb-12 flex justify-between items-end">
             <div>
               <h1 className="text-3xl font-semibold tracking-tighter mb-1">The Repo Exchange</h1>
-              <p className="text-sm text-gray-500 dark:text-gray-400">B2C Quantitative Repository Pricing</p>
+              <p className="text-sm text-gray-500 dark:text-gray-400">
+                B2C Quantitative Repository Pricing
+              </p>
             </div>
             
             <div className="text-right">

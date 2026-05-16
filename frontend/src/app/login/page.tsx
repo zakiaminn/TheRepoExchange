@@ -4,6 +4,9 @@ import { useState } from "react";
 import { createClient } from "@/utils/supabase/client";
 
 export default function LoginPage() {
+  const [isSignUp, setIsSignUp] = useState(false);
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -12,23 +15,42 @@ export default function LoginPage() {
   // supabase intializaiton
   const supabase = createClient();
 
-  const handleEmailLogin = async (e: React.FormEvent) => {
+  const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
     setMessage(null);
 
     try {
-      const { error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
+      if (isSignUp) {
+        const { error } = await supabase.auth.signUp({
+          email,
+          password,
+          options: {
+            data: {
+              first_name: firstName,
+              last_name: lastName,
+            },
+          },
+        });
 
-      if (error) {
-        setMessage({ text: error.message, type: "error" });
+        if (error) {
+          setMessage({ text: error.message, type: "error" });
+        } else {
+          setMessage({ text: "Account created. Please check your email to verify your identity.", type: "success" });
+        }
       } else {
-        setMessage({ text: "Authentication successful. Redirecting...", type: "success" });
-        // redirection after successful login
-        window.location.href = "/"; 
+        const { error } = await supabase.auth.signInWithPassword({
+          email,
+          password,
+        });
+
+        if (error) {
+          setMessage({ text: error.message, type: "error" });
+        } else {
+          setMessage({ text: "Authentication successful. Redirecting...", type: "success" });
+          // redirection after successful login
+          window.location.href = "/"; 
+        }
       }
     } catch (err) {
       setMessage({ text: "An unexpected error occurred.", type: "error" });
@@ -61,7 +83,7 @@ export default function LoginPage() {
         <div className="text-center mb-10">
           <h1 className="text-3xl font-bold tracking-tighter text-gray-900 dark:text-gray-100 mb-2">TRX.EXCHANGE</h1>
           <p className="text-[10px] font-mono uppercase tracking-[0.2em] text-gray-500 dark:text-gray-400">
-            Sign in to your account
+            {isSignUp ? "Create an account" : "Sign in to your account"}
           </p>
         </div>
 
@@ -108,7 +130,38 @@ export default function LoginPage() {
             </div>
           )}
 
-          <form onSubmit={handleEmailLogin} className="space-y-5">
+          <form onSubmit={handleAuth} className="space-y-5">
+            {isSignUp && (
+              <>
+                <div>
+                  <label className="block text-[10px] font-mono uppercase tracking-[0.15em] text-gray-500 dark:text-gray-400 mb-2">
+                    First Name
+                  </label>
+                  <input 
+                    type="text" 
+                    value={firstName}
+                    onChange={(e) => setFirstName(e.target.value)}
+                    required
+                    className="w-full h-10 px-3 bg-gray-50 dark:bg-[#1a1a1a] border border-gray-200 dark:border-gray-800 text-gray-900 dark:text-gray-100 text-sm focus:outline-none focus:border-gray-900 dark:focus:border-gray-100 focus:ring-1 focus:ring-gray-900 dark:focus:ring-gray-100 transition-all"
+                    placeholder="First Name"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-mono uppercase tracking-[0.15em] text-gray-500 dark:text-gray-400 mb-2">
+                    Last Name
+                  </label>
+                  <input 
+                    type="text" 
+                    value={lastName}
+                    onChange={(e) => setLastName(e.target.value)}
+                    required
+                    className="w-full h-10 px-3 bg-gray-50 dark:bg-[#1a1a1a] border border-gray-200 dark:border-gray-800 text-gray-900 dark:text-gray-100 text-sm focus:outline-none focus:border-gray-900 dark:focus:border-gray-100 focus:ring-1 focus:ring-gray-900 dark:focus:ring-gray-100 transition-all"
+                    placeholder="Last Name"
+                  />
+                </div>
+              </>
+            )}
+
             <div>
               <label className="block text-[10px] font-mono uppercase tracking-[0.15em] text-gray-500 dark:text-gray-400 mb-2">
                 Email/Username
@@ -148,9 +201,21 @@ export default function LoginPage() {
                   : 'bg-gray-900 text-white dark:bg-white dark:text-gray-900 hover:opacity-90 active:scale-[0.98]'
               }`}
             >
-              {isLoading ? 'Authenticating...' : 'Sign In'}
+              {isLoading ? 'Authenticating...' : (isSignUp ? 'Create Account' : 'Sign In')}
             </button>
           </form>
+
+          <div className="mt-6 text-center">
+            <button
+              onClick={() => {
+                setIsSignUp(!isSignUp);
+                setMessage(null);
+              }}
+              className="text-xs font-medium text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100 transition-colors"
+            >
+              {isSignUp ? "Already have an account? Sign in" : "Don't have an account? Create one"}
+            </button>
+          </div>
         </div>
       </div>
     </div>
