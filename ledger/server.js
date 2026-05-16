@@ -29,6 +29,7 @@ app.use(express.json()); //middleware for json parsing
 
 const pool = new Pool({ //create postgress connction pool 
     connectionString: process.env.DATABASE_URL, //haha you wont get it!
+    ssl: process.env.DATABASE_URL && process.env.DATABASE_URL.includes('supabase') ? { rejectUnauthorized: false } : false,
 });
 
 const supabaseUrl = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
