@@ -5,7 +5,7 @@ import { useTheme } from "next-themes";
 import { Sun, Moon } from "lucide-react";
 import { useEffect, useState } from "react";
 import { createClient } from "@/utils/supabase/client";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 
 export function Header() { //header component
   const { resolvedTheme, setTheme } = useTheme(); // theme toggling using next-themes
@@ -13,6 +13,16 @@ export function Header() { //header component
   const [user, setUser] = useState<any>(null); // user state to determine if user logged in
   const supabase = createClient(); // supabase client for auth and user management
   const pathname = usePathname(); // get current pathname to conditionally render header on login page, we don't want to show the header on the login page
+  const router = useRouter();
+  const [searchQuery, setSearchQuery] = useState("");
+
+  const handleSearch = (e: React.FormEvent) => {
+    e.preventDefault();
+    const repoRegex = /^[a-zA-Z0-9_.-]+\/[a-zA-Z0-9_.-]+$/;
+    if (repoRegex.test(searchQuery)) {
+      router.push(`/asset/${searchQuery}`);
+    }
+  };
 
   useEffect(() => { //hydration mismatch fix
     setMounted(true); //set mounted to true
@@ -46,7 +56,17 @@ export function Header() { //header component
             <span className="text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">Market Open</span>
           </div>
         </div>
-        
+
+        <form onSubmit={handleSearch} className="flex-1 max-w-md mx-6">
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Search owner/repo..."
+            className="w-full px-4 py-2 rounded-full bg-gray-100 dark:bg-gray-800 text-sm focus:outline-none focus:ring-2 focus:ring-gray-200 dark:focus:ring-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400 transition-all"
+          />
+        </form>
+
         <div className="flex items-center gap-6 text-sm">
           {user && (
             <Link 
