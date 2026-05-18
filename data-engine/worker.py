@@ -18,10 +18,14 @@ load_dotenv()
 GITHUB_TOKEN = os.getenv("GITHUB_TOKEN") #github api
 DATABASE_URL = os.getenv("DATABASE_URL") #database connection string
 
-CATEGORIES = { # predefined search queries for different categories to discover new trending repositories
+# Dynamically calculate the cutoff date for momentum assets (30 days ago)
+thirty_days_ago = (datetime.now() - timedelta(days=30)).strftime('%Y-%m-%d')
+
+CATEGORIES = { 
     "AI & Machine Learning": "topic:machine-learning stars:>10000",
     "Blue Chip Systems": "language:rust language:c++ stars:>20000",
-    "Web Frameworks": "language:typescript language:javascript stars:>30000"
+    "Web Frameworks": "language:typescript language:javascript stars:>30000",
+    "Hot IPOs (Last 30 Days)": f"created:>{thirty_days_ago} stars:>500"
 }
 
 GITHUB_SEARCH_URL = "https://api.github.com/search/repositories" #github search api ENDPOINT
