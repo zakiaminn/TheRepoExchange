@@ -11,6 +11,7 @@ export function Header() {
   const { resolvedTheme, setTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
   const [user, setUser] = useState<any>(null);
+  const [authLoading, setAuthLoading] = useState(true);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const supabase = createClient();
   const pathname = usePathname();
@@ -30,6 +31,7 @@ export function Header() {
     const getUser = async () => {
       const { data: { user } } = await supabase.auth.getUser();
       setUser(user);
+      setAuthLoading(false);
     };
     getUser();
   }, [supabase.auth]);
@@ -39,7 +41,7 @@ export function Header() {
     window.location.href = "/login";
   };
 
-  if (pathname === "/login") return null;
+  if (pathname === "/login" || authLoading || !user) return null;
 
   let userInitials = "U";
   let userFullName = "User";

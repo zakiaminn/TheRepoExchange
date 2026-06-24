@@ -17,6 +17,26 @@ export default function LoginPage() {
   const router = useRouter();
   const supabase = createClient();
 
+  const sanitizeAuthError = (errorMessage: string): string => {
+    const msg = errorMessage.toLowerCase();
+    if (msg.includes('invalid login credentials') || msg.includes('invalid password')) {
+      return 'Invalid email or password.';
+    }
+    if (msg.includes('email not confirmed')) {
+      return 'Please confirm your email address before signing in.';
+    }
+    if (msg.includes('already registered') || msg.includes('already been registered')) {
+      return 'An account with this email already exists. Try signing in.';
+    }
+    if (msg.includes('rate limit') || msg.includes('too many requests')) {
+      return 'Too many attempts. Please try again later.';
+    }
+    if (msg.includes('password') && msg.includes('characters')) {
+      return 'Password must be at least 6 characters.';
+    }
+    return 'Authentication failed. Please try again.';
+  };
+
   const handleEmailAuth = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -46,7 +66,7 @@ export default function LoginPage() {
         router.refresh();
       }
     } catch (error: any) {
-      setMessage({ text: error.message, type: "error" });
+      setMessage({ text: sanitizeAuthError(error.message), type: "error" });
     } finally {
       setLoading(false);
     }
@@ -62,7 +82,7 @@ export default function LoginPage() {
     });
 
     if (error) {
-      setMessage({ text: error.message, type: "error" });
+      setMessage({ text: sanitizeAuthError(error.message), type: "error" });
       setOauthLoading(false);
     }
   };

@@ -3,6 +3,20 @@ const express = require('express'); // web framework for building the API
 const cors = require('cors'); // middleware for handling CORS
 const { Pool } = require('pg'); // postgres client for database interactions
 const { createClient } = require('@supabase/supabase-js');
+const rateLimit = require('express-rate-limit');
+
+class TradeError extends Error {
+    constructor(message, statusCode = 400) {
+        super(message);
+        this.name = 'TradeError';
+        this.statusCode = statusCode;
+    }
+}
+
+const TICKER_REGEX = /^[a-zA-Z0-9._-]+\/[a-zA-Z0-9._-]+$/;
+function isValidTicker(ticker) {
+    return typeof ticker === 'string' && ticker.length <= 140 && TICKER_REGEX.test(ticker);
+}
 
 const app = express(); // create an Express application instance
 app.set('trust proxy', 1);
@@ -12,9 +26,8 @@ const allowedOrigins = process.env.CLIENT_ORIGIN
 
 app.use(cors({
     origin: function (origin, callback) {
-        // Allow server-to-server or tools like Postman/Curl (which have no origin header)
         if (!origin) return callback(null, true);
-        
+
         if (allowedOrigins.includes(origin.replace(/\/$/, ''))) {
             callback(null, true);
         } else {
@@ -28,9 +41,32 @@ app.use(cors({
 }));
 app.use(express.json()); //middleware for json parsing
 
+app.use((req, res, next) => {
+    if (req.method === 'POST' && !req.headers.origin) {
+        console.warn(`[Security] POST request without Origin header to ${req.path} from IP ${req.ip}`);
+    }
+    next();
+});
+
+const tradeLimiter = rateLimit({
+    windowMs: 60 * 1000,
+    max: 30,
+    message: { error: "Too many trade requests. Please slow down." },
+    standardHeaders: true,
+    legacyHeaders: false,
+});
+
+const readLimiter = rateLimit({
+    windowMs: 60 * 1000,
+    max: 120,
+    message: { error: "Rate limit exceeded. Please wait a moment." },
+    standardHeaders: true,
+    legacyHeaders: false,
+});
+
 const pool = new Pool({ //create postgress connction pool 
     connectionString: process.env.DATABASE_URL, //haha you wont get it!
-    ssl: process.env.DATABASE_URL && process.env.DATABASE_URL.includes('supabase') ? { rejectUnauthorized: false } : false,
+    ssl: process.env.DATABASE_URL && process.env.DATABASE_URL.includes('supabase') ? { rejectUnauthorized: true } : false,
 });
 
 const supabaseUrl = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -47,14 +83,15 @@ const verifyAuth = async (req, res, next) => {
     const { data, error } = await supabase.auth.getUser(token);
     
     if (error || !data.user) {
-        return res.status(401).json({ error: "Unauthorized: Invalid token", details: error ? error.message : "No user found" });
+        console.warn(`[Auth] Token validation failed: ${error ? error.message : "No user found"}`);
+        return res.status(401).json({ error: "Unauthorized: Invalid token" });
     }
     
     req.user = data.user;
     next();
 };
 
-app.post('/api/buy', verifyAuth, async (req, res) => { // ENDPOINT for buying stocks
+app.post('/api/buy', tradeLimiter, verifyAuth, async (req, res) => { // ENDPOINT for buying stocks
     const { ticker, shares, expectedPrice } = req.body; // extract ticker, and shares from the request body
     const userId = req.user.id;
 
@@ -62,8 +99,12 @@ app.post('/api/buy', verifyAuth, async (req, res) => { // ENDPOINT for buying st
         return res.status(400).json({ error: "Invalid expected price" });
     }
 
-    if (typeof shares !== 'number' || !Number.isInteger(shares) || shares <= 0) {
+    if (typeof shares !== 'number' || !Number.isInteger(shares) || shares <= 0 || shares > 1000000) {
         return res.status(400).json({ error: "Invalid share quantity" });
+    }
+
+    if (!isValidTicker(ticker)) {
+        return res.status(400).json({ error: "Invalid ticker format. Expected 'owner/repo'." });
     }
 
     const client = await pool.connect(); // get a client from the connection pool
@@ -73,11 +114,11 @@ app.post('/api/buy', verifyAuth, async (req, res) => { // ENDPOINT for buying st
 
         // current price
         const stockRes = await client.query('SELECT ticker, current_price FROM repositories WHERE ticker ILIKE $1', [ticker]); // query the repositories table to get the current price of the stock (using ILIKE for case sensiticity)
-        if (stockRes.rows.length === 0) throw new Error("Stock not found.");
+        if (stockRes.rows.length === 0) throw new TradeError("Stock not found.", 404);
         const price = stockRes.rows[0].current_price; // get the current price of the stock from the repositories table
-        
+
         if (Math.abs(price - expectedPrice) / expectedPrice > 0.01) {
-            throw new Error(`Slippage error: Asset price shifted to ${price}. Trade rejected.`);
+            throw new TradeError(`Slippage error: Asset price shifted to ${price}. Trade rejected.`);
         }
 
         const totalCost = Number((price * shares).toFixed(2)); // calculate the total cost of the purchase (price * shares)
@@ -85,10 +126,10 @@ app.post('/api/buy', verifyAuth, async (req, res) => { // ENDPOINT for buying st
 
         // balcance check
         const userRes = await client.query('SELECT cash_balance FROM users WHERE id = $1 FOR UPDATE', [userId]); // query the users table to get the cash balance of the user
-        if (userRes.rows.length === 0) throw new Error("User not found."); // if user is not found in the users table, throw an error
+        if (userRes.rows.length === 0) throw new TradeError("User not found.", 404); // if user is not found in the users table, throw an error
         const cash = userRes.rows[0].cash_balance; // get the cash balance of the user from the users table
 
-        if (cash < totalCost) throw new Error("Insufficient funds."); // if broke -> cant buy lol
+        if (cash < totalCost) throw new TradeError("Insufficient funds."); // if broke -> cant buy lol
 
         // deduction for when user buys stocks
         await client.query('UPDATE users SET cash_balance = cash_balance - $1 WHERE id = $2', [totalCost, userId]);
@@ -113,15 +154,20 @@ app.post('/api/buy', verifyAuth, async (req, res) => { // ENDPOINT for buying st
         await client.query('COMMIT'); // done with all queries, commit the transaction
         res.json({ success: true, message: `Bought ${shares} shares of ${trueTicker}.` });
 
-    } catch (error) { 
+    } catch (error) {
         await client.query('ROLLBACK'); // refunds incase of error
-        res.status(500).json({ error: error.message });
+        if (error instanceof TradeError) {
+            res.status(error.statusCode).json({ error: error.message });
+        } else {
+            console.error(`[Ledger Error] Buy transaction failed: ${error.message}`);
+            res.status(500).json({ error: "An internal error occurred. Please try again." });
+        }
     } finally {
         client.release(); // release the client back to the pool
     }
 });
 
-app.post('/api/sell', verifyAuth, async (req, res) => { // ENDPOINT for selling stocks
+app.post('/api/sell', tradeLimiter, verifyAuth, async (req, res) => { // ENDPOINT for selling stocks
     const { ticker, shares, expectedPrice } = req.body; // extract ticker, and shares from the request body
     const userId = req.user.id;
 
@@ -129,8 +175,12 @@ app.post('/api/sell', verifyAuth, async (req, res) => { // ENDPOINT for selling 
         return res.status(400).json({ error: "Invalid expected price" });
     }
 
-    if (typeof shares !== 'number' || !Number.isInteger(shares) || shares <= 0) {
+    if (typeof shares !== 'number' || !Number.isInteger(shares) || shares <= 0 || shares > 1000000) {
         return res.status(400).json({ error: "Invalid share quantity" });
+    }
+
+    if (!isValidTicker(ticker)) {
+        return res.status(400).json({ error: "Invalid ticker format. Expected 'owner/repo'." });
     }
 
     const client = await pool.connect(); // get a client from the connection pool
@@ -140,11 +190,11 @@ app.post('/api/sell', verifyAuth, async (req, res) => { // ENDPOINT for selling 
 
         // current price
         const stockRes = await client.query('SELECT ticker, current_price FROM repositories WHERE ticker ILIKE $1', [ticker]); // query the repositories table to get the current price of the stock (using ILIKE for case sensiticity)
-        if (stockRes.rows.length === 0) throw new Error("Stock not found.");
+        if (stockRes.rows.length === 0) throw new TradeError("Stock not found.", 404);
         const price = stockRes.rows[0].current_price; // get the current price of the stock from the repositories table
-        
+
         if (Math.abs(price - expectedPrice) / expectedPrice > 0.01) {
-            throw new Error(`Slippage error: Asset price shifted to ${price}. Trade rejected.`);
+            throw new TradeError(`Slippage error: Asset price shifted to ${price}. Trade rejected.`);
         }
 
         const trueTicker = stockRes.rows[0].ticker; // get the exact ticker from DB (case-sensitive)
@@ -152,8 +202,8 @@ app.post('/api/sell', verifyAuth, async (req, res) => { // ENDPOINT for selling 
 
         // portfolio check
         const portRes = await client.query('SELECT shares FROM portfolios WHERE user_id = $1 AND ticker = $2 FOR UPDATE', [userId, trueTicker]); // query the portfolios table to get the number of shares the user owns for the specified stock
-        if (portRes.rows.length === 0 || portRes.rows[0].shares < shares) { 
-            throw new Error("Insufficient shares to sell."); // lol you're broke in stocks too?
+        if (portRes.rows.length === 0 || portRes.rows[0].shares < shares) {
+            throw new TradeError("Insufficient shares to sell.");
         }
 
         // update cash balance
@@ -173,13 +223,18 @@ app.post('/api/sell', verifyAuth, async (req, res) => { // ENDPOINT for selling 
 
     } catch (error) {
         await client.query('ROLLBACK'); // refunds incase of error
-        res.status(500).json({ error: error.message }); 
+        if (error instanceof TradeError) {
+            res.status(error.statusCode).json({ error: error.message });
+        } else {
+            console.error(`[Ledger Error] Sell transaction failed: ${error.message}`);
+            res.status(500).json({ error: "An internal error occurred. Please try again." });
+        }
     } finally {
         client.release(); // release the client back to the pool
     }
 });
 
-app.get('/api/balance/:userId', verifyAuth, async (req, res) => { // ENDPOINT for fetching user's cash balance
+app.get('/api/balance/:userId', readLimiter, verifyAuth, async (req, res) => { // ENDPOINT for fetching user's cash balance
     const userId = req.user.id;
     
     try {
@@ -196,7 +251,7 @@ app.get('/api/balance/:userId', verifyAuth, async (req, res) => { // ENDPOINT fo
     }
 });
 
-app.get('/api/portfolio/:userId', verifyAuth, async (req, res) => { // ENDPOINT for fetching user's portfolio (stocks owned)
+app.get('/api/portfolio/:userId', readLimiter, verifyAuth, async (req, res) => { // ENDPOINT for fetching user's portfolio (stocks owned)
     const userId = req.user.id;
     
     try {
@@ -214,9 +269,13 @@ app.get('/api/portfolio/:userId', verifyAuth, async (req, res) => { // ENDPOINT 
     }
 });
 
-app.get('/api/history/:owner/:repo', async (req, res) => { // ENDPOINT for fetching price history of a stock (repository) based on the owner and repo name
+app.get('/api/history/:owner/:repo', readLimiter, async (req, res) => { // ENDPOINT for fetching price history of a stock (repository) based on the owner and repo name
     const { owner, repo } = req.params; // extract owner and repo from the request parameters
     const ticker = `${owner}/${repo}`;
+
+    if (!isValidTicker(ticker)) {
+        return res.status(400).json({ error: "Invalid repository format." });
+    }
     
     try {
         const result = await pool.query(
@@ -241,7 +300,10 @@ app.get('/api/history/:owner/:repo', async (req, res) => { // ENDPOINT for fetch
         }
         
         const githubData = await githubRes.json();
-        const { stargazers_count, description, language } = githubData;
+        const stargazers_count = typeof githubData.stargazers_count === 'number' ? githubData.stargazers_count : 0;
+        let description = typeof githubData.description === 'string' ? githubData.description : '';
+        if (description.length > 500) description = description.substring(0, 497) + '...';
+        const language = githubData.language;
         const current_price = stargazers_count / 100;
         const category = language || "Unknown";
         
@@ -270,19 +332,15 @@ app.get('/api/history/:owner/:repo', async (req, res) => { // ENDPOINT for fetch
     }
 });
 
-const rateLimit = require('express-rate-limit');
-
-// Security Layer 1: IP Rate Limiting
-// The frontend polls every 5s (12 req/min). We set the limit to 60 req/min per IP to allow a generous buffer for organic refreshes, but block brute-force spam.
 const discoveryLimiter = rateLimit({
-    windowMs: 60 * 1000, // 1 minute
-    max: 60, 
+    windowMs: 60 * 1000,
+    max: 60,
     message: { error: "Rate limit exceeded. Please wait a moment." },
     standardHeaders: true,
     legacyHeaders: false,
 });
 
-// Security Layer 2: In-Memory Cache
+// In-Memory Cache
 // Prevents database exhaustion. No matter how many requests hit the server, 
 // the DB is queried a maximum of once every 5 seconds.
 let cachedDiscoveryData = null;

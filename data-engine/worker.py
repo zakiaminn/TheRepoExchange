@@ -36,7 +36,7 @@ def get_db_connection(): # establish a connection to the postgres database
         raise ValueError("DATABASE_URL environment variable is not set.")
     return psycopg2.connect(DATABASE_URL)
 
-def fetch_repositories_for_category(category_name: str, query: str) -> list: # fetch repositories from github search api for a given category query
+def fetch_repositories_for_category(category_name: str, query: str, _retry_count: int = 0, _max_retries: int = 3) -> list: # fetch repositories from github search api for a given category query
     """Fetch the top 10 repositories from GitHub for a given category query."""
     headers = {
         "Accept": "application/vnd.github.v3+json", #github api versioning
@@ -57,11 +57,14 @@ def fetch_repositories_for_category(category_name: str, query: str) -> list: # f
     try:
         response = requests.get(GITHUB_SEARCH_URL, headers=headers, params=params, timeout=10) #make api request to github ENDPOINT and set timeout for 10s 
         
-        if response.status_code == 429: #handle rate limit error and retry after 60 sec
-            retry_after = int(response.headers.get("Retry-After", 60)) #
-            logger.error(f"Rate limit exceeded (HTTP 429). Retrying after {retry_after} seconds.")
-            time.sleep(retry_after) #sleep for the specified retry time before retrying the request
-            return fetch_repositories_for_category(category_name, query) #recursive call to retry the request after sleeping
+        if response.status_code == 429:
+            if _retry_count >= _max_retries:
+                logger.error(f"Rate limit exceeded {_max_retries} times for {category_name}. Giving up.")
+                return []
+            retry_after = int(response.headers.get("Retry-After", 60))
+            logger.warning(f"Rate limit exceeded (HTTP 429). Retry {_retry_count + 1}/{_max_retries} after {retry_after}s.")
+            time.sleep(retry_after)
+            return fetch_repositories_for_category(category_name, query, _retry_count + 1, _max_retries)
         
         response.raise_for_status() #raise exception for any other https errors
         data = response.json() #parse the json response from github api
@@ -96,18 +99,24 @@ def update_known_assets(conn) -> set:
             for row in rows: # iterate through each known ticker and update its price or mark as inactive if 404
                 ticker = row[0]
                 known_tickers.add(ticker)
-                
+
                 url = f"https://api.github.com/repos/{ticker}"
-                
-                while True: # simple retry loop for rate limit
+
+                max_retries = 3
+                retry_count = 0
+                while True:
                     try:
-                        response = requests.get(url, headers=headers, timeout=10) #make api request to github to get the repository details for the ticker and set timeout for 10s
-                        
-                        if response.status_code == 429: #handle rate limit error and retry after 60 sec
-                            retry_after = int(response.headers.get("Retry-After", 60)) 
-                            logger.error(f"Rate limit exceeded (HTTP 429). Sleeping for {retry_after} seconds.")
+                        response = requests.get(url, headers=headers, timeout=10)
+
+                        if response.status_code == 429:
+                            retry_count += 1
+                            if retry_count > max_retries:
+                                logger.error(f"Rate limit exceeded {max_retries} times for {ticker}. Skipping.")
+                                break
+                            retry_after = int(response.headers.get("Retry-After", 60))
+                            logger.warning(f"Rate limit for {ticker}. Retry {retry_count}/{max_retries} after {retry_after}s.")
                             time.sleep(retry_after)
-                            continue # retry the request
+                            continue
                             
                         if response.status_code == 404:
                             logger.warning(f"Repository {ticker} not found (404). Marking as inactive.") #if repo removed from github
