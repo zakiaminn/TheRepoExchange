@@ -59,7 +59,7 @@ export function Header() {
   }
 
   return (
-    <header className="border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-[#121212] transition-colors duration-300">
+    <header className="border-b border-gray-200 dark:border-gray-800 bg-white/80 dark:bg-[#121212]/80 backdrop-blur-sm transition-colors duration-300 sticky top-0 z-40">
       <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
         <div className="flex items-center gap-6">
           <Link href="/" className="font-semibold text-lg tracking-tight text-gray-900 dark:text-gray-100 hover:text-gray-600 dark:hover:text-gray-300 transition-colors">
@@ -81,7 +81,7 @@ export function Header() {
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Search owner/repo..."
-            className="w-full px-4 py-2 rounded-full bg-gray-100 dark:bg-gray-800 text-sm focus:outline-none focus:ring-2 focus:ring-gray-200 dark:focus:ring-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400 transition-all"
+            className="w-full px-4 py-2 rounded-full bg-gray-100 dark:bg-gray-800/60 text-sm focus:outline-none focus:ring-2 focus:ring-gray-300 dark:focus:ring-gray-600 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 transition-all"
           />
         </form>
 
@@ -111,7 +111,7 @@ export function Header() {
                 onClick={() => setIsDropdownOpen(!isDropdownOpen)}
                 className="flex items-center gap-3 hover:opacity-80 transition-opacity"
               >
-                <div className="h-8 w-8 rounded-full bg-gray-900 dark:bg-white text-white dark:text-gray-900 flex items-center justify-center text-xs font-bold tracking-wider">
+                <div className="h-8 w-8 rounded-full bg-gray-900 dark:bg-white text-white dark:text-gray-900 flex items-center justify-center text-xs font-bold tracking-wider shadow-sm">
                   {userInitials}
                 </div>
                 <span className="font-medium text-gray-900 dark:text-gray-100">
@@ -120,7 +120,7 @@ export function Header() {
               </button>
 
               {isDropdownOpen && (
-                <div className="absolute right-0 top-10 mt-2 w-48 border border-gray-200 dark:border-gray-800 bg-white dark:bg-[#121212] shadow-sm z-50 py-1">
+                <div className="absolute right-0 top-10 mt-2 w-48 border border-gray-200 dark:border-gray-800 bg-white dark:bg-[#161616] shadow-lg z-50 py-1">
                   <Link
                     href="/settings"
                     className="block px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"

@@ -23,14 +23,14 @@ export default function SettingsPage() {
     const checkAuth = async () => {
       const { data: { user } } = await supabase.auth.getUser();
       
-      if (!user) { // wrong user sends back to login
+      if (!user) { // not logged in, bounce them
         window.location.href = "/login";
       } else {
-        // extract user email and metadata to pre-fill the form
+        // pre-fill the form with what we already know about them
         setEmail(user.email || "");
         setFirstName(user.user_metadata?.first_name || "");
         setLastName(user.user_metadata?.last_name || "");
-        setIsInitializing(false); // finish initializing to render the page
+        setIsInitializing(false);
       }
     };
 
@@ -38,9 +38,9 @@ export default function SettingsPage() {
   }, [supabase.auth]);
 
   const handleUpdateProfile = async (e: React.FormEvent) => {
-    e.preventDefault(); // prevent default form submission
-    setIsLoading(true); // set loading state to disable button and show saving text
-    setMessage(null); // clear any existing messages
+    e.preventDefault();
+    setIsLoading(true);
+    setMessage(null);
 
     try {
       const { error } = await supabase.auth.updateUser({
@@ -51,24 +51,24 @@ export default function SettingsPage() {
       });
 
       if (error) {
-        setMessage({ text: error.message, type: "error" }); // display error message if update fails
+        setMessage({ text: error.message, type: "error" });
       } else {
-        setMessage({ text: "Profile updated successfully.", type: "success" }); // display success message if update succeeds
+        setMessage({ text: "Profile updated successfully.", type: "success" });
       }
     } catch (err) {
-      setMessage({ text: "An unexpected error occurred.", type: "error" }); // fallback error message
+      setMessage({ text: "An unexpected error occurred.", type: "error" });
     } finally {
-      setIsLoading(false); // reset loading state
-      setTimeout(() => setMessage(null), 4000); // clear message after 4 seconds
+      setIsLoading(false);
+      setTimeout(() => setMessage(null), 4000); // clear the message after a bit so it doesn't just sit there
     }
   };
 
-  if (isInitializing) { // while checking auth state
-    return ( // show this
+  if (isInitializing) { // show a loading state so the page doesn't flash
+    return (
       <div className="min-h-screen bg-white dark:bg-[#121212] flex items-center justify-center text-sm text-gray-500 dark:text-gray-400">
         SECURING CONNECTION...
       </div>
-    ); // prevents flashing
+    );
   }
 
   return (
@@ -89,7 +89,7 @@ export default function SettingsPage() {
             </div>
           </div>
 
-          <div className="bg-white dark:bg-[#121212] border border-gray-200 dark:border-gray-800 p-8 shadow-sm">
+          <div className="bg-white dark:bg-[#161616] border border-gray-200 dark:border-gray-800 p-8 shadow-md">
             <form onSubmit={handleUpdateProfile} className="space-y-6">
               <div>
                 <label className="block text-[10px] font-mono uppercase tracking-[0.15em] text-gray-500 dark:text-gray-400 mb-2">
@@ -98,7 +98,7 @@ export default function SettingsPage() {
                 <input 
                   type="email" 
                   value={email}
-                  disabled // email is read-only
+                  disabled // can't change email, it's tied to their auth
                   className="w-full h-10 px-3 bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-800 text-gray-500 dark:text-gray-400 text-sm focus:outline-none cursor-not-allowed transition-all"
                 />
               </div>
@@ -111,9 +111,9 @@ export default function SettingsPage() {
                   <input 
                     type="text" 
                     value={firstName}
-                    onChange={(e) => setFirstName(e.target.value)} // update first name state
+                    onChange={(e) => setFirstName(e.target.value)}
                     required
-                    className="w-full h-10 px-3 bg-gray-50 dark:bg-[#1a1a1a] border border-gray-200 dark:border-gray-800 text-gray-900 dark:text-gray-100 text-sm focus:outline-none focus:border-gray-900 dark:focus:border-gray-100 focus:ring-1 focus:ring-gray-900 dark:focus:ring-gray-100 transition-all"
+                    className="w-full h-10 px-3 bg-gray-50 dark:bg-[#1a1a1a] border border-gray-200 dark:border-gray-800 text-gray-900 dark:text-gray-100 text-sm focus:outline-none focus:border-gray-900 dark:focus:border-gray-100 focus:ring-1 focus:ring-gray-900/10 dark:focus:ring-gray-100/10 transition-all"
                     placeholder="First Name"
                   />
                 </div>
@@ -125,9 +125,9 @@ export default function SettingsPage() {
                   <input 
                     type="text" 
                     value={lastName}
-                    onChange={(e) => setLastName(e.target.value)} // update last name state
+                    onChange={(e) => setLastName(e.target.value)}
                     required
-                    className="w-full h-10 px-3 bg-gray-50 dark:bg-[#1a1a1a] border border-gray-200 dark:border-gray-800 text-gray-900 dark:text-gray-100 text-sm focus:outline-none focus:border-gray-900 dark:focus:border-gray-100 focus:ring-1 focus:ring-gray-900 dark:focus:ring-gray-100 transition-all"
+                    className="w-full h-10 px-3 bg-gray-50 dark:bg-[#1a1a1a] border border-gray-200 dark:border-gray-800 text-gray-900 dark:text-gray-100 text-sm focus:outline-none focus:border-gray-900 dark:focus:border-gray-100 focus:ring-1 focus:ring-gray-900/10 dark:focus:ring-gray-100/10 transition-all"
                     placeholder="Last Name"
                   />
                 </div>
@@ -135,7 +135,7 @@ export default function SettingsPage() {
 
               <button 
                 type="submit" 
-                disabled={isLoading} // disable button while loading
+                disabled={isLoading}
                 className={`w-full h-10 mt-4 text-xs font-bold tracking-wide uppercase transition-all duration-150 flex items-center justify-center ${
                   isLoading 
                     ? 'bg-gray-200 dark:bg-gray-800 text-gray-400 dark:text-gray-500 cursor-not-allowed' 

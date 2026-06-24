@@ -24,7 +24,7 @@ type SystemMessage = {
 } | null;
 
 export default function AssetChartPage(props: PageProps) {
-  // Unwrap the Promise-based params in Next.js 15+
+  // next.js 15 made params a promise, so we need to unwrap it
   const params = use(props.params);
   const { owner, repo } = params;
   const ticker = `${owner}/${repo}`.toUpperCase();
@@ -39,7 +39,7 @@ export default function AssetChartPage(props: PageProps) {
   const [error, setError] = useState<string | null>(null);
   const [assetExists, setAssetExists] = useState<boolean | null>(null);
 
-  // Trade state
+  // everything related to the buy/sell panel
   const [userId, setUserId] = useState<string | null>(null);
   const [balance, setBalance] = useState<number | null>(null);
   const [ownedShares, setOwnedShares] = useState<number>(0);
@@ -171,7 +171,7 @@ export default function AssetChartPage(props: PageProps) {
         vertLine: {
           color: crosshairColor,
           width: 1,
-          style: 3, // Dotted
+          style: 3, // dotted
           labelBackgroundColor: crosshairColor,
         },
         horzLine: {
@@ -251,7 +251,7 @@ export default function AssetChartPage(props: PageProps) {
         setMessage({ text: `Filled: ${action} ${tradeQuantity} QTY of ${ticker} @ Market`, type: "success" });
         fetchBalance(userId);
         fetchPortfolio(userId);
-        setTradeQuantity(1); // reset after successful trade
+        setTradeQuantity(1); // reset qty back to 1 after a fill
       } else {
         setMessage({ text: `Rejected: ${result.error}`, type: "error" });
       }
@@ -324,7 +324,7 @@ export default function AssetChartPage(props: PageProps) {
             </div>
           </div>
 
-          <div className="border border-gray-200 dark:border-gray-800 bg-white dark:bg-[#121212] p-6 shadow-sm mb-8">
+          <div className="border border-gray-200 dark:border-gray-800 bg-white dark:bg-[#161616] p-6 shadow-md mb-8">
             {assetExists === null ? (
               <div className="h-[400px] flex items-center justify-center font-mono text-sm text-gray-500 dark:text-gray-400">
                 VERIFYING ASSET DATA...
@@ -345,8 +345,8 @@ export default function AssetChartPage(props: PageProps) {
             )}
           </div>
 
-          {/* Trade Panel */}
-          <div className={`border border-gray-200 dark:border-gray-800 bg-white dark:bg-[#121212] p-6 shadow-sm flex flex-col md:flex-row items-center justify-between gap-6 ${assetExists === false ? "opacity-50" : ""}`}>
+          {/* trade panel */}
+          <div className={`border border-gray-200 dark:border-gray-800 bg-white dark:bg-[#161616] p-6 shadow-sm flex flex-col md:flex-row items-center justify-between gap-6 ${assetExists === false ? "opacity-50" : ""}`}>
             <div className="flex flex-col">
               <span className="text-[10px] font-mono uppercase tracking-[0.2em] text-gray-500 dark:text-gray-400 mb-1">Position</span>
               <span className="text-xl font-mono tracking-tighter text-gray-900 dark:text-gray-100">
@@ -400,12 +400,12 @@ export default function AssetChartPage(props: PageProps) {
 
       {message && (
         <div className="fixed bottom-6 right-6 z-50 animate-in slide-in-from-bottom-4 fade-in duration-300">
-          <div className={`px-4 py-3 border text-sm font-mono shadow-xl flex items-center gap-3 ${
-            message.type === 'success' 
-              ? 'bg-white dark:bg-[#121212] border-gray-900 dark:border-gray-100 text-gray-900 dark:text-gray-100' 
-              : 'bg-gray-900 dark:bg-gray-100 border-gray-900 dark:border-gray-100 text-white dark:text-gray-900'
+          <div className={`px-4 py-3 text-sm font-mono shadow-lg flex items-center gap-3 ${
+            message.type === 'success'
+              ? 'bg-white dark:bg-[#161616] border border-green-200 dark:border-green-900/50 text-gray-900 dark:text-gray-100'
+              : 'bg-white dark:bg-[#161616] border border-red-200 dark:border-red-900/50 text-gray-900 dark:text-gray-100'
           }`}>
-            <div className={`h-2 w-2 rounded-full ${message.type === 'success' ? 'bg-gray-900 dark:bg-white' : 'bg-red-500'}`}></div>
+            <div className={`h-2 w-2 rounded-full ${message.type === 'success' ? 'bg-green-500' : 'bg-red-500'}`}></div>
             {message.text}
           </div>
         </div>

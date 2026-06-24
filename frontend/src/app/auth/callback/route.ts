@@ -21,6 +21,6 @@ export async function GET(request: Request) {
     }
   }
 
-  // Fallback if the code exchange fails or no code is present
+  // something went wrong with the oauth flow, send them back to login
   return NextResponse.redirect(`${origin}/login?error=Could not authenticate user`);
 }

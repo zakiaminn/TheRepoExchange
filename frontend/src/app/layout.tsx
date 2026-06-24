@@ -4,17 +4,17 @@ import "./globals.css";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import { Header } from "@/components/Header";
 
-const inter = Inter({ // using variable font for better performance and flexibility
+const inter = Inter({ // variable font so we get all the weights we need
   subsets: ["latin"],
   variable: "--font-inter",
 });
 
-export const metadata: Metadata = { //metadata for app
+export const metadata: Metadata = {
   title: "TRX Exchange",
   description: "Modern retail brokerage platform",
 };
 
-export default function RootLayout({ // the root layout that wraps all pages, includes the header and theme provider, and applies global styles
+export default function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
