@@ -51,7 +51,7 @@ export default function TradingTerminal() {
     checkAuth();
   }, [supabase.auth]);
 
-  const fetchBalance = async () => { // fetch purchasing power balance from ledger
+  const fetchBalance = async () => { // grab the user's balance so we can show their purchasing power
     if (!userId) return;
     try {
       const { data: { session } } = await supabase.auth.getSession();
@@ -68,7 +68,7 @@ export default function TradingTerminal() {
     }
   };
 
-  const fetchPortfolio = async () => { // fetch holdings from ledger
+  const fetchPortfolio = async () => { // pull the user's current holdings
     if (!userId) return;
     try {
       const { data: { session } } = await supabase.auth.getSession();
@@ -85,13 +85,13 @@ export default function TradingTerminal() {
     }
   };
 
-  useEffect(() => { // initial fetch of balance and portfolio on login, and refetch every time userId changes 
+  useEffect(() => { // once we know who the user is, load their stuff
     if (userId) {
       fetchPortfolio();
       fetchBalance();
     }
 
-    const fetchDiscovery = async () => { // fetch discovery data from backend every 5 seconds, which in turn fetches from the database every 5 seconds
+    const fetchDiscovery = async () => {
       try {
         const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/discovery`);
         if (res.ok) {
@@ -106,47 +106,44 @@ export default function TradingTerminal() {
     fetchDiscovery();
     const interval = setInterval(fetchDiscovery, 5000);
     return () => clearInterval(interval);
-  }, [userId]); // only fetch discovery data after confirming user is authenticated and has a userId, then continue to refetch every 5 seconds to keep data fresh
+  }, [userId]); // poll every 5 seconds to keep prices fresh
 
-  const handleBuy = async (ticker: string, currentPrice: number) => { // handle buy order for a ticker
-    if (!userId) return; // if for some reason userId is not set, do not proceed with buy
-    
-    setProcessingTicker(ticker); // set the currently processing ticker to disable its buy button and show "Routing..." text
-    setMessage(null); // clear any existing system messages
-    
-    try { // send buy request to ledger
+  const handleBuy = async (ticker: string, currentPrice: number) => {
+    if (!userId) return;
+
+    setProcessingTicker(ticker);
+    setMessage(null);
+
+    try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) throw new Error("No session");
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/buy`, { // standard RESTful API design with POST method for creating a new buy order
-        method: "POST", // using POST method to indicate creation of a new buy order
-        headers: { 
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/buy`, {
+        method: "POST",
+        headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${session.access_token}`
-        }, // setting content type to JSON for the request body
-        body: JSON.stringify({ // sending userId and ticker in the request body for the ledger to process the buy order
-          ticker: ticker, // passing ticker to specify which asset the user wants to buy
-          shares: 1, // hardcoding shares to 1 for simplicity, can be extended to allow user input for number of shares in the future
-          expectedPrice: Number(currentPrice) // passing the current price as the expected price for the buy order, this can be used by the ledger to check for slippage or price changes before filling the order
+        },
+        body: JSON.stringify({
+          ticker: ticker,
+          shares: 1, // hardcoded to 1 for now, might let users pick quantity later
+          expectedPrice: Number(currentPrice) // ledger uses this to check for slippage before filling
         }),
       });
 
-      const result = await response.json(); // parsing the JSON response from the ledger, which should  either a success confirmation or an error message
-      
-      if (response.ok) { // if the response status is in the 200-299 range, consider it a successful buy order
-        setMessage({ text: `Filled: 1 QTY of ${ticker} @ Market`, type: "success" }); // showing a success message with the filled order details, in a real application this could include the actual filled price and timestamp returned from the ledger
-        fetchBalance(); // refetch balance to update purchasing power after the buy order
-        fetchPortfolio(); // refetch portfolio to update holdings after the buy order
-      } else { 
-        setMessage({ text: `Rejected: ${result.error}`, type: "error" }); // if the response status indicates an error, 
-                                                                          // show the error message returned from the ledger, 
-                                                                          // which could be due to insufficient balance, invalid ticker, 
-                                                                          // or any other business logic enforced by the ledger
+      const result = await response.json();
+
+      if (response.ok) {
+        setMessage({ text: `Filled: 1 QTY of ${ticker} @ Market`, type: "success" });
+        fetchBalance();
+        fetchPortfolio();
+      } else {
+        setMessage({ text: `Rejected: ${result.error}`, type: "error" });
       }
     } catch (err) {
-      setMessage({ text: "Connection refused by Ledger.", type: "error" }); // if there is a network error or the ledger is offline shpw mesage
+      setMessage({ text: "Connection refused by Ledger.", type: "error" });
     } finally {
-      setProcessingTicker(null); // reset the processing ticker to re-enable the buy button and reset its text, this happens regardless of success or failure of the buy order
-      setTimeout(() => setMessage(null), 4000); //clear message after 4 seconds
+      setProcessingTicker(null);
+      setTimeout(() => setMessage(null), 4000); // clear the message after a bit so it doesn't just sit there
     }
   };
 
@@ -175,11 +172,11 @@ export default function TradingTerminal() {
                 The Stock Market for Code
               </p>
             </div>
-            
-            <div className="text-right">
+
+            <div className="text-right border border-gray-200 dark:border-gray-800 bg-white dark:bg-[#161616] px-5 py-3 shadow-sm">
               <p className="text-[9px] uppercase tracking-[0.15em] text-gray-500 dark:text-gray-400 mb-1">Purchasing Power</p>
               <p className="text-xl font-mono tracking-tighter text-gray-900 dark:text-gray-100">
-                {balance !== null 
+                {balance !== null
                   ? new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(balance)
                   : "Awaiting Ledger..."}
               </p>
@@ -197,7 +194,7 @@ export default function TradingTerminal() {
                   <h2 className="text-[11px] tracking-[0.25em] font-bold uppercase text-gray-500 dark:text-gray-400 mb-4">{category}</h2>
                   <div className="flex overflow-x-auto gap-4 pb-4 snap-x [&::-webkit-scrollbar]:hidden" style={{ scrollbarWidth: 'none' }}>
                     {repos.map((repo) => (
-                      <div key={repo.ticker} className="flex-none w-72 snap-center border border-gray-200 dark:border-gray-800 bg-white dark:bg-[#121212] p-5 flex flex-col justify-between hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors duration-200">
+                      <div key={repo.ticker} className="flex-none w-72 snap-center border border-gray-200 dark:border-gray-800 bg-white dark:bg-[#161616] p-5 flex flex-col justify-between hover:shadow-md hover:-translate-y-0.5 hover:border-gray-300 dark:hover:border-gray-700 transition-all duration-200">
                         <div className="mb-8">
                           <Link 
                             href={`/asset/${repo.ticker.split('/')[0].toLowerCase()}/${repo.ticker.split('/')[1].toLowerCase()}`}
@@ -248,7 +245,7 @@ export default function TradingTerminal() {
 
           <div className="mt-16">
             <h2 className="text-xl font-semibold tracking-tighter mb-4 text-gray-900 dark:text-gray-100">Current Holdings</h2>
-            <div className="border border-gray-200 dark:border-gray-800 bg-white dark:bg-[#121212]">
+            <div className="border border-gray-200 dark:border-gray-800 bg-white dark:bg-[#161616] shadow-sm">
               {portfolio.length === 0 ? (
                 <div className="p-12 text-center text-sm text-gray-500 dark:text-gray-400">
                   NO ASSETS HELD
@@ -295,12 +292,12 @@ export default function TradingTerminal() {
 
       {message && (
         <div className="fixed bottom-6 right-6 z-50 animate-in slide-in-from-bottom-4 fade-in duration-300">
-          <div className={`px-4 py-3 border text-sm shadow-xl flex items-center gap-3 ${
-            message.type === 'success' 
-              ? 'bg-white dark:bg-[#121212] border-gray-200 dark:border-gray-800 text-gray-900 dark:text-gray-100' 
-              : 'bg-gray-900 dark:bg-gray-100 border-gray-900 dark:border-gray-100 text-white dark:text-gray-900'
+          <div className={`px-4 py-3 text-sm shadow-lg flex items-center gap-3 ${
+            message.type === 'success'
+              ? 'bg-white dark:bg-[#161616] border border-green-200 dark:border-green-900/50 text-gray-900 dark:text-gray-100'
+              : 'bg-white dark:bg-[#161616] border border-red-200 dark:border-red-900/50 text-gray-900 dark:text-gray-100'
           }`}>
-            <div className={`h-2 w-2 rounded-full ${message.type === 'success' ? 'bg-black dark:bg-white' : 'bg-red-500'}`}></div>
+            <div className={`h-2 w-2 rounded-full ${message.type === 'success' ? 'bg-green-500' : 'bg-red-500'}`}></div>
             {message.text}
           </div>
         </div>

@@ -66,7 +66,7 @@ useEffect(() => {
     fetchData();
   }, [userId, supabase.auth]);
 
-  // Calculations
+  // derive the portfolio summary numbers from what we fetched
   const cash = balance || 0;
   
   const totalAssetValue = portfolio.reduce((acc, holding) => {
@@ -100,38 +100,45 @@ useEffect(() => {
 
       <div className="relative z-10">
         <main className="max-w-4xl mx-auto px-6 py-12">
-          {/* Hero Section */}
-          <div className="mb-16 border-b border-gray-200 dark:border-gray-800 pb-12 text-center">
-            <p className="text-[10px] font-mono uppercase tracking-[0.2em] text-gray-500 dark:text-gray-400 mb-4">Total Net Worth</p>
-            <h1 className="text-7xl font-light tracking-tighter text-gray-900 dark:text-gray-100 font-mono mb-6">
-              {formatCurrency(netWorth)}
-            </h1>
-            <div className="flex flex-col items-center gap-2">
-              <p className="text-[10px] font-mono uppercase tracking-[0.2em] text-gray-500 dark:text-gray-400">Total Profit / Loss</p>
-              <p className={`text-2xl font-mono tracking-tighter ${pnlColor}`}>
-                {pnlSign}{formatCurrency(totalPnL)}
-              </p>
+          {/* hero section */}
+          <div className="mb-16 pb-12 text-center relative">
+            <div className="absolute inset-0 flex items-center justify-center pointer-events-none select-none opacity-[0.02] dark:opacity-[0.04]">
+              <span className="text-[16rem] font-mono font-bold tracking-tighter leading-none">$</span>
             </div>
+            <div className="relative">
+              <p className="text-[10px] font-mono uppercase tracking-[0.2em] text-gray-500 dark:text-gray-400 mb-4">Total Net Worth</p>
+              <h1 className="text-7xl font-light tracking-tighter text-gray-900 dark:text-gray-100 font-mono mb-6">
+                {formatCurrency(netWorth)}
+              </h1>
+              <div className="inline-flex items-center gap-2 px-4 py-2 border border-gray-200 dark:border-gray-800 bg-white dark:bg-[#161616] shadow-sm">
+                <div className={`h-2 w-2 rounded-full ${totalPnL >= 0 ? 'bg-green-500' : 'bg-red-500'}`}></div>
+                <p className="text-[10px] font-mono uppercase tracking-[0.2em] text-gray-500 dark:text-gray-400">P&L</p>
+                <p className={`text-sm font-mono tracking-tighter font-medium ${pnlColor}`}>
+                  {pnlSign}{formatCurrency(totalPnL)}
+                </p>
+              </div>
+            </div>
+            <div className="mt-12 border-b border-gray-200 dark:border-gray-800"></div>
           </div>
 
-          {/* Cash Breakdown */}
-          <div className="mb-12 border border-gray-200 dark:border-gray-800 bg-white dark:bg-[#121212] p-6 shadow-sm flex justify-between items-center">
+          {/* cash breakdown */}
+          <div className="mb-12 border border-gray-200 dark:border-gray-800 bg-white dark:bg-[#161616] p-6 shadow-sm flex justify-between items-center">
             <span className="text-[11px] font-mono uppercase tracking-[0.25em] text-gray-500 dark:text-gray-400 font-bold">Available Cash</span>
             <span className="text-xl font-mono tracking-tighter text-gray-900 dark:text-gray-100">
               {formatCurrency(cash)}
             </span>
           </div>
 
-          {/* Holdings Ledger */}
+          {/* holdings ledger */}
           <div>
             <h2 className="text-[11px] tracking-[0.25em] font-bold uppercase text-gray-500 dark:text-gray-400 mb-6">Holdings Ledger</h2>
             
             {portfolio.length === 0 ? (
-              <div className="border border-gray-200 dark:border-gray-800 bg-white dark:bg-[#121212] p-12 text-center text-sm font-mono text-gray-500 dark:text-gray-400 shadow-sm">
+              <div className="border border-gray-200 dark:border-gray-800 bg-white dark:bg-[#161616] p-12 text-center text-sm font-mono text-gray-500 dark:text-gray-400 shadow-sm">
                 NO ASSETS HELD
               </div>
             ) : (
-              <div className="border border-gray-200 dark:border-gray-800 bg-white dark:bg-[#121212] shadow-sm font-mono">
+              <div className="border border-gray-200 dark:border-gray-800 bg-white dark:bg-[#161616] shadow-sm font-mono">
                 {portfolio.map((holding, index) => {
                   const currentPrice = Number(holding.current_price);
                   const averagePrice = Number(holding.average_price);
@@ -145,10 +152,12 @@ useEffect(() => {
                   const [owner, repoName] = holding.ticker.split('/');
 
                   return (
-                    <div 
-                      key={holding.ticker} 
-                      className={`flex justify-between items-center px-6 py-6 group hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors duration-200 ${
-                        index !== portfolio.length - 1 ? 'border-b border-gray-200 dark:border-gray-800' : ''
+                    <div
+                      key={holding.ticker}
+                      className={`flex justify-between items-center px-6 py-6 group hover:bg-gray-50 dark:hover:bg-[#1a1a1a] transition-colors duration-200 border-l-2 ${
+                        holdingPnL >= 0 ? 'border-l-green-500/40 hover:border-l-green-500' : 'border-l-red-500/40 hover:border-l-red-500'
+                      } ${
+                        index !== portfolio.length - 1 ? 'border-b border-b-gray-200 dark:border-b-gray-800' : ''
                       }`}
                     >
                       <div className="flex flex-col">

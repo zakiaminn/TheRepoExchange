@@ -91,7 +91,7 @@ export default function LoginPage() {
     <div className="flex flex-col items-center justify-center min-h-screen bg-white dark:bg-[#121212] text-gray-900 dark:text-gray-100 font-sans selection:bg-gray-900 selection:text-white transition-colors duration-300">
       <div className="absolute inset-0 z-0 bg-[radial-gradient(#e5e7eb_1px,transparent_1px)] dark:bg-[radial-gradient(#374151_1px,transparent_1px)] [background-size:16px_16px] pointer-events-none"></div>
 
-      <div className="relative z-10 w-full max-w-sm p-8 bg-white dark:bg-[#121212] border border-gray-200 dark:border-gray-800 shadow-sm">
+      <div className="relative z-10 w-full max-w-sm p-8 bg-white dark:bg-[#161616] border border-gray-200 dark:border-gray-800 shadow-lg">
         <div className="mb-8 text-center">
           <h1 className="text-2xl font-bold tracking-tighter mb-1">TRX.EXCHANGE</h1>
           <p className="text-[10px] uppercase tracking-[0.2em] text-gray-500 dark:text-gray-400">
@@ -108,7 +108,7 @@ export default function LoginPage() {
                 value={firstName}
                 onChange={(e) => setFirstName(e.target.value)}
                 required={isSignUp}
-                className="w-full px-3 py-2 text-sm bg-transparent border border-gray-200 dark:border-gray-800 focus:outline-none focus:border-gray-900 dark:focus:border-gray-100 transition-colors"
+                className="w-full px-3 py-2 text-sm bg-transparent border border-gray-200 dark:border-gray-800 focus:outline-none focus:border-gray-900 dark:focus:border-gray-100 focus:ring-1 focus:ring-gray-900/10 dark:focus:ring-gray-100/10 transition-all"
               />
               <input
                 type="text"
@@ -116,7 +116,7 @@ export default function LoginPage() {
                 value={lastName}
                 onChange={(e) => setLastName(e.target.value)}
                 required={isSignUp}
-                className="w-full px-3 py-2 text-sm bg-transparent border border-gray-200 dark:border-gray-800 focus:outline-none focus:border-gray-900 dark:focus:border-gray-100 transition-colors"
+                className="w-full px-3 py-2 text-sm bg-transparent border border-gray-200 dark:border-gray-800 focus:outline-none focus:border-gray-900 dark:focus:border-gray-100 focus:ring-1 focus:ring-gray-900/10 dark:focus:ring-gray-100/10 transition-all"
               />
             </div>
           )}
@@ -126,7 +126,7 @@ export default function LoginPage() {
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             required
-            className="w-full px-3 py-2 text-sm bg-transparent border border-gray-200 dark:border-gray-800 focus:outline-none focus:border-gray-900 dark:focus:border-gray-100 transition-colors"
+            className="w-full px-3 py-2 text-sm bg-transparent border border-gray-200 dark:border-gray-800 focus:outline-none focus:border-gray-900 dark:focus:border-gray-100 focus:ring-1 focus:ring-gray-900/10 dark:focus:ring-gray-100/10 transition-all"
           />
           <input
             type="password"
@@ -134,7 +134,7 @@ export default function LoginPage() {
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             required
-            className="w-full px-3 py-2 text-sm bg-transparent border border-gray-200 dark:border-gray-800 focus:outline-none focus:border-gray-900 dark:focus:border-gray-100 transition-colors"
+            className="w-full px-3 py-2 text-sm bg-transparent border border-gray-200 dark:border-gray-800 focus:outline-none focus:border-gray-900 dark:focus:border-gray-100 focus:ring-1 focus:ring-gray-900/10 dark:focus:ring-gray-100/10 transition-all"
           />
 
           <button
