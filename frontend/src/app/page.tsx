@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { createClient } from "@/utils/supabase/client";
+import { LandingPage } from "@/components/LandingPage";
 
 type Repository = {
   ticker: string;
@@ -39,8 +40,8 @@ export default function TradingTerminal() {
     const checkAuth = async () => {
       const { data: { user } } = await supabase.auth.getUser();
       
-      if (!user) { //wrong user sends back to login
-        window.location.href = "/login";
+      if (!user) {
+        setIsInitializing(false);
       } else {
         setUserId(user.id);
         setIsInitializing(false);
@@ -149,12 +150,16 @@ export default function TradingTerminal() {
     }
   };
 
-  if (isInitializing) { // while checking auth stat
-    return ( //show this
+  if (isInitializing) {
+    return (
       <div className="min-h-screen bg-white dark:bg-[#121212] flex items-center justify-center text-sm text-gray-500 dark:text-gray-400">
         SECURING CONNECTION...
       </div>
-    ); //prevents flashing
+    );
+  }
+
+  if (!userId) {
+    return <LandingPage />;
   }
 
   return (

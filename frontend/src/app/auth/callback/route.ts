@@ -5,13 +5,15 @@ export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url);
   const code = searchParams.get('code');
   
-  // Default redirect to the root trading terminal if no 'next' parameter is provided
-  const next = searchParams.get('next') ?? '/';
+  let next = searchParams.get('next') ?? '/';
+  if (!next.startsWith('/') || next.startsWith('//') || next.startsWith('/\\')) {
+    next = '/';
+  }
 
   if (code) {
     const supabase = await createClient();
     const { error } = await supabase.auth.exchangeCodeForSession(code);
-    
+
     if (!error) {
       return NextResponse.redirect(`${origin}${next}`);
     } else {
