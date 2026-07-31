@@ -3,17 +3,26 @@
 :root {
   --background: #f9fafb;
   --foreground: #111827;
+  /* brand accent - electric indigo. used for primary ctas, active nav state, links,
+     focus rings. kept separate from green/red so it never gets confused with p&l color */
+  --accent: #6366f1;
+  --accent-foreground: #ffffff;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
   --font-sans: var(--font-inter);
 }
 
 .dark {
   --background: #121212;
   --foreground: #f3f4f6;
+  /* lighter indigo in dark mode so it still has enough contrast against the near-black bg */
+  --accent: #818cf8;
+  --accent-foreground: #1e1b4b;
 }
 
 body {

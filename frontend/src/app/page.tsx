@@ -4,6 +4,9 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { createClient } from "@/utils/supabase/client";
 import { LandingPage } from "@/components/LandingPage";
+import { Toast, ToastMessage } from "@/components/Toast";
+import { ConfirmTradeModal } from "@/components/ConfirmTradeModal";
+import { MiniSparkline } from "@/components/MiniSparkline";
 
 type Repository = {
   ticker: string;
@@ -11,12 +14,8 @@ type Repository = {
   description: string;
   category: string;
   raw_stars: number;
+  sparkline: number[];
 };
-
-type SystemMessage = {
-  text: string;
-  type: "success" | "error";
-} | null;
 
 type Holding = {
   ticker: string;
@@ -24,13 +23,89 @@ type Holding = {
   average_price: number;
 };
 
+// a trade waiting on user confirmation in the modal. null means nothing pending
+type PendingTrade = {
+  ticker: string;
+  quantity: number;
+  price: number;
+} | null;
+
+// one discovery card - ticker, sparkline, description, price, and a quantity + buy
+// control. keeps its own quantity state since every card needs an independent one, and
+// just hands off to the parent once someone actually clicks buy (the parent owns the
+// confirm modal since only one can be open at a time)
+function DiscoveryCard({ repo, onBuyRequest }: { repo: Repository; onBuyRequest: (ticker: string, quantity: number, price: number) => void }) {
+  const [quantity, setQuantity] = useState(1);
+  const [owner, name] = repo.ticker.split('/');
+
+  // trend color for the sparkline - green if the price is higher now than 10 points ago,
+  // red otherwise. defaults to green if there's not enough history to compare yet
+  const trendPositive = repo.sparkline.length > 1
+    ? repo.sparkline[repo.sparkline.length - 1] >= repo.sparkline[0]
+    : true;
+
+  return (
+    <div className="flex-none w-72 snap-center border border-gray-200 dark:border-gray-800 bg-white dark:bg-[#161616] p-5 flex flex-col justify-between hover:shadow-md hover:-translate-y-0.5 hover:border-gray-300 dark:hover:border-gray-700 transition-all duration-200">
+      <div className="mb-6">
+        <div className="flex items-start justify-between gap-2 mb-3">
+          <Link
+            href={`/asset/${owner.toLowerCase()}/${name.toLowerCase()}`}
+            className="block hover:text-accent transition-colors cursor-pointer min-w-0"
+          >
+            <h3 className="text-lg font-bold tracking-tighter text-gray-900 dark:text-gray-100 truncate">
+              {name.toUpperCase()}
+            </h3>
+            <p className="text-[10px] text-gray-500 dark:text-gray-400 mt-0.5 truncate">
+              {owner}
+            </p>
+          </Link>
+          <MiniSparkline data={repo.sparkline} positive={trendPositive} className="shrink-0" />
+        </div>
+        <p className="text-[10px] text-gray-500 dark:text-gray-400 line-clamp-2 h-7 leading-tight overflow-hidden">
+          {repo.description || "No description available."}
+        </p>
+      </div>
+
+      <div className="flex justify-between items-end mt-auto gap-2">
+        <div>
+          <p className="text-[10px] uppercase tracking-[0.15em] text-gray-500 dark:text-gray-400 mb-1">Mark Price</p>
+          <div className="flex items-baseline gap-1">
+            <span className="text-sm text-gray-500 dark:text-gray-400 font-mono">$</span>
+            <span className="text-2xl font-light tracking-tighter text-gray-900 dark:text-gray-100 font-mono">
+              {Number(repo.current_price).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            </span>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <input
+            type="number"
+            min="1"
+            value={quantity}
+            onChange={(e) => setQuantity(Math.max(1, parseInt(e.target.value) || 1))}
+            aria-label={`Quantity of ${repo.ticker}`}
+            className="w-12 h-8 px-1 text-center text-xs font-mono border border-gray-300 dark:border-gray-700 bg-white dark:bg-[#1a1a1a] text-gray-900 dark:text-gray-100 focus:outline-none focus:border-accent"
+          />
+          <button
+            onClick={() => onBuyRequest(repo.ticker, quantity, repo.current_price)}
+            className="h-8 px-4 text-[10px] font-bold tracking-widest uppercase bg-accent text-accent-foreground hover:opacity-90 active:scale-[0.98] transition-all"
+          >
+            Buy
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // this is the home page, but it's really two totally different pages depending on
 // whether you're logged in: the marketing LandingPage if not, or the actual "trading
 // terminal" (discovery feed + holdings) if you are
 export default function TradingTerminal() {
   const [discoveryData, setDiscoveryData] = useState<Record<string, Repository[]>>({});
-  const [message, setMessage] = useState<SystemMessage>(null);
-  const [processingTicker, setProcessingTicker] = useState<string | null>(null);
+  const [message, setMessage] = useState<ToastMessage>(null);
+  const [pendingTrade, setPendingTrade] = useState<PendingTrade>(null);
+  const [processingTrade, setProcessingTrade] = useState(false);
 
   const [userId, setUserId] = useState<string | null>(null);
   const [isInitializing, setIsInitializing] = useState(true);
@@ -116,12 +191,18 @@ export default function TradingTerminal() {
     return () => clearInterval(interval); // clean up the interval when the component unmounts, otherwise it just keeps polling forever in the background
   }, [userId]); // poll every 5 seconds to keep prices fresh
 
-  // buy button on the discovery cards is hardcoded to 1 share, there's no quantity
-  // selector here - that only exists on the individual asset page
-  const handleBuy = async (ticker: string, currentPrice: number) => {
-    if (!userId) return;
+  // step 1 of buying - a card's buy button calls this, which just opens the confirm
+  // modal instead of firing the trade immediately like it used to
+  const handleBuyRequest = (ticker: string, quantity: number, price: number) => {
+    setPendingTrade({ ticker, quantity, price });
+  };
 
-    setProcessingTicker(ticker); // disables just this one card's button while the request is in flight
+  // step 2 - only runs once the user actually confirms in the modal
+  const handleConfirmBuy = async () => {
+    if (!pendingTrade || !userId) return;
+    const { ticker, quantity, price } = pendingTrade;
+
+    setProcessingTrade(true);
     setMessage(null);
 
     try {
@@ -135,15 +216,15 @@ export default function TradingTerminal() {
         },
         body: JSON.stringify({
           ticker: ticker,
-          shares: 1, // hardcoded to 1 for now, might let users pick quantity later
-          expectedPrice: Number(currentPrice) // ledger uses this to check for slippage before filling
+          shares: quantity,
+          expectedPrice: Number(price) // ledger uses this to check for slippage before filling
         }),
       });
 
       const result = await response.json();
 
       if (response.ok) {
-        setMessage({ text: `Filled: 1 QTY of ${ticker} @ Market`, type: "success" });
+        setMessage({ text: `Filled: ${quantity} QTY of ${ticker} @ Market`, type: "success" });
         // refetch so the balance and holdings table reflect the trade immediately
         fetchBalance();
         fetchPortfolio();
@@ -153,7 +234,8 @@ export default function TradingTerminal() {
     } catch (err) {
       setMessage({ text: "Connection refused by Ledger.", type: "error" });
     } finally {
-      setProcessingTicker(null);
+      setProcessingTrade(false);
+      setPendingTrade(null);
       setTimeout(() => setMessage(null), 4000); // clear the message after a bit so it doesn't just sit there
     }
   };
@@ -189,11 +271,11 @@ export default function TradingTerminal() {
 
             {/* purchasing power / cash balance readout */}
             <div className="text-right border border-gray-200 dark:border-gray-800 bg-white dark:bg-[#161616] px-5 py-3 shadow-sm">
-              <p className="text-[9px] uppercase tracking-[0.15em] text-gray-500 dark:text-gray-400 mb-1">Purchasing Power</p>
+              <p className="text-[10px] uppercase tracking-[0.15em] text-gray-500 dark:text-gray-400 mb-1">Purchasing Power</p>
               <p className="text-xl font-mono tracking-tighter text-gray-900 dark:text-gray-100">
                 {balance !== null
                   ? new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(balance)
-                  : "Awaiting Ledger..."}
+                  : "AWAITING LEDGER..."}
               </p>
             </div>
           </div>
@@ -210,48 +292,7 @@ export default function TradingTerminal() {
                   <h2 className="text-[11px] tracking-[0.25em] font-bold uppercase text-gray-500 dark:text-gray-400 mb-4">{category}</h2>
                   <div className="flex overflow-x-auto gap-4 pb-4 snap-x [&::-webkit-scrollbar]:hidden" style={{ scrollbarWidth: 'none' }}>
                     {repos.map((repo) => (
-                      <div key={repo.ticker} className="flex-none w-72 snap-center border border-gray-200 dark:border-gray-800 bg-white dark:bg-[#161616] p-5 flex flex-col justify-between hover:shadow-md hover:-translate-y-0.5 hover:border-gray-300 dark:hover:border-gray-700 transition-all duration-200">
-                        <div className="mb-8">
-                          <Link
-                            href={`/asset/${repo.ticker.split('/')[0].toLowerCase()}/${repo.ticker.split('/')[1].toLowerCase()}`}
-                            className="block hover:text-gray-600 dark:hover:text-gray-300 transition-colors cursor-pointer mb-3"
-                          >
-                            <h3 className="text-lg font-bold tracking-tighter text-gray-900 dark:text-gray-100 inherit truncate">
-                              {repo.ticker.split('/')[1].toUpperCase()}
-                            </h3>
-                            <p className="text-[10px] text-gray-500 dark:text-gray-400 mt-0.5 inherit truncate">
-                              {repo.ticker.split('/')[0]}
-                            </p>
-                          </Link>
-                          <p className="text-[10px] text-gray-500 dark:text-gray-400 line-clamp-2 h-7 leading-tight overflow-hidden">
-                            {repo.description || "No description available."}
-                          </p>
-                        </div>
-
-                        <div className="flex justify-between items-end mt-auto">
-                          <div>
-                            <p className="text-[9px] uppercase tracking-[0.15em] text-gray-500 dark:text-gray-400 mb-1">Mark Price</p>
-                            <div className="flex items-baseline gap-1">
-                              <span className="text-sm text-gray-500 dark:text-gray-400 font-mono">$</span>
-                              <span className="text-2xl font-light tracking-tighter text-gray-900 dark:text-gray-100 font-mono">
-                                {Number(repo.current_price).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                              </span>
-                            </div>
-                          </div>
-
-                          <button
-                            onClick={() => handleBuy(repo.ticker, repo.current_price)}
-                            disabled={processingTicker === repo.ticker}
-                            className={`h-8 px-4 text-[10px] font-bold tracking-widest uppercase transition-all duration-150 ${
-                              processingTicker === repo.ticker
-                                ? "bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 cursor-not-allowed border border-gray-200 dark:border-gray-800"
-                                : "bg-black text-white dark:bg-white dark:text-black hover:opacity-90 active:scale-[0.98]"
-                            }`}
-                          >
-                            {processingTicker === repo.ticker ? "Routing..." : "Buy"}
-                          </button>
-                        </div>
-                      </div>
+                      <DiscoveryCard key={repo.ticker} repo={repo} onBuyRequest={handleBuyRequest} />
                     ))}
                   </div>
                 </div>
@@ -287,7 +328,7 @@ export default function TradingTerminal() {
                       <div className="font-bold tracking-tighter text-sm text-gray-900 dark:text-gray-100">
                         <Link
                           href={`/asset/${owner.toLowerCase()}/${repo.toLowerCase()}`}
-                          className="hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+                          className="hover:text-accent transition-colors"
                         >
                           {holding.ticker}
                         </Link>
@@ -308,19 +349,19 @@ export default function TradingTerminal() {
         </main>
       </div>
 
-      {/* little toast notification bottom-right for trade fills/rejections */}
-      {message && (
-        <div className="fixed bottom-6 right-6 z-50 animate-in slide-in-from-bottom-4 fade-in duration-300">
-          <div className={`px-4 py-3 text-sm shadow-lg flex items-center gap-3 ${
-            message.type === 'success'
-              ? 'bg-white dark:bg-[#161616] border border-green-200 dark:border-green-900/50 text-gray-900 dark:text-gray-100'
-              : 'bg-white dark:bg-[#161616] border border-red-200 dark:border-red-900/50 text-gray-900 dark:text-gray-100'
-          }`}>
-            <div className={`h-2 w-2 rounded-full ${message.type === 'success' ? 'bg-green-500' : 'bg-red-500'}`}></div>
-            {message.text}
-          </div>
-        </div>
+      {pendingTrade && (
+        <ConfirmTradeModal
+          action="BUY"
+          ticker={pendingTrade.ticker}
+          quantity={pendingTrade.quantity}
+          price={pendingTrade.price}
+          processing={processingTrade}
+          onConfirm={handleConfirmBuy}
+          onCancel={() => setPendingTrade(null)}
+        />
       )}
+
+      <Toast message={message} />
     </div>
   );
 }
