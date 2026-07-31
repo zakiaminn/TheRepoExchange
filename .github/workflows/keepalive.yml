@@ -1,0 +1,13 @@
+name: TRX Ledger Keepalive
+
+on:
+  schedule:
+    - cron: '*/10 * * * *'
+  workflow_dispatch:
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping ledger health check
+        run: curl -sf https://trx-ledger.onrender.com/ || echo "Ledger did not respond"
