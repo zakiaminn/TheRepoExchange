@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/utils/supabase/client";
+import { Logo } from "@/components/Logo";
 
 // handles both sign in and sign up on the same page, toggled with isSignUp. also has the
 // google oauth button
@@ -105,7 +106,10 @@ export default function LoginPage() {
 
       <div className="relative z-10 w-full max-w-sm p-8 bg-white dark:bg-[#161616] border border-gray-200 dark:border-gray-800 shadow-lg">
         <div className="mb-8 text-center">
-          <h1 className="text-2xl font-bold tracking-tighter mb-1">TRX.EXCHANGE</h1>
+          <div className="flex items-center justify-center gap-2 mb-1">
+            <Logo className="h-5 w-5 text-accent" />
+            <h1 className="text-2xl font-bold tracking-tighter">TRX.EXCHANGE</h1>
+          </div>
           <p className="text-[10px] uppercase tracking-[0.2em] text-gray-500 dark:text-gray-400">
             {isSignUp ? "Create an Account" : "The Repo Exchange"}
           </p>
@@ -121,7 +125,7 @@ export default function LoginPage() {
                 value={firstName}
                 onChange={(e) => setFirstName(e.target.value)}
                 required={isSignUp}
-                className="w-full px-3 py-2 text-sm bg-transparent border border-gray-200 dark:border-gray-800 focus:outline-none focus:border-gray-900 dark:focus:border-gray-100 focus:ring-1 focus:ring-gray-900/10 dark:focus:ring-gray-100/10 transition-all"
+                className="w-full px-3 py-2 text-sm bg-transparent border border-gray-200 dark:border-gray-800 focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent/20 transition-all"
               />
               <input
                 type="text"
@@ -129,7 +133,7 @@ export default function LoginPage() {
                 value={lastName}
                 onChange={(e) => setLastName(e.target.value)}
                 required={isSignUp}
-                className="w-full px-3 py-2 text-sm bg-transparent border border-gray-200 dark:border-gray-800 focus:outline-none focus:border-gray-900 dark:focus:border-gray-100 focus:ring-1 focus:ring-gray-900/10 dark:focus:ring-gray-100/10 transition-all"
+                className="w-full px-3 py-2 text-sm bg-transparent border border-gray-200 dark:border-gray-800 focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent/20 transition-all"
               />
             </div>
           )}
@@ -139,7 +143,7 @@ export default function LoginPage() {
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             required
-            className="w-full px-3 py-2 text-sm bg-transparent border border-gray-200 dark:border-gray-800 focus:outline-none focus:border-gray-900 dark:focus:border-gray-100 focus:ring-1 focus:ring-gray-900/10 dark:focus:ring-gray-100/10 transition-all"
+            className="w-full px-3 py-2 text-sm bg-transparent border border-gray-200 dark:border-gray-800 focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent/20 transition-all"
           />
           <input
             type="password"
@@ -147,13 +151,13 @@ export default function LoginPage() {
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             required
-            className="w-full px-3 py-2 text-sm bg-transparent border border-gray-200 dark:border-gray-800 focus:outline-none focus:border-gray-900 dark:focus:border-gray-100 focus:ring-1 focus:ring-gray-900/10 dark:focus:ring-gray-100/10 transition-all"
+            className="w-full px-3 py-2 text-sm bg-transparent border border-gray-200 dark:border-gray-800 focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent/20 transition-all"
           />
 
           <button
             type="submit"
             disabled={loading}
-            className="w-full py-2 bg-black text-white dark:bg-white dark:text-black text-xs font-bold tracking-widest uppercase hover:opacity-90 active:scale-[0.98] transition-all disabled:opacity-50"
+            className="w-full py-2 bg-accent text-accent-foreground text-xs font-bold tracking-widest uppercase hover:opacity-90 active:scale-[0.98] transition-all disabled:opacity-50"
           >
             {loading ? "Processing..." : isSignUp ? "Sign Up" : "Sign In"}
           </button>
@@ -197,7 +201,7 @@ export default function LoginPage() {
               setIsSignUp(!isSignUp);
               setMessage(null);
             }}
-            className="font-bold text-gray-900 dark:text-gray-100 hover:underline"
+            className="font-bold text-accent hover:underline"
           >
             {isSignUp ? "Sign In" : "Sign Up"}
           </button>

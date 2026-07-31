@@ -4,6 +4,8 @@ import Link from "next/link";
 import { useTheme } from "next-themes";
 import { Sun, Moon } from "lucide-react";
 import { useState, useEffect } from "react";
+import { Logo } from "@/components/Logo";
+import { MiniSparkline } from "@/components/MiniSparkline";
 
 // fake data just for the little "product preview" card on the landing page. none of this
 // is real, it's purely to make the marketing page look alive before you've even logged in
@@ -28,31 +30,6 @@ const features = [
   { title: "Portfolio Analytics", desc: "Track your holdings, average entry prices, and unrealized P&L. View historical price charts powered by real star data over time.", icon: "◇" },
 ];
 
-// tiny hand-rolled sparkline chart, just draws a polyline through the data points scaled
-// to fit a 48x24 box. this is only used on the fake preview cards above, the real chart
-// on the asset page uses the actual lightweight-charts library instead
-function MiniSparkline({ data, positive }: { data: number[]; positive: boolean }) {
-  const min = Math.min(...data);
-  const max = Math.max(...data);
-  const range = max - min || 1; // avoid dividing by zero if every value in the data is the same
-  const h = 24;
-  const w = 48;
-  const points = data.map((v, i) => `${(i / (data.length - 1)) * w},${h - ((v - min) / range) * h}`).join(" ");
-
-  return (
-    <svg width={w} height={h} viewBox={`0 0 ${w} ${h}`} className="overflow-visible">
-      <polyline
-        points={points}
-        fill="none"
-        stroke={positive ? "#22c55e" : "#ef4444"}
-        strokeWidth="1.5"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
-}
-
 // the marketing page that shows up for anyone who isn't logged in yet. gets rendered by
 // page.tsx when there's no user session, it's basically its own little standalone site
 export function LandingPage() {
@@ -72,7 +49,8 @@ export function LandingPage() {
             itself when there's no logged in user */}
         <nav className="border-b border-gray-200 dark:border-gray-800 bg-white/80 dark:bg-[#121212]/80 backdrop-blur-sm transition-colors duration-300">
           <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
-            <Link href="/" className="font-semibold text-lg tracking-tight text-gray-900 dark:text-gray-100">
+            <Link href="/" className="flex items-center gap-2 font-semibold text-lg tracking-tight text-gray-900 dark:text-gray-100">
+              <Logo className="h-5 w-5 text-accent" />
               TRX.EXCHANGE
             </Link>
             <div className="flex items-center gap-4 sm:gap-6 text-sm">
@@ -85,12 +63,12 @@ export function LandingPage() {
                   {resolvedTheme === "dark" ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
                 </button>
               )}
-              <Link href="/login" className="hidden sm:inline font-medium text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white transition-colors">
+              <Link href="/login" className="hidden sm:inline font-medium text-gray-600 dark:text-gray-300 hover:text-accent transition-colors">
                 Sign In
               </Link>
               <Link
                 href="/login"
-                className="h-8 px-4 flex items-center bg-black text-white dark:bg-white dark:text-black text-xs font-bold tracking-widest uppercase hover:opacity-90 active:scale-[0.98] transition-all"
+                className="h-8 px-4 flex items-center bg-accent text-accent-foreground text-xs font-bold tracking-widest uppercase hover:opacity-90 active:scale-[0.98] transition-all"
               >
                 Get Started
               </Link>
@@ -114,13 +92,13 @@ export function LandingPage() {
             <div className="flex items-center justify-center gap-4">
               <Link
                 href="/login"
-                className="inline-flex items-center h-10 px-6 bg-black text-white dark:bg-white dark:text-black text-xs font-bold tracking-widest uppercase hover:opacity-90 active:scale-[0.98] transition-all"
+                className="inline-flex items-center h-10 px-6 bg-accent text-accent-foreground text-xs font-bold tracking-widest uppercase hover:opacity-90 active:scale-[0.98] transition-all"
               >
                 Start Trading
               </Link>
               <a
                 href="#how-it-works"
-                className="inline-flex items-center h-10 px-6 border border-gray-300 dark:border-gray-700 text-xs font-bold tracking-widest uppercase text-gray-600 dark:text-gray-400 hover:border-gray-900 dark:hover:border-gray-100 hover:text-gray-900 dark:hover:text-gray-100 transition-all"
+                className="inline-flex items-center h-10 px-6 border border-gray-300 dark:border-gray-700 text-xs font-bold tracking-widest uppercase text-gray-600 dark:text-gray-400 hover:border-accent hover:text-accent transition-all"
               >
                 Learn More
               </a>
@@ -137,13 +115,13 @@ export function LandingPage() {
               <div className="flex items-center justify-between mb-6">
                 <div className="flex items-center gap-2">
                   <span className="relative flex h-2 w-2">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-500 opacity-40"></span>
-                    <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-accent opacity-40"></span>
+                    <span className="relative inline-flex rounded-full h-2 w-2 bg-accent"></span>
                   </span>
                   <span className="text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">Market Open</span>
                 </div>
                 <div className="text-right">
-                  <p className="text-[9px] uppercase tracking-[0.15em] text-gray-500 dark:text-gray-400 mb-1">Purchasing Power</p>
+                  <p className="text-[10px] uppercase tracking-[0.15em] text-gray-500 dark:text-gray-400 mb-1">Purchasing Power</p>
                   {/* hardcoded 100k here, real starting balance is set in the db when a user signs up */}
                   <p className="text-lg font-mono tracking-tighter text-gray-900 dark:text-gray-100">$100,000.00</p>
                 </div>
@@ -165,7 +143,7 @@ export function LandingPage() {
                     </div>
                     <div className="flex justify-between items-end mt-auto">
                       <div>
-                        <p className="text-[9px] uppercase tracking-[0.15em] text-gray-500 dark:text-gray-400 mb-1">Mark Price</p>
+                        <p className="text-[10px] uppercase tracking-[0.15em] text-gray-500 dark:text-gray-400 mb-1">Mark Price</p>
                         <div className="flex items-baseline gap-1">
                           <span className="text-sm text-gray-500 dark:text-gray-400 font-mono">$</span>
                           <span className="text-2xl font-light tracking-tighter text-gray-900 dark:text-gray-100 font-mono">
@@ -176,7 +154,7 @@ export function LandingPage() {
                           {repo.change >= 0 ? "+" : ""}{repo.change.toFixed(1)}%
                         </span>
                       </div>
-                      <div className="h-8 px-4 flex items-center text-[10px] font-bold tracking-widest uppercase bg-black text-white dark:bg-white dark:text-black">
+                      <div className="h-8 px-4 flex items-center text-[10px] font-bold tracking-widest uppercase bg-accent text-accent-foreground">
                         Buy
                       </div>
                     </div>
@@ -237,7 +215,7 @@ export function LandingPage() {
               </p>
               <Link
                 href="/login"
-                className="inline-flex items-center h-10 px-6 bg-white text-black dark:bg-gray-900 dark:text-white text-xs font-bold tracking-widest uppercase hover:opacity-90 active:scale-[0.98] transition-all"
+                className="inline-flex items-center h-10 px-6 bg-accent text-accent-foreground text-xs font-bold tracking-widest uppercase hover:opacity-90 active:scale-[0.98] transition-all"
               >
                 Get Started
               </Link>
@@ -248,7 +226,10 @@ export function LandingPage() {
         {/* footer */}
         <footer className="border-t border-gray-200 dark:border-gray-800">
           <div className="max-w-7xl mx-auto px-6 py-8 flex flex-col sm:flex-row items-center justify-between gap-4">
-            <span className="font-semibold text-sm tracking-tight text-gray-900 dark:text-gray-100">TRX.EXCHANGE</span>
+            <span className="flex items-center gap-2 font-semibold text-sm tracking-tight text-gray-900 dark:text-gray-100">
+              <Logo className="h-4 w-4 text-accent" />
+              TRX.EXCHANGE
+            </span>
             <span className="text-[10px] uppercase tracking-[0.2em] text-gray-500 dark:text-gray-400">
               &copy; {new Date().getFullYear()} TRX Exchange. All rights reserved.
             </span>

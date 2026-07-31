@@ -170,7 +170,7 @@ useEffect(() => {
                       <div className="flex flex-col">
                         <Link
                           href={`/asset/${owner.toLowerCase()}/${repoName.toLowerCase()}`}
-                          className="text-lg font-bold tracking-tighter text-gray-900 dark:text-gray-100 hover:text-gray-500 dark:hover:text-gray-400 transition-colors mb-1"
+                          className="text-lg font-bold tracking-tighter text-gray-900 dark:text-gray-100 hover:text-accent transition-colors mb-1"
                         >
                           {holding.ticker}
                         </Link>

@@ -5,6 +5,8 @@ import { createChart, ColorType, IChartApi, ISeriesApi, AreaSeries, Time } from 
 import Link from "next/link";
 import { createClient } from "@/utils/supabase/client";
 import { useTheme } from "next-themes";
+import { Toast, ToastMessage } from "@/components/Toast";
+import { ConfirmTradeModal } from "@/components/ConfirmTradeModal";
 
 interface PageProps {
   params: Promise<{
@@ -18,9 +20,11 @@ type ChartData = {
   value: number;
 };
 
-type SystemMessage = {
-  text: string;
-  type: "success" | "error";
+// a trade waiting on confirmation - ticker/price come from page state, this just needs
+// to remember which action and how many shares
+type PendingTrade = {
+  action: "BUY" | "SELL";
+  quantity: number;
 } | null;
 
 // per-asset page - the price chart plus the actual buy/sell trade panel. this is the
@@ -49,7 +53,8 @@ export default function AssetChartPage(props: PageProps) {
   const [balance, setBalance] = useState<number | null>(null);
   const [ownedShares, setOwnedShares] = useState<number>(0);
   const [tradeQuantity, setTradeQuantity] = useState<number | "">(1);
-  const [message, setMessage] = useState<SystemMessage>(null);
+  const [message, setMessage] = useState<ToastMessage>(null);
+  const [pendingTrade, setPendingTrade] = useState<PendingTrade>(null);
   const [processingAction, setProcessingAction] = useState<"BUY" | "SELL" | null>(null);
 
   const { resolvedTheme } = useTheme();
@@ -241,13 +246,23 @@ export default function AssetChartPage(props: PageProps) {
     };
   }, [history, resolvedTheme, assetExists]);
 
-  // handles both buy and sell, action tells it which. same slippage/quantity checks
-  // happen again server-side, this is just to avoid firing off obviously-bad requests
-  const handleTrade = async (action: "BUY" | "SELL") => {
+  // step 1 - validate, then just open the confirm modal instead of firing the trade
+  // straight away like it used to
+  const handleTradeRequest = (action: "BUY" | "SELL") => {
     if (currentPrice === null) return;
     if (!userId || assetExists !== true) return;
     if (tradeQuantity === "" || tradeQuantity <= 0) return;
     if (action === "SELL" && ownedShares < tradeQuantity) return;
+
+    setPendingTrade({ action, quantity: tradeQuantity });
+  };
+
+  // step 2 - only runs once the user actually hits confirm in the modal. same
+  // slippage/quantity checks happen again server-side, this is just to avoid firing off
+  // obviously-bad requests
+  const handleConfirmTrade = async () => {
+    if (!pendingTrade || currentPrice === null) return;
+    const { action, quantity } = pendingTrade;
 
     setProcessingAction(action);
     setMessage(null);
@@ -264,7 +279,7 @@ export default function AssetChartPage(props: PageProps) {
         },
         body: JSON.stringify({
           ticker: ticker,
-          shares: tradeQuantity,
+          shares: quantity,
           expectedPrice: currentPrice,
         }),
       });
@@ -272,9 +287,9 @@ export default function AssetChartPage(props: PageProps) {
       const result = await response.json();
 
       if (response.ok) {
-        setMessage({ text: `Filled: ${action} ${tradeQuantity} QTY of ${ticker} @ Market`, type: "success" });
-        fetchBalance(userId);
-        fetchPortfolio(userId);
+        setMessage({ text: `Filled: ${action} ${quantity} QTY of ${ticker} @ Market`, type: "success" });
+        fetchBalance(userId!);
+        fetchPortfolio(userId!);
         setTradeQuantity(1); // reset qty back to 1 after a fill
       } else {
         setMessage({ text: `Rejected: ${result.error}`, type: "error" });
@@ -283,6 +298,7 @@ export default function AssetChartPage(props: PageProps) {
       setMessage({ text: "Connection refused by Ledger.", type: "error" });
     } finally {
       setProcessingAction(null);
+      setPendingTrade(null);
       setTimeout(() => setMessage(null), 4000);
     }
   };
@@ -292,40 +308,17 @@ export default function AssetChartPage(props: PageProps) {
       <div className="absolute inset-0 z-0 bg-[radial-gradient(#e5e7eb_1px,transparent_1px)] dark:bg-[radial-gradient(#374151_1px,transparent_1px)] [background-size:16px_16px] pointer-events-none"></div>
 
       <div className="relative z-10">
-        {/* this page has its own mini header instead of using the shared Header component,
-            keeps the "asset view" context front and center */}
-        <header className="border-b border-gray-200 dark:border-gray-800 bg-white/80 dark:bg-[#121212]/80 backdrop-blur-sm">
-          <div className="max-w-7xl mx-auto px-6 h-14 flex items-center justify-between">
-            <div className="flex items-center gap-6">
-              <Link href="/" className="font-mono text-sm font-bold tracking-tight hover:text-gray-500 dark:hover:text-gray-400 transition-colors">
-                TRX.EXCHANGE
-              </Link>
-              <div className="h-4 w-[1px] bg-gray-300 dark:bg-gray-700"></div>
-              <div className="flex items-center gap-2">
-                <span className="text-[10px] font-mono uppercase tracking-[0.2em] text-gray-500 dark:text-gray-400">Asset View</span>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-4 text-right">
-              <div>
-                <span className="text-[10px] font-mono uppercase tracking-[0.2em] text-gray-500 dark:text-gray-400 mr-3">Cash</span>
-                <span className="text-xs font-mono bg-gray-100 dark:bg-gray-800 px-2 py-1 text-gray-600 dark:text-gray-300 border border-gray-200 dark:border-gray-700">
-                  {balance !== null
-                    ? new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(balance)
-                    : "---"}
-                </span>
-              </div>
-              <Link
-                href="/"
-                className="text-[10px] font-mono uppercase tracking-widest text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 transition-colors"
-              >
-                Back to Terminal
-              </Link>
-            </div>
-          </div>
-        </header>
-
         <main className="max-w-4xl mx-auto px-6 py-12">
+          {/* breadcrumb back to the terminal - the shared Header (rendered once, globally,
+              in layout.tsx) already covers logo/search/nav, so this page doesn't need its
+              own header bar on top of that */}
+          <Link
+            href="/"
+            className="inline-flex items-center gap-1 text-[10px] font-mono uppercase tracking-[0.2em] text-gray-500 dark:text-gray-400 hover:text-accent transition-colors mb-6"
+          >
+            ← Back to Terminal
+          </Link>
+
           <div className="mb-12 border-b border-gray-200 dark:border-gray-800 pb-8 flex justify-between items-end">
             <div>
               <p className="text-[10px] font-mono uppercase tracking-[0.2em] text-gray-500 dark:text-gray-400 mb-2">Ticker</p>
@@ -376,74 +369,87 @@ export default function AssetChartPage(props: PageProps) {
             )}
           </div>
 
-          {/* trade panel - quantity input plus buy/sell buttons. dims out and disables
-              everything if the asset doesn't exist */}
-          <div className={`border border-gray-200 dark:border-gray-800 bg-white dark:bg-[#161616] p-6 shadow-sm flex flex-col md:flex-row items-center justify-between gap-6 ${assetExists === false ? "opacity-50" : ""}`}>
-            <div className="flex flex-col">
-              <span className="text-[10px] font-mono uppercase tracking-[0.2em] text-gray-500 dark:text-gray-400 mb-1">Position</span>
-              <span className="text-xl font-mono tracking-tighter text-gray-900 dark:text-gray-100">
-                {ownedShares} <span className="text-sm text-gray-500 dark:text-gray-400">SHRS</span>
-              </span>
-            </div>
-
-            <div className="flex items-center gap-4 w-full md:w-auto">
-              <div className="flex flex-col">
-                <label htmlFor="qty" className="text-[10px] font-mono uppercase tracking-[0.2em] text-gray-500 dark:text-gray-400 mb-1">Quantity</label>
-                <input
-                  id="qty"
-                  type="number"
-                  min="1"
-                  value={tradeQuantity}
-                  onChange={(e) => setTradeQuantity(e.target.value === "" ? "" : parseInt(e.target.value))}
-                  disabled={assetExists === false}
-                  className={`w-24 h-10 px-3 border border-gray-300 dark:border-gray-700 bg-white dark:bg-[#1a1a1a] font-mono text-center text-gray-900 dark:text-gray-100 focus:outline-none focus:border-gray-900 dark:focus:border-gray-100 ${assetExists === false ? "cursor-not-allowed bg-gray-100 dark:bg-gray-800" : ""}`}
-                />
+          {/* trade panel - shows position, available cash, quantity input, and buy/sell
+              buttons. dims out and disables everything if the asset doesn't exist */}
+          <div className={`border border-gray-200 dark:border-gray-800 bg-white dark:bg-[#161616] p-6 shadow-sm ${assetExists === false ? "opacity-50" : ""}`}>
+            <div className="flex flex-col md:flex-row items-center justify-between gap-6">
+              <div className="flex gap-8">
+                <div className="flex flex-col">
+                  <span className="text-[10px] font-mono uppercase tracking-[0.2em] text-gray-500 dark:text-gray-400 mb-1">Position</span>
+                  <span className="text-xl font-mono tracking-tighter text-gray-900 dark:text-gray-100">
+                    {ownedShares} <span className="text-sm text-gray-500 dark:text-gray-400">SHRS</span>
+                  </span>
+                </div>
+                <div className="flex flex-col">
+                  <span className="text-[10px] font-mono uppercase tracking-[0.2em] text-gray-500 dark:text-gray-400 mb-1">Available Cash</span>
+                  <span className="text-xl font-mono tracking-tighter text-gray-900 dark:text-gray-100">
+                    {balance !== null
+                      ? new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(balance)
+                      : "---"}
+                  </span>
+                </div>
               </div>
 
-              <div className="flex gap-2 items-end h-full">
-                {/* buy is disabled while asset is missing or a trade is already in flight */}
-                <button
-                  onClick={() => handleTrade("BUY")}
-                  disabled={assetExists === false || processingAction !== null || tradeQuantity === ""}
-                  className={`h-10 px-8 text-xs font-bold tracking-widest uppercase transition-all duration-150 ${
-                    assetExists === false || processingAction === "BUY" || tradeQuantity === ""
-                      ? "bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-500 cursor-not-allowed border border-gray-200 dark:border-gray-800"
-                      : "bg-gray-900 text-white dark:bg-white dark:text-gray-900 hover:opacity-90 active:scale-[0.98] border border-gray-900 dark:border-white"
-                  }`}
-                >
-                  {processingAction === "BUY" ? "Routing" : "Buy"}
-                </button>
+              <div className="flex items-center gap-4 w-full md:w-auto">
+                <div className="flex flex-col">
+                  <label htmlFor="qty" className="text-[10px] font-mono uppercase tracking-[0.2em] text-gray-500 dark:text-gray-400 mb-1">Quantity</label>
+                  <input
+                    id="qty"
+                    type="number"
+                    min="1"
+                    value={tradeQuantity}
+                    onChange={(e) => setTradeQuantity(e.target.value === "" ? "" : parseInt(e.target.value))}
+                    disabled={assetExists === false}
+                    className={`w-24 h-10 px-3 border border-gray-300 dark:border-gray-700 bg-white dark:bg-[#1a1a1a] font-mono text-center text-gray-900 dark:text-gray-100 focus:outline-none focus:border-accent ${assetExists === false ? "cursor-not-allowed bg-gray-100 dark:bg-gray-800" : ""}`}
+                  />
+                </div>
 
-                {/* sell has the extra check that you can't sell more than you own */}
-                <button
-                  onClick={() => handleTrade("SELL")}
-                  disabled={assetExists === false || processingAction !== null || ownedShares === 0 || tradeQuantity === "" || tradeQuantity > ownedShares}
-                  className={`h-10 px-8 text-xs font-bold tracking-widest uppercase transition-all duration-150 ${
-                    assetExists === false || processingAction === "SELL" || ownedShares === 0 || tradeQuantity === "" || tradeQuantity > ownedShares
-                      ? "bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-500 cursor-not-allowed border border-gray-200 dark:border-gray-800"
-                      : "bg-white text-gray-900 dark:bg-[#121212] dark:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-800 active:scale-[0.98] border border-gray-900 dark:border-gray-100"
-                  }`}
-                >
-                  {processingAction === "SELL" ? "Routing" : "Sell"}
-                </button>
+                <div className="flex gap-2 items-end h-full">
+                  {/* buy is disabled while asset is missing or a trade is already in flight */}
+                  <button
+                    onClick={() => handleTradeRequest("BUY")}
+                    disabled={assetExists === false || processingAction !== null || tradeQuantity === ""}
+                    className={`h-10 px-8 text-xs font-bold tracking-widest uppercase transition-all duration-150 ${
+                      assetExists === false || processingAction === "BUY" || tradeQuantity === ""
+                        ? "bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-500 cursor-not-allowed border border-gray-200 dark:border-gray-800"
+                        : "bg-accent text-accent-foreground hover:opacity-90 active:scale-[0.98] border border-accent"
+                    }`}
+                  >
+                    {processingAction === "BUY" ? "Routing" : "Buy"}
+                  </button>
+
+                  {/* sell has the extra check that you can't sell more than you own */}
+                  <button
+                    onClick={() => handleTradeRequest("SELL")}
+                    disabled={assetExists === false || processingAction !== null || ownedShares === 0 || tradeQuantity === "" || tradeQuantity > ownedShares}
+                    className={`h-10 px-8 text-xs font-bold tracking-widest uppercase transition-all duration-150 ${
+                      assetExists === false || processingAction === "SELL" || ownedShares === 0 || tradeQuantity === "" || tradeQuantity > ownedShares
+                        ? "bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-500 cursor-not-allowed border border-gray-200 dark:border-gray-800"
+                        : "bg-white text-gray-900 dark:bg-[#121212] dark:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-800 active:scale-[0.98] border border-gray-900 dark:border-gray-100"
+                    }`}
+                  >
+                    {processingAction === "SELL" ? "Routing" : "Sell"}
+                  </button>
+                </div>
               </div>
             </div>
           </div>
         </main>
       </div>
 
-      {message && (
-        <div className="fixed bottom-6 right-6 z-50 animate-in slide-in-from-bottom-4 fade-in duration-300">
-          <div className={`px-4 py-3 text-sm font-mono shadow-lg flex items-center gap-3 ${
-            message.type === 'success'
-              ? 'bg-white dark:bg-[#161616] border border-green-200 dark:border-green-900/50 text-gray-900 dark:text-gray-100'
-              : 'bg-white dark:bg-[#161616] border border-red-200 dark:border-red-900/50 text-gray-900 dark:text-gray-100'
-          }`}>
-            <div className={`h-2 w-2 rounded-full ${message.type === 'success' ? 'bg-green-500' : 'bg-red-500'}`}></div>
-            {message.text}
-          </div>
-        </div>
+      {pendingTrade && currentPrice !== null && (
+        <ConfirmTradeModal
+          action={pendingTrade.action}
+          ticker={ticker}
+          quantity={pendingTrade.quantity}
+          price={currentPrice}
+          processing={processingAction !== null}
+          onConfirm={handleConfirmTrade}
+          onCancel={() => setPendingTrade(null)}
+        />
       )}
+
+      <Toast message={message} />
     </div>
   );
 }

@@ -3,11 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { createClient } from "@/utils/supabase/client";
-
-type SystemMessage = {
-  text: string;
-  type: "success" | "error";
-} | null;
+import { Toast, ToastMessage } from "@/components/Toast";
 
 // lets the user update their first/last name. email is shown but locked since it's tied
 // to their supabase auth identity, changing that is a whole different flow we don't support
@@ -17,7 +13,7 @@ export default function SettingsPage() {
   const [lastName, setLastName] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isInitializing, setIsInitializing] = useState(true);
-  const [message, setMessage] = useState<SystemMessage>(null);
+  const [message, setMessage] = useState<ToastMessage>(null);
 
   const supabase = createClient();
 
@@ -86,7 +82,7 @@ export default function SettingsPage() {
             </div>
 
             <div className="text-right">
-              <Link href="/" className="text-[10px] uppercase tracking-[0.15em] text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 transition-colors">
+              <Link href="/" className="text-[10px] uppercase tracking-[0.15em] text-gray-500 dark:text-gray-400 hover:text-accent transition-colors">
                 Back to Terminal
               </Link>
             </div>
@@ -116,7 +112,7 @@ export default function SettingsPage() {
                     value={firstName}
                     onChange={(e) => setFirstName(e.target.value)}
                     required
-                    className="w-full h-10 px-3 bg-gray-50 dark:bg-[#1a1a1a] border border-gray-200 dark:border-gray-800 text-gray-900 dark:text-gray-100 text-sm focus:outline-none focus:border-gray-900 dark:focus:border-gray-100 focus:ring-1 focus:ring-gray-900/10 dark:focus:ring-gray-100/10 transition-all"
+                    className="w-full h-10 px-3 bg-gray-50 dark:bg-[#1a1a1a] border border-gray-200 dark:border-gray-800 text-gray-900 dark:text-gray-100 text-sm focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent/20 transition-all"
                     placeholder="First Name"
                   />
                 </div>
@@ -130,7 +126,7 @@ export default function SettingsPage() {
                     value={lastName}
                     onChange={(e) => setLastName(e.target.value)}
                     required
-                    className="w-full h-10 px-3 bg-gray-50 dark:bg-[#1a1a1a] border border-gray-200 dark:border-gray-800 text-gray-900 dark:text-gray-100 text-sm focus:outline-none focus:border-gray-900 dark:focus:border-gray-100 focus:ring-1 focus:ring-gray-900/10 dark:focus:ring-gray-100/10 transition-all"
+                    className="w-full h-10 px-3 bg-gray-50 dark:bg-[#1a1a1a] border border-gray-200 dark:border-gray-800 text-gray-900 dark:text-gray-100 text-sm focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent/20 transition-all"
                     placeholder="Last Name"
                   />
                 </div>
@@ -142,7 +138,7 @@ export default function SettingsPage() {
                 className={`w-full h-10 mt-4 text-xs font-bold tracking-wide uppercase transition-all duration-150 flex items-center justify-center ${
                   isLoading
                     ? 'bg-gray-200 dark:bg-gray-800 text-gray-400 dark:text-gray-500 cursor-not-allowed'
-                    : 'bg-gray-900 text-white dark:bg-white dark:text-gray-900 hover:opacity-90 active:scale-[0.98]'
+                    : 'bg-accent text-accent-foreground hover:opacity-90 active:scale-[0.98]'
                 }`}
               >
                 {isLoading ? 'Saving...' : 'Update Profile'}
@@ -152,18 +148,7 @@ export default function SettingsPage() {
         </main>
       </div>
 
-      {message && (
-        <div className="fixed bottom-6 right-6 z-50 animate-in slide-in-from-bottom-4 fade-in duration-300">
-          <div className={`px-4 py-3 border text-sm shadow-xl flex items-center gap-3 ${
-            message.type === 'success'
-              ? 'bg-white dark:bg-[#121212] border-gray-200 dark:border-gray-800 text-gray-900 dark:text-gray-100'
-              : 'bg-gray-900 dark:bg-gray-100 border-gray-900 dark:border-gray-100 text-white dark:text-gray-900'
-          }`}>
-            <div className={`h-2 w-2 rounded-full ${message.type === 'success' ? 'bg-black dark:bg-white' : 'bg-red-500'}`}></div>
-            {message.text}
-          </div>
-        </div>
-      )}
+      <Toast message={message} />
     </div>
   );
 }

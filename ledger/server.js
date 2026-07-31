@@ -425,6 +425,26 @@ app.get('/api/discovery', discoveryLimiter, async (req, res) => {
             return res.json({});
         }
 
+        // grab the last 10 price points per active ticker for the little sparkline on
+        // each discovery card. row_number() partitioned by ticker is the postgres way to
+        // do a "top n per group" query in one round trip instead of one query per repo
+        const sparklineRes = await pool.query(`
+            SELECT ticker, price FROM (
+                SELECT ticker, price, created_at,
+                    ROW_NUMBER() OVER (PARTITION BY ticker ORDER BY created_at DESC) AS rn
+                FROM price_history
+            ) ranked
+            WHERE rn <= 10
+            ORDER BY ticker, created_at ASC
+        `);
+
+        // fold the flat rows into ticker -> [oldest ... newest] price arrays
+        const sparklinesByTicker = sparklineRes.rows.reduce((acc, row) => {
+            if (!acc[row.ticker]) acc[row.ticker] = [];
+            acc[row.ticker].push(Number(row.price));
+            return acc;
+        }, {});
+
         // group everything by category so the frontend can just render each key as its
         // own row of cards without doing any grouping logic on its end
         const groupedData = result.rows.reduce((acc, repo) => {
@@ -432,7 +452,10 @@ app.get('/api/discovery', discoveryLimiter, async (req, res) => {
             if (!acc[categoryName]) {
                 acc[categoryName] = [];
             }
-            acc[categoryName].push(repo);
+            acc[categoryName].push({
+                ...repo,
+                sparkline: sparklinesByTicker[repo.ticker] || [],
+            });
             return acc;
         }, {});
 
