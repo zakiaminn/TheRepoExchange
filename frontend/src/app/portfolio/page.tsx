@@ -11,6 +11,8 @@ type Holding = {
   current_price: string | number;
 };
 
+// net worth summary page - shows total value, overall p&l, and a breakdown of every
+// position the user is holding
 export default function PortfolioPage() {
   const [userId, setUserId] = useState<string | null>(null);
   const [balance, setBalance] = useState<number | null>(null);
@@ -42,6 +44,8 @@ useEffect(() => {
           headers: { Authorization: `Bearer ${session.access_token}` }
         };
 
+        // fire both requests off at the same time instead of one after the other,
+        // cuts the load time roughly in half
         const [balanceRes, portfolioRes] = await Promise.all([
           fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/balance/${userId}`, fetchOptions),
           fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/portfolio/${userId}`, fetchOptions)
@@ -66,15 +70,18 @@ useEffect(() => {
     fetchData();
   }, [userId, supabase.auth]);
 
-  // derive the portfolio summary numbers from what we fetched
+  // derive the portfolio summary numbers from what we fetched. all of this is just math
+  // on data we already have, no extra api calls needed
   const cash = balance || 0;
-  
+
+  // sum up what every position is currently worth (shares * live price)
   const totalAssetValue = portfolio.reduce((acc, holding) => {
     return acc + (holding.shares * Number(holding.current_price));
   }, 0);
-  
+
   const netWorth = cash + totalAssetValue;
 
+  // total profit/loss across everything - current value minus what they paid for it
   const totalPnL = portfolio.reduce((acc, holding) => {
     return acc + ((Number(holding.current_price) - Number(holding.average_price)) * holding.shares);
   }, 0);
@@ -100,7 +107,7 @@ useEffect(() => {
 
       <div className="relative z-10">
         <main className="max-w-4xl mx-auto px-6 py-12">
-          {/* hero section */}
+          {/* hero section - big net worth number front and center */}
           <div className="mb-16 pb-12 text-center relative">
             <div className="absolute inset-0 flex items-center justify-center pointer-events-none select-none opacity-[0.02] dark:opacity-[0.04]">
               <span className="text-[16rem] font-mono font-bold tracking-tighter leading-none">$</span>
@@ -129,10 +136,10 @@ useEffect(() => {
             </span>
           </div>
 
-          {/* holdings ledger */}
+          {/* holdings ledger - one row per position, with its own p&l calc'd inline */}
           <div>
             <h2 className="text-[11px] tracking-[0.25em] font-bold uppercase text-gray-500 dark:text-gray-400 mb-6">Holdings Ledger</h2>
-            
+
             {portfolio.length === 0 ? (
               <div className="border border-gray-200 dark:border-gray-800 bg-white dark:bg-[#161616] p-12 text-center text-sm font-mono text-gray-500 dark:text-gray-400 shadow-sm">
                 NO ASSETS HELD
@@ -145,10 +152,10 @@ useEffect(() => {
                   const totalValue = currentPrice * holding.shares;
                   const holdingPnL = (currentPrice - averagePrice) * holding.shares;
                   const holdingPnLPercent = ((currentPrice - averagePrice) / averagePrice) * 100;
-                  
+
                   const sign = holdingPnL >= 0 ? "+" : "";
                   const colorClass = holdingPnL > 0 ? "text-green-600 dark:text-green-400" : holdingPnL < 0 ? "text-red-600 dark:text-red-400" : "text-gray-500 dark:text-gray-400";
-                  
+
                   const [owner, repoName] = holding.ticker.split('/');
 
                   return (
@@ -161,7 +168,7 @@ useEffect(() => {
                       }`}
                     >
                       <div className="flex flex-col">
-                        <Link 
+                        <Link
                           href={`/asset/${owner.toLowerCase()}/${repoName.toLowerCase()}`}
                           className="text-lg font-bold tracking-tighter text-gray-900 dark:text-gray-100 hover:text-gray-500 dark:hover:text-gray-400 transition-colors mb-1"
                         >

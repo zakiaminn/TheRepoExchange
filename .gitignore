@@ -5,7 +5,6 @@
 .env.production.local
 node_modules/
 jspm_packages/
-package-lock.json (Optional, some prefer to keep this)
 __pycache__/
 *.py[cod]
 *$py.class
@@ -19,3 +18,12 @@ dist/
 Thumbs.db
 documentation.txt
 .vercel
+
+# ai assistant config, keep this stuff local
+.claude/
+CLAUDE.md
+AGENTS.md
+GEMINI.md
+.cursor/
+.windsurf/
+copilot-instructions.md

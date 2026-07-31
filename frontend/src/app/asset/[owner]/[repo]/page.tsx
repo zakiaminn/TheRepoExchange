@@ -23,21 +23,26 @@ type SystemMessage = {
   type: "success" | "error";
 } | null;
 
+// per-asset page - the price chart plus the actual buy/sell trade panel. this is the
+// only place in the app you can sell shares or buy a specific quantity (the home page
+// buy button is always just 1 share)
 export default function AssetChartPage(props: PageProps) {
   // next.js 15 made params a promise, so we need to unwrap it
   const params = use(props.params);
   const { owner, repo } = params;
   const ticker = `${owner}/${repo}`.toUpperCase();
-  
+
+  // refs for the chart instance itself, so we can tear it down / resize it without
+  // triggering a react re-render every time
   const chartContainerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
   const seriesRef = useRef<ISeriesApi<"Area"> | null>(null);
-  
+
   const [history, setHistory] = useState<ChartData[]>([]);
   const [currentPrice, setCurrentPrice] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [assetExists, setAssetExists] = useState<boolean | null>(null);
+  const [assetExists, setAssetExists] = useState<boolean | null>(null); // null = still checking, true/false once we know
 
   // everything related to the buy/sell panel
   const [userId, setUserId] = useState<string | null>(null);
@@ -50,6 +55,8 @@ export default function AssetChartPage(props: PageProps) {
   const { resolvedTheme } = useTheme();
   const supabase = createClient();
 
+  // this page requires login, unlike the home page which just falls back to the landing
+  // page - here we hard redirect instead since there's no logged-out version of this page
   useEffect(() => {
     const checkAuth = async () => {
       const { data: { user } } = await supabase.auth.getUser();
@@ -88,6 +95,8 @@ export default function AssetChartPage(props: PageProps) {
       if (res.ok) {
         const data = await res.json();
         const portfolio = data.portfolio || [];
+        // we only actually care about this one ticker's position, not the whole portfolio,
+        // so just find the matching row and pull the share count out of it
         const holding = portfolio.find((h: any) => h.ticker.toLowerCase() === ticker.toLowerCase());
         setOwnedShares(holding ? holding.shares : 0);
       }
@@ -103,6 +112,8 @@ export default function AssetChartPage(props: PageProps) {
     }
   }, [userId, ticker]);
 
+  // fetches the price history for the chart. this also doubles as the "does this asset
+  // even exist" check - if the ledger 404s or comes back empty we treat it as not found
   useEffect(() => {
     const fetchHistory = async () => {
       try {
@@ -111,10 +122,12 @@ export default function AssetChartPage(props: PageProps) {
           setAssetExists(false);
           throw new Error("Failed to fetch historical data");
         }
-        
+
         const data = await res.json();
-        
+
         if (data.history && data.history.length > 0) {
+          // dedupe by unix timestamp just in case the backend ever sends two points for
+          // the same day, then sort so the chart draws left to right correctly
           const dataMap = new Map<number, number>();
           data.history.forEach((item: any) => {
             const unixTime = Math.floor(new Date(item.time).getTime() / 1000);
@@ -131,7 +144,7 @@ export default function AssetChartPage(props: PageProps) {
           }));
 
           setHistory(formattedHistory);
-          setCurrentPrice(formattedHistory[formattedHistory.length - 1].value);
+          setCurrentPrice(formattedHistory[formattedHistory.length - 1].value); // latest point in history = current price
           setAssetExists(true);
         } else {
           setAssetExists(false);
@@ -148,6 +161,9 @@ export default function AssetChartPage(props: PageProps) {
     fetchHistory();
   }, [owner, repo]);
 
+  // this is the actual chart setup, runs once we've got history data and a theme to
+  // draw it in. rebuilds the whole chart from scratch on theme change since
+  // lightweight-charts doesn't really support live-restyling an existing instance well
   useEffect(() => {
     if (!chartContainerRef.current || history.length === 0 || assetExists === false) return;
 
@@ -192,6 +208,8 @@ export default function AssetChartPage(props: PageProps) {
       height: 400,
     });
 
+    // area chart with a gradient fill under the line, matches the "terminal" look of
+    // the rest of the app
     const newSeries = chart.addSeries(AreaSeries, {
       lineColor: lineColor,
       topColor: areaTopColor,
@@ -200,11 +218,13 @@ export default function AssetChartPage(props: PageProps) {
     });
 
     newSeries.setData(history);
-    chart.timeScale().fitContent();
+    chart.timeScale().fitContent(); // zoom to fit all the data instead of some default range
 
     chartRef.current = chart;
     seriesRef.current = newSeries;
 
+    // lightweight-charts doesn't auto-resize with its container, so we have to do it
+    // manually on window resize
     const handleResize = () => {
       if (chartContainerRef.current && chartRef.current) {
         chartRef.current.applyOptions({ width: chartContainerRef.current.clientWidth });
@@ -213,12 +233,16 @@ export default function AssetChartPage(props: PageProps) {
 
     window.addEventListener("resize", handleResize);
 
+    // cleanup - remove the listener and destroy the chart instance so we don't leak
+    // memory every time this effect re-runs (theme toggle, new history, etc)
     return () => {
       window.removeEventListener("resize", handleResize);
       chart.remove();
     };
   }, [history, resolvedTheme, assetExists]);
 
+  // handles both buy and sell, action tells it which. same slippage/quantity checks
+  // happen again server-side, this is just to avoid firing off obviously-bad requests
   const handleTrade = async (action: "BUY" | "SELL") => {
     if (currentPrice === null) return;
     if (!userId || assetExists !== true) return;
@@ -234,7 +258,7 @@ export default function AssetChartPage(props: PageProps) {
       if (!session) throw new Error("No session");
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}${endpoint}`, {
         method: "POST",
-        headers: { 
+        headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${session.access_token}`
         },
@@ -268,6 +292,8 @@ export default function AssetChartPage(props: PageProps) {
       <div className="absolute inset-0 z-0 bg-[radial-gradient(#e5e7eb_1px,transparent_1px)] dark:bg-[radial-gradient(#374151_1px,transparent_1px)] [background-size:16px_16px] pointer-events-none"></div>
 
       <div className="relative z-10">
+        {/* this page has its own mini header instead of using the shared Header component,
+            keeps the "asset view" context front and center */}
         <header className="border-b border-gray-200 dark:border-gray-800 bg-white/80 dark:bg-[#121212]/80 backdrop-blur-sm">
           <div className="max-w-7xl mx-auto px-6 h-14 flex items-center justify-between">
             <div className="flex items-center gap-6">
@@ -279,17 +305,17 @@ export default function AssetChartPage(props: PageProps) {
                 <span className="text-[10px] font-mono uppercase tracking-[0.2em] text-gray-500 dark:text-gray-400">Asset View</span>
               </div>
             </div>
-            
+
             <div className="flex items-center gap-4 text-right">
               <div>
                 <span className="text-[10px] font-mono uppercase tracking-[0.2em] text-gray-500 dark:text-gray-400 mr-3">Cash</span>
                 <span className="text-xs font-mono bg-gray-100 dark:bg-gray-800 px-2 py-1 text-gray-600 dark:text-gray-300 border border-gray-200 dark:border-gray-700">
-                  {balance !== null 
+                  {balance !== null
                     ? new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(balance)
                     : "---"}
                 </span>
               </div>
-              <Link 
+              <Link
                 href="/"
                 className="text-[10px] font-mono uppercase tracking-widest text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 transition-colors"
               >
@@ -306,7 +332,8 @@ export default function AssetChartPage(props: PageProps) {
               <h1 className="text-4xl font-bold tracking-tighter text-gray-900 dark:text-gray-100 mb-1">{repo.toUpperCase()}</h1>
               <p className="text-sm text-gray-500 dark:text-gray-400 font-mono">{owner}</p>
             </div>
-            
+
+            {/* current price - shows n/a if the asset doesn't exist, --- while still loading */}
             <div className="text-right">
               <p className="text-[10px] font-mono uppercase tracking-[0.2em] text-gray-500 dark:text-gray-400 mb-2">Current Mark</p>
               {assetExists === false ? (
@@ -324,6 +351,8 @@ export default function AssetChartPage(props: PageProps) {
             </div>
           </div>
 
+          {/* chart card - has three different states: still checking, asset not found,
+              and generic error, before it finally shows the actual chart */}
           <div className="border border-gray-200 dark:border-gray-800 bg-white dark:bg-[#161616] p-6 shadow-md mb-8">
             {assetExists === null ? (
               <div className="h-[400px] flex items-center justify-center font-mono text-sm text-gray-500 dark:text-gray-400">
@@ -341,11 +370,14 @@ export default function AssetChartPage(props: PageProps) {
                 {error}
               </div>
             ) : (
+              // this empty div is what lightweight-charts actually renders into, see the
+              // chart setup effect above
               <div ref={chartContainerRef} className="w-full h-[400px]" />
             )}
           </div>
 
-          {/* trade panel */}
+          {/* trade panel - quantity input plus buy/sell buttons. dims out and disables
+              everything if the asset doesn't exist */}
           <div className={`border border-gray-200 dark:border-gray-800 bg-white dark:bg-[#161616] p-6 shadow-sm flex flex-col md:flex-row items-center justify-between gap-6 ${assetExists === false ? "opacity-50" : ""}`}>
             <div className="flex flex-col">
               <span className="text-[10px] font-mono uppercase tracking-[0.2em] text-gray-500 dark:text-gray-400 mb-1">Position</span>
@@ -357,7 +389,7 @@ export default function AssetChartPage(props: PageProps) {
             <div className="flex items-center gap-4 w-full md:w-auto">
               <div className="flex flex-col">
                 <label htmlFor="qty" className="text-[10px] font-mono uppercase tracking-[0.2em] text-gray-500 dark:text-gray-400 mb-1">Quantity</label>
-                <input 
+                <input
                   id="qty"
                   type="number"
                   min="1"
@@ -369,7 +401,8 @@ export default function AssetChartPage(props: PageProps) {
               </div>
 
               <div className="flex gap-2 items-end h-full">
-                <button 
+                {/* buy is disabled while asset is missing or a trade is already in flight */}
+                <button
                   onClick={() => handleTrade("BUY")}
                   disabled={assetExists === false || processingAction !== null || tradeQuantity === ""}
                   className={`h-10 px-8 text-xs font-bold tracking-widest uppercase transition-all duration-150 ${
@@ -380,8 +413,9 @@ export default function AssetChartPage(props: PageProps) {
                 >
                   {processingAction === "BUY" ? "Routing" : "Buy"}
                 </button>
-                
-                <button 
+
+                {/* sell has the extra check that you can't sell more than you own */}
+                <button
                   onClick={() => handleTrade("SELL")}
                   disabled={assetExists === false || processingAction !== null || ownedShares === 0 || tradeQuantity === "" || tradeQuantity > ownedShares}
                   className={`h-10 px-8 text-xs font-bold tracking-widest uppercase transition-all duration-150 ${

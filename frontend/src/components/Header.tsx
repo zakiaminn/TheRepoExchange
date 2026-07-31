@@ -7,9 +7,11 @@ import { useEffect, useState } from "react";
 import { createClient } from "@/utils/supabase/client";
 import { usePathname, useRouter } from "next/navigation";
 
+// the top nav bar that sticks around on every page except login and the landing page.
+// handles the search box, theme toggle, and the user avatar dropdown
 export function Header() {
   const { resolvedTheme, setTheme } = useTheme();
-  const [mounted, setMounted] = useState(false);
+  const [mounted, setMounted] = useState(false); // need this so we don't render the theme toggle icon before we actually know the theme (avoids a hydration mismatch)
   const [user, setUser] = useState<any>(null);
   const [authLoading, setAuthLoading] = useState(true);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
@@ -18,6 +20,8 @@ export function Header() {
   const router = useRouter();
   const [searchQuery, setSearchQuery] = useState("");
 
+  // search box just takes an "owner/repo" string and routes straight to that asset page.
+  // regex check first so we don't push a broken url if someone types garbage
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
     const repoRegex = /^[a-zA-Z0-9_.-]+\/[a-zA-Z0-9_.-]+$/;
@@ -41,8 +45,13 @@ export function Header() {
     window.location.href = "/login";
   };
 
+  // hide the header entirely on the login page (it has its own nav), while auth is still
+  // loading (avoids a flash of the wrong state), and if nobody's logged in (landing page
+  // has its own nav too)
   if (pathname === "/login" || authLoading || !user) return null;
 
+  // build the little avatar initials + display name from whatever we've got on the user.
+  // falls back to the email if they never set a first/last name
   let userInitials = "U";
   let userFullName = "User";
 
@@ -66,6 +75,7 @@ export function Header() {
             TRX.EXCHANGE
           </Link>
           <div className="h-5 w-[1px] bg-gray-300 dark:bg-gray-700"></div>
+          {/* just a fake "market open" indicator, doesn't actually check anything, it's always on */}
           <div className="flex items-center gap-2">
             <span className="relative flex h-2 w-2">
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-500 opacity-40"></span>
@@ -87,14 +97,16 @@ export function Header() {
 
         <div className="flex items-center gap-6 text-sm relative">
           {user && (
-            <Link 
+            <Link
               href="/portfolio"
               className="font-medium text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white transition-colors"
             >
-              Portfolio  
-            </Link> 
+              Portfolio
+            </Link>
           )}
-          
+
+          {/* only render the toggle once mounted is true, otherwise ssr and the client
+              could disagree on which icon to show and react complains about it */}
           {mounted && (
             <button
               onClick={() => setTheme(resolvedTheme === "dark" ? "light" : "dark")}
@@ -105,6 +117,7 @@ export function Header() {
             </button>
           )}
 
+          {/* avatar + dropdown with settings/sign out */}
           {user && (
             <div className="relative border-l border-gray-200 dark:border-gray-800 pl-6">
               <button

@@ -9,6 +9,8 @@ type SystemMessage = {
   type: "success" | "error";
 } | null;
 
+// lets the user update their first/last name. email is shown but locked since it's tied
+// to their supabase auth identity, changing that is a whole different flow we don't support
 export default function SettingsPage() {
   const [email, setEmail] = useState("");
   const [firstName, setFirstName] = useState("");
@@ -22,7 +24,7 @@ export default function SettingsPage() {
   useEffect(() => {
     const checkAuth = async () => {
       const { data: { user } } = await supabase.auth.getUser();
-      
+
       if (!user) { // not logged in, bounce them
         window.location.href = "/login";
       } else {
@@ -37,6 +39,7 @@ export default function SettingsPage() {
     checkAuth();
   }, [supabase.auth]);
 
+  // just writes the new name straight into supabase's user_metadata, nothing fancy
   const handleUpdateProfile = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
@@ -81,7 +84,7 @@ export default function SettingsPage() {
             <div>
               <h1 className="text-3xl font-semibold tracking-tighter mb-1">Account Settings</h1>
             </div>
-            
+
             <div className="text-right">
               <Link href="/" className="text-[10px] uppercase tracking-[0.15em] text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 transition-colors">
                 Back to Terminal
@@ -95,8 +98,8 @@ export default function SettingsPage() {
                 <label className="block text-[10px] font-mono uppercase tracking-[0.15em] text-gray-500 dark:text-gray-400 mb-2">
                   Email Address
                 </label>
-                <input 
-                  type="email" 
+                <input
+                  type="email"
                   value={email}
                   disabled // can't change email, it's tied to their auth
                   className="w-full h-10 px-3 bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-800 text-gray-500 dark:text-gray-400 text-sm focus:outline-none cursor-not-allowed transition-all"
@@ -108,8 +111,8 @@ export default function SettingsPage() {
                   <label className="block text-[10px] font-mono uppercase tracking-[0.15em] text-gray-500 dark:text-gray-400 mb-2">
                     First Name
                   </label>
-                  <input 
-                    type="text" 
+                  <input
+                    type="text"
                     value={firstName}
                     onChange={(e) => setFirstName(e.target.value)}
                     required
@@ -122,8 +125,8 @@ export default function SettingsPage() {
                   <label className="block text-[10px] font-mono uppercase tracking-[0.15em] text-gray-500 dark:text-gray-400 mb-2">
                     Last Name
                   </label>
-                  <input 
-                    type="text" 
+                  <input
+                    type="text"
                     value={lastName}
                     onChange={(e) => setLastName(e.target.value)}
                     required
@@ -133,12 +136,12 @@ export default function SettingsPage() {
                 </div>
               </div>
 
-              <button 
-                type="submit" 
+              <button
+                type="submit"
                 disabled={isLoading}
                 className={`w-full h-10 mt-4 text-xs font-bold tracking-wide uppercase transition-all duration-150 flex items-center justify-center ${
-                  isLoading 
-                    ? 'bg-gray-200 dark:bg-gray-800 text-gray-400 dark:text-gray-500 cursor-not-allowed' 
+                  isLoading
+                    ? 'bg-gray-200 dark:bg-gray-800 text-gray-400 dark:text-gray-500 cursor-not-allowed'
                     : 'bg-gray-900 text-white dark:bg-white dark:text-gray-900 hover:opacity-90 active:scale-[0.98]'
                 }`}
               >
@@ -152,8 +155,8 @@ export default function SettingsPage() {
       {message && (
         <div className="fixed bottom-6 right-6 z-50 animate-in slide-in-from-bottom-4 fade-in duration-300">
           <div className={`px-4 py-3 border text-sm shadow-xl flex items-center gap-3 ${
-            message.type === 'success' 
-              ? 'bg-white dark:bg-[#121212] border-gray-200 dark:border-gray-800 text-gray-900 dark:text-gray-100' 
+            message.type === 'success'
+              ? 'bg-white dark:bg-[#121212] border-gray-200 dark:border-gray-800 text-gray-900 dark:text-gray-100'
               : 'bg-gray-900 dark:bg-gray-100 border-gray-900 dark:border-gray-100 text-white dark:text-gray-900'
           }`}>
             <div className={`h-2 w-2 rounded-full ${message.type === 'success' ? 'bg-black dark:bg-white' : 'bg-red-500'}`}></div>

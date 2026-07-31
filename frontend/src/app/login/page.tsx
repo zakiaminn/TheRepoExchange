@@ -4,6 +4,8 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/utils/supabase/client";
 
+// handles both sign in and sign up on the same page, toggled with isSignUp. also has the
+// google oauth button
 export default function LoginPage() {
   const [isSignUp, setIsSignUp] = useState(false);
   const [email, setEmail] = useState("");
@@ -17,6 +19,8 @@ export default function LoginPage() {
   const router = useRouter();
   const supabase = createClient();
 
+  // supabase's raw error messages are kind of ugly/technical, so this maps the common
+  // ones to something a normal person would actually understand
   const sanitizeAuthError = (errorMessage: string): string => {
     const msg = errorMessage.toLowerCase();
     if (msg.includes('invalid login credentials') || msg.includes('invalid password')) {
@@ -34,9 +38,11 @@ export default function LoginPage() {
     if (msg.includes('password') && msg.includes('characters')) {
       return 'Password must be at least 6 characters.';
     }
+    // fallback for anything we didn't specifically account for above
     return 'Authentication failed. Please try again.';
   };
 
+  // this one function handles both sign up and sign in, just branches on isSignUp
   const handleEmailAuth = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -44,6 +50,8 @@ export default function LoginPage() {
 
     try {
       if (isSignUp) {
+        // stash first/last name in supabase's user_metadata, this is what the settings
+        // page and header avatar read from later
         const { error } = await supabase.auth.signUp({
           email,
           password,
@@ -63,7 +71,7 @@ export default function LoginPage() {
         });
         if (error) throw error;
         router.push("/");
-        router.refresh();
+        router.refresh(); // makes sure the header/page picks up the new session right away
       }
     } catch (error: any) {
       setMessage({ text: sanitizeAuthError(error.message), type: "error" });
@@ -72,6 +80,8 @@ export default function LoginPage() {
     }
   };
 
+  // kicks off the google oauth flow, redirects to google then back to our /auth/callback
+  // route which is what actually finishes logging them in
   const handleGoogleLogin = async () => {
     setOauthLoading(true);
     const { error } = await supabase.auth.signInWithOAuth({
@@ -85,6 +95,8 @@ export default function LoginPage() {
       setMessage({ text: sanitizeAuthError(error.message), type: "error" });
       setOauthLoading(false);
     }
+    // no need to reset oauthLoading on success since the browser is about to navigate
+    // away to google anyway
   };
 
   return (
@@ -100,6 +112,7 @@ export default function LoginPage() {
         </div>
 
         <form onSubmit={handleEmailAuth} className="space-y-4 mb-6">
+          {/* only show the name fields when signing up, sign in just needs email + password */}
           {isSignUp && (
             <div className="grid grid-cols-2 gap-4">
               <input
@@ -155,6 +168,7 @@ export default function LoginPage() {
           </div>
         </div>
 
+        {/* google's official svg logo, just inlined instead of pulling in an icon library for one icon */}
         <button
           onClick={handleGoogleLogin}
           type="button"
@@ -191,8 +205,8 @@ export default function LoginPage() {
 
         {message && (
           <div className={`mt-4 p-3 text-[10px] uppercase tracking-wider text-center border ${
-            message.type === 'success' 
-              ? 'border-green-500/30 text-green-600 dark:text-green-400 bg-green-500/10' 
+            message.type === 'success'
+              ? 'border-green-500/30 text-green-600 dark:text-green-400 bg-green-500/10'
               : 'border-red-500/30 text-red-600 dark:text-red-400 bg-red-500/10'
           }`}>
             {message.text}

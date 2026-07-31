@@ -5,6 +5,8 @@ import { useTheme } from "next-themes";
 import { Sun, Moon } from "lucide-react";
 import { useState, useEffect } from "react";
 
+// fake data just for the little "product preview" card on the landing page. none of this
+// is real, it's purely to make the marketing page look alive before you've even logged in
 const mockRepos = [
   { name: "NEXT.JS", owner: "vercel", price: 1271.50, change: +3.2, sparkline: [40, 42, 38, 44, 43, 47, 50, 48, 52, 55] },
   { name: "REACT", owner: "facebook", price: 2335.23, change: +1.8, sparkline: [60, 58, 62, 61, 64, 63, 66, 65, 68, 67] },
@@ -12,22 +14,27 @@ const mockRepos = [
   { name: "BUN", owner: "oven-sh", price: 536.78, change: +7.1, sparkline: [20, 22, 25, 24, 28, 30, 32, 35, 38, 42] },
 ];
 
+// content for the "how it works" 3-step section
 const steps = [
   { num: "01", title: "Discover", desc: "Browse curated categories of trending GitHub repositories — from frontend frameworks and systems languages to AI tools and hot new projects." },
   { num: "02", title: "Trade", desc: "Buy and sell shares with real-time pricing derived from GitHub stars. Every star moves the market — one star equals one cent." },
   { num: "03", title: "Track", desc: "Monitor your portfolio value, view interactive price charts, and track your profit and loss as the open-source landscape evolves." },
 ];
 
+// content for the 3-column features grid
 const features = [
   { title: "Real-Time GitHub Data", desc: "Prices update continuously from live GitHub star counts. The market reflects the real pulse of open source — no artificial data.", icon: "◉" },
   { title: "Simulated Brokerage", desc: "Start with $100,000 in simulated capital. Place market orders with slippage protection, manage positions, and compete on returns.", icon: "◈" },
   { title: "Portfolio Analytics", desc: "Track your holdings, average entry prices, and unrealized P&L. View historical price charts powered by real star data over time.", icon: "◇" },
 ];
 
+// tiny hand-rolled sparkline chart, just draws a polyline through the data points scaled
+// to fit a 48x24 box. this is only used on the fake preview cards above, the real chart
+// on the asset page uses the actual lightweight-charts library instead
 function MiniSparkline({ data, positive }: { data: number[]; positive: boolean }) {
   const min = Math.min(...data);
   const max = Math.max(...data);
-  const range = max - min || 1;
+  const range = max - min || 1; // avoid dividing by zero if every value in the data is the same
   const h = 24;
   const w = 48;
   const points = data.map((v, i) => `${(i / (data.length - 1)) * w},${h - ((v - min) / range) * h}`).join(" ");
@@ -46,9 +53,11 @@ function MiniSparkline({ data, positive }: { data: number[]; positive: boolean }
   );
 }
 
+// the marketing page that shows up for anyone who isn't logged in yet. gets rendered by
+// page.tsx when there's no user session, it's basically its own little standalone site
 export function LandingPage() {
   const { resolvedTheme, setTheme } = useTheme();
-  const [mounted, setMounted] = useState(false);
+  const [mounted, setMounted] = useState(false); // same hydration-safety trick as Header.tsx
 
   useEffect(() => {
     setMounted(true);
@@ -59,7 +68,8 @@ export function LandingPage() {
       <div className="absolute inset-0 z-0 bg-[radial-gradient(#e5e7eb_1px,transparent_1px)] dark:bg-[radial-gradient(#374151_1px,transparent_1px)] [background-size:16px_16px] pointer-events-none" />
 
       <div className="relative z-10">
-        {/* Nav */}
+        {/* nav - this page has its own nav bar since the shared Header component hides
+            itself when there's no logged in user */}
         <nav className="border-b border-gray-200 dark:border-gray-800 bg-white/80 dark:bg-[#121212]/80 backdrop-blur-sm transition-colors duration-300">
           <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
             <Link href="/" className="font-semibold text-lg tracking-tight text-gray-900 dark:text-gray-100">
@@ -88,7 +98,7 @@ export function LandingPage() {
           </div>
         </nav>
 
-        {/* Hero */}
+        {/* hero */}
         <section className="max-w-7xl mx-auto px-6 pt-24 pb-16 md:pt-32 md:pb-20 text-center relative overflow-hidden">
           <div className="absolute inset-0 flex items-center justify-center pointer-events-none select-none opacity-[0.03] dark:opacity-[0.04]">
             <span className="text-[20rem] md:text-[28rem] font-mono font-bold tracking-tighter leading-none">$</span>
@@ -118,7 +128,8 @@ export function LandingPage() {
           </div>
         </section>
 
-        {/* Product Preview */}
+        {/* product preview - this is the fake terminal mockup using mockRepos up top,
+            none of these numbers are real */}
         <section className="max-w-5xl mx-auto px-6 pb-24">
           <div className="relative">
             <div className="absolute -inset-px bg-gradient-to-b from-gray-200 via-gray-200/50 to-transparent dark:from-gray-700 dark:via-gray-700/50 rounded-sm pointer-events-none" />
@@ -133,6 +144,7 @@ export function LandingPage() {
                 </div>
                 <div className="text-right">
                   <p className="text-[9px] uppercase tracking-[0.15em] text-gray-500 dark:text-gray-400 mb-1">Purchasing Power</p>
+                  {/* hardcoded 100k here, real starting balance is set in the db when a user signs up */}
                   <p className="text-lg font-mono tracking-tighter text-gray-900 dark:text-gray-100">$100,000.00</p>
                 </div>
               </div>
@@ -175,7 +187,7 @@ export function LandingPage() {
           </div>
         </section>
 
-        {/* How It Works */}
+        {/* how it works */}
         <section id="how-it-works" className="max-w-7xl mx-auto px-6 py-24 border-t border-gray-200 dark:border-gray-800">
           <p className="text-[10px] uppercase tracking-[0.2em] text-gray-500 dark:text-gray-400 mb-4">How It Works</p>
           <h2 className="text-3xl font-semibold tracking-tighter mb-16 text-gray-900 dark:text-gray-100">Three steps to your first trade</h2>
@@ -190,7 +202,7 @@ export function LandingPage() {
           </div>
         </section>
 
-        {/* Features */}
+        {/* features */}
         <section className="max-w-7xl mx-auto px-6 py-24 border-t border-gray-200 dark:border-gray-800">
           <div className="max-w-2xl mb-16">
             <p className="text-[10px] uppercase tracking-[0.2em] text-gray-500 dark:text-gray-400 mb-4">Features</p>
@@ -210,7 +222,7 @@ export function LandingPage() {
           </div>
         </section>
 
-        {/* CTA */}
+        {/* cta banner */}
         <section className="max-w-7xl mx-auto px-6 py-24">
           <div className="bg-gray-900 dark:bg-white p-12 md:p-16 text-center relative overflow-hidden">
             <div className="absolute inset-0 flex items-center justify-center pointer-events-none select-none opacity-[0.05]">
@@ -233,7 +245,7 @@ export function LandingPage() {
           </div>
         </section>
 
-        {/* Footer */}
+        {/* footer */}
         <footer className="border-t border-gray-200 dark:border-gray-800">
           <div className="max-w-7xl mx-auto px-6 py-8 flex flex-col sm:flex-row items-center justify-between gap-4">
             <span className="font-semibold text-sm tracking-tight text-gray-900 dark:text-gray-100">TRX.EXCHANGE</span>
