@@ -1,0 +1,19 @@
+services:
+  - type: web
+    name: trx-ledger
+    env: node
+    plan: free
+    region: oregon
+    rootDir: ledger
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /
+    envVars:
+      - key: DATABASE_URL
+        sync: false
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_ANON_KEY
+        sync: false
+      - key: CLIENT_ORIGIN
+        value: https://www.therepo.exchange,https://therepo.exchange

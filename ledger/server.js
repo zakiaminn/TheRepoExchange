@@ -49,6 +49,11 @@ app.use((req, res, next) => {
     next();
 });
 
+// health check for Render (and anyone curious the ledger is alive)
+app.get('/', (req, res) => {
+    res.json({ status: 'ok', service: 'trx-ledger' });
+});
+
 const tradeLimiter = rateLimit({
     windowMs: 60 * 1000,
     max: 30,
@@ -390,4 +395,5 @@ app.get('/api/discovery', discoveryLimiter, async (req, res) => {
     }
 });
 
-app.listen(8080, () => console.log(`[Ledger] Online on port 8080`));
+const PORT = process.env.PORT || 8080;
+app.listen(PORT, () => console.log(`[Ledger] Online on port ${PORT}`));
