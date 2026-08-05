@@ -64,47 +64,47 @@ export default function SettingsPage() {
 
   if (isInitializing) { // show a loading state so the page doesn't flash
     return (
-      <div className="min-h-screen bg-white dark:bg-[#121212] flex items-center justify-center text-sm text-gray-500 dark:text-gray-400">
+      <div className="min-h-screen bg-page flex items-center justify-center text-sm text-ink-muted">
         SECURING CONNECTION...
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-white dark:bg-[#121212] text-gray-900 dark:text-gray-100 font-sans relative selection:bg-gray-900 selection:text-white dark:selection:bg-white dark:selection:text-gray-900 transition-colors duration-300">
+    <div className="min-h-screen bg-page text-ink font-sans relative selection:bg-accent selection:text-accent-foreground transition-colors duration-300">
       <div className="absolute inset-0 z-0 bg-[radial-gradient(#e5e7eb_1px,transparent_1px)] dark:bg-[radial-gradient(#374151_1px,transparent_1px)] [background-size:16px_16px] pointer-events-none"></div>
 
       <div className="relative z-10">
         <main className="max-w-xl mx-auto px-6 py-12">
           <div className="mb-12 flex justify-between items-end">
             <div>
-              <h1 className="text-3xl font-semibold tracking-tighter mb-1">Account Settings</h1>
+              <h1 className="font-display text-3xl font-bold tracking-tighter mb-1">Account Settings</h1>
             </div>
 
             <div className="text-right">
-              <Link href="/" className="text-[10px] uppercase tracking-[0.15em] text-gray-500 dark:text-gray-400 hover:text-accent transition-colors">
+              <Link href="/" className="text-[10px] uppercase tracking-[0.15em] text-ink-muted hover:text-accent transition-colors">
                 Back to Terminal
               </Link>
             </div>
           </div>
 
-          <div className="bg-white dark:bg-[#161616] border border-gray-200 dark:border-gray-800 p-8 shadow-md">
+          <div className="bg-card border-2 border-edge p-8 shadow-brutal">
             <form onSubmit={handleUpdateProfile} className="space-y-6">
               <div>
-                <label className="block text-[10px] font-mono uppercase tracking-[0.15em] text-gray-500 dark:text-gray-400 mb-2">
+                <label className="block text-[10px] uppercase tracking-[0.15em] text-ink-muted mb-2">
                   Email Address
                 </label>
                 <input
                   type="email"
                   value={email}
                   disabled // can't change email, it's tied to their auth
-                  className="w-full h-10 px-3 bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-800 text-gray-500 dark:text-gray-400 text-sm focus:outline-none cursor-not-allowed transition-all"
+                  className="w-full h-10 px-3 bg-card-alt border-2 border-edge text-ink-muted text-sm focus:outline-none cursor-not-allowed transition-all"
                 />
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
-                  <label className="block text-[10px] font-mono uppercase tracking-[0.15em] text-gray-500 dark:text-gray-400 mb-2">
+                  <label className="block text-[10px] uppercase tracking-[0.15em] text-ink-muted mb-2">
                     First Name
                   </label>
                   <input
@@ -112,13 +112,13 @@ export default function SettingsPage() {
                     value={firstName}
                     onChange={(e) => setFirstName(e.target.value)}
                     required
-                    className="w-full h-10 px-3 bg-gray-50 dark:bg-[#1a1a1a] border border-gray-200 dark:border-gray-800 text-gray-900 dark:text-gray-100 text-sm focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent/20 transition-all"
+                    className="w-full h-10 px-3 bg-card border-2 border-edge text-ink text-sm focus:outline-none focus:shadow-brutal-sm transition-shadow"
                     placeholder="First Name"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-[10px] font-mono uppercase tracking-[0.15em] text-gray-500 dark:text-gray-400 mb-2">
+                  <label className="block text-[10px] uppercase tracking-[0.15em] text-ink-muted mb-2">
                     Last Name
                   </label>
                   <input
@@ -126,7 +126,7 @@ export default function SettingsPage() {
                     value={lastName}
                     onChange={(e) => setLastName(e.target.value)}
                     required
-                    className="w-full h-10 px-3 bg-gray-50 dark:bg-[#1a1a1a] border border-gray-200 dark:border-gray-800 text-gray-900 dark:text-gray-100 text-sm focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent/20 transition-all"
+                    className="w-full h-10 px-3 bg-card border-2 border-edge text-ink text-sm focus:outline-none focus:shadow-brutal-sm transition-shadow"
                     placeholder="Last Name"
                   />
                 </div>
@@ -135,10 +135,10 @@ export default function SettingsPage() {
               <button
                 type="submit"
                 disabled={isLoading}
-                className={`w-full h-10 mt-4 text-xs font-bold tracking-wide uppercase transition-all duration-150 flex items-center justify-center ${
+                className={`w-full h-10 mt-4 text-xs font-bold tracking-wide uppercase border-2 transition-all duration-150 flex items-center justify-center ${
                   isLoading
-                    ? 'bg-gray-200 dark:bg-gray-800 text-gray-400 dark:text-gray-500 cursor-not-allowed'
-                    : 'bg-accent text-accent-foreground hover:opacity-90 active:scale-[0.98]'
+                    ? 'bg-card-alt text-ink-muted cursor-not-allowed border-edge'
+                    : 'bg-accent text-accent-foreground border-edge press-brutal shadow-brutal-sm'
                 }`}
               >
                 {isLoading ? 'Saving...' : 'Update Profile'}

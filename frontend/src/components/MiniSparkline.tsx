@@ -20,7 +20,7 @@ export function MiniSparkline({ data, positive, className }: { data: number[]; p
       <polyline
         points={points}
         fill="none"
-        stroke={positive ? "#22c55e" : "#ef4444"}
+        stroke={positive ? "var(--bull)" : "var(--bear)"}
         strokeWidth="1.5"
         strokeLinecap="round"
         strokeLinejoin="round"

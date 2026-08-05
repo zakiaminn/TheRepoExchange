@@ -173,11 +173,13 @@ export default function AssetChartPage(props: PageProps) {
     if (!chartContainerRef.current || history.length === 0 || assetExists === false) return;
 
     const isDark = resolvedTheme === "dark";
-    const textColor = isDark ? "#9ca3af" : "#6b7280";
-    const lineColor = isDark ? "#ffffff" : "#000000";
-    const crosshairColor = isDark ? "#ffffff" : "#000000";
-    const areaTopColor = isDark ? "rgba(255, 255, 255, 0.05)" : "rgba(0, 0, 0, 0.05)";
-    const areaBottomColor = isDark ? "rgba(255, 255, 255, 0.0)" : "rgba(0, 0, 0, 0.0)";
+    // pulled straight from the css tokens in globals.css - keeps the chart line the same
+    // accent blue as the rest of the ui instead of a plain black/white line
+    const textColor = isDark ? "#7d8590" : "#656d76"; // ink-muted
+    const lineColor = isDark ? "#58a6ff" : "#0969da"; // accent
+    const crosshairColor = isDark ? "#e6edf3" : "#1f2328"; // ink
+    const areaTopColor = isDark ? "rgba(88, 166, 255, 0.15)" : "rgba(9, 105, 218, 0.12)"; // accent, faded
+    const areaBottomColor = isDark ? "rgba(88, 166, 255, 0.0)" : "rgba(9, 105, 218, 0.0)";
 
     const chart = createChart(chartContainerRef.current, {
       layout: {
@@ -304,7 +306,7 @@ export default function AssetChartPage(props: PageProps) {
   };
 
   return (
-    <div className="min-h-screen bg-white dark:bg-[#121212] text-gray-900 dark:text-gray-100 font-sans relative selection:bg-gray-900 selection:text-white dark:selection:bg-white dark:selection:text-gray-900 pb-20 transition-colors duration-300">
+    <div className="min-h-screen bg-page text-ink font-sans relative selection:bg-accent selection:text-accent-foreground pb-20 transition-colors duration-300">
       <div className="absolute inset-0 z-0 bg-[radial-gradient(#e5e7eb_1px,transparent_1px)] dark:bg-[radial-gradient(#374151_1px,transparent_1px)] [background-size:16px_16px] pointer-events-none"></div>
 
       <div className="relative z-10">
@@ -314,52 +316,52 @@ export default function AssetChartPage(props: PageProps) {
               own header bar on top of that */}
           <Link
             href="/"
-            className="inline-flex items-center gap-1 text-[10px] font-mono uppercase tracking-[0.2em] text-gray-500 dark:text-gray-400 hover:text-accent transition-colors mb-6"
+            className="inline-flex items-center gap-1 text-[10px] uppercase tracking-[0.2em] text-ink-muted hover:text-accent transition-colors mb-6"
           >
             ← Back to Terminal
           </Link>
 
-          <div className="mb-12 border-b border-gray-200 dark:border-gray-800 pb-8 flex justify-between items-end">
+          <div className="mb-12 border-b-2 border-edge pb-8 flex flex-col gap-6 sm:flex-row sm:justify-between sm:items-end">
             <div>
-              <p className="text-[10px] font-mono uppercase tracking-[0.2em] text-gray-500 dark:text-gray-400 mb-2">Ticker</p>
-              <h1 className="text-4xl font-bold tracking-tighter text-gray-900 dark:text-gray-100 mb-1">{repo.toUpperCase()}</h1>
-              <p className="text-sm text-gray-500 dark:text-gray-400 font-mono">{owner}</p>
+              <p className="text-[10px] uppercase tracking-[0.2em] text-ink-muted mb-2">Ticker</p>
+              <h1 className="font-display text-4xl font-bold tracking-tighter text-ink mb-1">{repo.toUpperCase()}</h1>
+              <p className="text-sm text-ink-muted">{owner}</p>
             </div>
 
             {/* current price - shows n/a if the asset doesn't exist, --- while still loading */}
-            <div className="text-right">
-              <p className="text-[10px] font-mono uppercase tracking-[0.2em] text-gray-500 dark:text-gray-400 mb-2">Current Mark</p>
+            <div className="sm:text-right">
+              <p className="text-[10px] uppercase tracking-[0.2em] text-ink-muted mb-2">Current Mark</p>
               {assetExists === false ? (
-                <div className="text-xl font-mono tracking-tighter text-gray-500 dark:text-gray-400">N/A</div>
+                <div className="font-display text-xl font-bold tracking-tighter text-ink-muted">N/A</div>
               ) : currentPrice !== null ? (
-                <div className="flex items-baseline justify-end gap-1">
-                  <span className="text-xl text-gray-500 dark:text-gray-400 font-mono">$</span>
-                  <span className="text-5xl font-light tracking-tighter text-gray-900 dark:text-gray-100 font-mono">
+                <div className="flex items-baseline sm:justify-end gap-1">
+                  <span className="text-xl text-ink-muted">$</span>
+                  <span className="font-display text-4xl sm:text-5xl font-bold tracking-tighter text-ink tabular-nums">
                     {currentPrice.toLocaleString("en-US", { minimumFractionDigits: 2 })}
                   </span>
                 </div>
               ) : (
-                <div className="text-xl font-mono tracking-tighter text-gray-500 dark:text-gray-400">---</div>
+                <div className="font-display text-xl font-bold tracking-tighter text-ink-muted">---</div>
               )}
             </div>
           </div>
 
           {/* chart card - has three different states: still checking, asset not found,
               and generic error, before it finally shows the actual chart */}
-          <div className="border border-gray-200 dark:border-gray-800 bg-white dark:bg-[#161616] p-6 shadow-md mb-8">
+          <div className="border-2 border-edge bg-card p-6 shadow-brutal mb-8">
             {assetExists === null ? (
-              <div className="h-[400px] flex items-center justify-center font-mono text-sm text-gray-500 dark:text-gray-400">
+              <div className="h-[400px] flex items-center justify-center text-sm text-ink-muted">
                 VERIFYING ASSET DATA...
               </div>
             ) : assetExists === false ? (
-              <div className="h-[400px] flex flex-col items-center justify-center font-mono text-center p-6 bg-gray-50 dark:bg-[#1a1a1a] border border-gray-200 dark:border-gray-800">
-                <div className="text-2xl font-bold tracking-widest text-gray-900 dark:text-gray-100 mb-2">ASSET NOT FOUND</div>
-                <div className="text-sm text-gray-500 dark:text-gray-400 max-w-md">
+              <div className="h-[400px] flex flex-col items-center justify-center text-center p-6 bg-card-alt border-2 border-edge">
+                <div className="font-display text-2xl font-bold tracking-widest text-ink mb-2">ASSET NOT FOUND</div>
+                <div className="text-sm text-ink-muted max-w-md">
                   The repository {owner}/{repo} either does not exist on GitHub or is private. Trading is suspended.
                 </div>
               </div>
             ) : error ? (
-              <div className="h-[400px] flex items-center justify-center font-mono text-sm text-gray-500 dark:text-gray-400">
+              <div className="h-[400px] flex items-center justify-center text-sm text-ink-muted">
                 {error}
               </div>
             ) : (
@@ -371,18 +373,18 @@ export default function AssetChartPage(props: PageProps) {
 
           {/* trade panel - shows position, available cash, quantity input, and buy/sell
               buttons. dims out and disables everything if the asset doesn't exist */}
-          <div className={`border border-gray-200 dark:border-gray-800 bg-white dark:bg-[#161616] p-6 shadow-sm ${assetExists === false ? "opacity-50" : ""}`}>
+          <div className={`border-2 border-edge bg-card p-6 shadow-brutal-sm ${assetExists === false ? "opacity-50" : ""}`}>
             <div className="flex flex-col md:flex-row items-center justify-between gap-6">
               <div className="flex gap-8">
                 <div className="flex flex-col">
-                  <span className="text-[10px] font-mono uppercase tracking-[0.2em] text-gray-500 dark:text-gray-400 mb-1">Position</span>
-                  <span className="text-xl font-mono tracking-tighter text-gray-900 dark:text-gray-100">
-                    {ownedShares} <span className="text-sm text-gray-500 dark:text-gray-400">SHRS</span>
+                  <span className="text-[10px] uppercase tracking-[0.2em] text-ink-muted mb-1">Position</span>
+                  <span className="font-display text-xl font-bold tracking-tighter text-ink tabular-nums">
+                    {ownedShares} <span className="text-sm font-sans font-normal text-ink-muted">SHRS</span>
                   </span>
                 </div>
                 <div className="flex flex-col">
-                  <span className="text-[10px] font-mono uppercase tracking-[0.2em] text-gray-500 dark:text-gray-400 mb-1">Available Cash</span>
-                  <span className="text-xl font-mono tracking-tighter text-gray-900 dark:text-gray-100">
+                  <span className="text-[10px] uppercase tracking-[0.2em] text-ink-muted mb-1">Available Cash</span>
+                  <span className="font-display text-xl font-bold tracking-tighter text-ink tabular-nums">
                     {balance !== null
                       ? new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(balance)
                       : "---"}
@@ -392,7 +394,7 @@ export default function AssetChartPage(props: PageProps) {
 
               <div className="flex items-center gap-4 w-full md:w-auto">
                 <div className="flex flex-col">
-                  <label htmlFor="qty" className="text-[10px] font-mono uppercase tracking-[0.2em] text-gray-500 dark:text-gray-400 mb-1">Quantity</label>
+                  <label htmlFor="qty" className="text-[10px] uppercase tracking-[0.2em] text-ink-muted mb-1">Quantity</label>
                   <input
                     id="qty"
                     type="number"
@@ -400,7 +402,7 @@ export default function AssetChartPage(props: PageProps) {
                     value={tradeQuantity}
                     onChange={(e) => setTradeQuantity(e.target.value === "" ? "" : parseInt(e.target.value))}
                     disabled={assetExists === false}
-                    className={`w-24 h-10 px-3 border border-gray-300 dark:border-gray-700 bg-white dark:bg-[#1a1a1a] font-mono text-center text-gray-900 dark:text-gray-100 focus:outline-none focus:border-accent ${assetExists === false ? "cursor-not-allowed bg-gray-100 dark:bg-gray-800" : ""}`}
+                    className={`w-24 h-10 px-3 border-2 border-edge bg-card text-center text-ink tabular-nums focus:outline-none focus:shadow-brutal-sm transition-shadow ${assetExists === false ? "cursor-not-allowed bg-card-alt" : ""}`}
                   />
                 </div>
 
@@ -409,10 +411,10 @@ export default function AssetChartPage(props: PageProps) {
                   <button
                     onClick={() => handleTradeRequest("BUY")}
                     disabled={assetExists === false || processingAction !== null || tradeQuantity === ""}
-                    className={`h-10 px-8 text-xs font-bold tracking-widest uppercase transition-all duration-150 ${
+                    className={`h-10 px-8 text-xs font-bold tracking-widest uppercase border-2 transition-all duration-150 ${
                       assetExists === false || processingAction === "BUY" || tradeQuantity === ""
-                        ? "bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-500 cursor-not-allowed border border-gray-200 dark:border-gray-800"
-                        : "bg-accent text-accent-foreground hover:opacity-90 active:scale-[0.98] border border-accent"
+                        ? "bg-card-alt text-ink-muted cursor-not-allowed border-edge"
+                        : "bg-accent text-accent-foreground border-edge press-brutal shadow-brutal-sm"
                     }`}
                   >
                     {processingAction === "BUY" ? "Routing" : "Buy"}
@@ -422,10 +424,10 @@ export default function AssetChartPage(props: PageProps) {
                   <button
                     onClick={() => handleTradeRequest("SELL")}
                     disabled={assetExists === false || processingAction !== null || ownedShares === 0 || tradeQuantity === "" || tradeQuantity > ownedShares}
-                    className={`h-10 px-8 text-xs font-bold tracking-widest uppercase transition-all duration-150 ${
+                    className={`h-10 px-8 text-xs font-bold tracking-widest uppercase border-2 transition-all duration-150 ${
                       assetExists === false || processingAction === "SELL" || ownedShares === 0 || tradeQuantity === "" || tradeQuantity > ownedShares
-                        ? "bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-500 cursor-not-allowed border border-gray-200 dark:border-gray-800"
-                        : "bg-white text-gray-900 dark:bg-[#121212] dark:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-800 active:scale-[0.98] border border-gray-900 dark:border-gray-100"
+                        ? "bg-card-alt text-ink-muted cursor-not-allowed border-edge"
+                        : "bg-card text-ink border-edge press-brutal shadow-brutal-sm"
                     }`}
                   >
                     {processingAction === "SELL" ? "Routing" : "Sell"}
