@@ -101,16 +101,16 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen bg-white dark:bg-[#121212] text-gray-900 dark:text-gray-100 font-sans selection:bg-gray-900 selection:text-white transition-colors duration-300">
+    <div className="flex flex-col items-center justify-center min-h-screen bg-page text-ink font-sans selection:bg-accent selection:text-accent-foreground transition-colors duration-300">
       <div className="absolute inset-0 z-0 bg-[radial-gradient(#e5e7eb_1px,transparent_1px)] dark:bg-[radial-gradient(#374151_1px,transparent_1px)] [background-size:16px_16px] pointer-events-none"></div>
 
-      <div className="relative z-10 w-full max-w-sm p-8 bg-white dark:bg-[#161616] border border-gray-200 dark:border-gray-800 shadow-lg">
+      <div className="relative z-10 w-full max-w-sm p-8 bg-card border-2 border-edge shadow-brutal">
         <div className="mb-8 text-center">
           <div className="flex items-center justify-center gap-2 mb-1">
             <Logo className="h-5 w-5 text-accent" />
-            <h1 className="text-2xl font-bold tracking-tighter">TRX.EXCHANGE</h1>
+            <h1 className="font-display text-2xl font-bold tracking-tighter">TRX.EXCHANGE</h1>
           </div>
-          <p className="text-[10px] uppercase tracking-[0.2em] text-gray-500 dark:text-gray-400">
+          <p className="text-[10px] uppercase tracking-[0.2em] text-ink-muted">
             {isSignUp ? "Create an Account" : "The Repo Exchange"}
           </p>
         </div>
@@ -125,7 +125,7 @@ export default function LoginPage() {
                 value={firstName}
                 onChange={(e) => setFirstName(e.target.value)}
                 required={isSignUp}
-                className="w-full px-3 py-2 text-sm bg-transparent border border-gray-200 dark:border-gray-800 focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent/20 transition-all"
+                className="w-full px-3 py-2 text-sm bg-card border-2 border-edge focus:outline-none focus:shadow-brutal-sm transition-shadow"
               />
               <input
                 type="text"
@@ -133,7 +133,7 @@ export default function LoginPage() {
                 value={lastName}
                 onChange={(e) => setLastName(e.target.value)}
                 required={isSignUp}
-                className="w-full px-3 py-2 text-sm bg-transparent border border-gray-200 dark:border-gray-800 focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent/20 transition-all"
+                className="w-full px-3 py-2 text-sm bg-card border-2 border-edge focus:outline-none focus:shadow-brutal-sm transition-shadow"
               />
             </div>
           )}
@@ -143,7 +143,7 @@ export default function LoginPage() {
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             required
-            className="w-full px-3 py-2 text-sm bg-transparent border border-gray-200 dark:border-gray-800 focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent/20 transition-all"
+            className="w-full px-3 py-2 text-sm bg-card border-2 border-edge focus:outline-none focus:shadow-brutal-sm transition-shadow"
           />
           <input
             type="password"
@@ -151,13 +151,13 @@ export default function LoginPage() {
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             required
-            className="w-full px-3 py-2 text-sm bg-transparent border border-gray-200 dark:border-gray-800 focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent/20 transition-all"
+            className="w-full px-3 py-2 text-sm bg-card border-2 border-edge focus:outline-none focus:shadow-brutal-sm transition-shadow"
           />
 
           <button
             type="submit"
             disabled={loading}
-            className="w-full py-2 bg-accent text-accent-foreground text-xs font-bold tracking-widest uppercase hover:opacity-90 active:scale-[0.98] transition-all disabled:opacity-50"
+            className="w-full py-2 border-2 border-edge bg-accent text-accent-foreground text-xs font-bold tracking-widest uppercase press-brutal shadow-brutal-sm transition-all disabled:opacity-50"
           >
             {loading ? "Processing..." : isSignUp ? "Sign Up" : "Sign In"}
           </button>
@@ -165,10 +165,10 @@ export default function LoginPage() {
 
         <div className="relative mb-6">
           <div className="absolute inset-0 flex items-center">
-            <div className="w-full border-t border-gray-200 dark:border-gray-800"></div>
+            <div className="w-full border-t-2 border-edge"></div>
           </div>
           <div className="relative flex justify-center text-[10px] uppercase tracking-[0.1em]">
-            <span className="px-2 bg-white dark:bg-[#121212] text-gray-500">Or continue with</span>
+            <span className="px-2 bg-card text-ink-muted">Or continue with</span>
           </div>
         </div>
 
@@ -177,7 +177,7 @@ export default function LoginPage() {
           onClick={handleGoogleLogin}
           type="button"
           disabled={oauthLoading}
-          className="w-full flex items-center justify-center gap-3 px-4 py-2 border border-gray-200 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors text-xs font-bold tracking-widest uppercase disabled:opacity-50"
+          className="w-full flex items-center justify-center gap-3 px-4 py-2 border-2 border-edge hover:bg-card-alt press-brutal shadow-brutal-sm transition-colors text-xs font-bold tracking-widest uppercase disabled:opacity-50"
         >
           {oauthLoading ? (
             "Connecting..."
@@ -194,7 +194,7 @@ export default function LoginPage() {
           )}
         </button>
 
-        <p className="mt-6 text-center text-[10px] uppercase tracking-[0.1em] text-gray-500">
+        <p className="mt-6 text-center text-[10px] uppercase tracking-[0.1em] text-ink-muted">
           {isSignUp ? "Already have an account?" : "Need an account?"}{" "}
           <button
             onClick={() => {
@@ -208,10 +208,10 @@ export default function LoginPage() {
         </p>
 
         {message && (
-          <div className={`mt-4 p-3 text-[10px] uppercase tracking-wider text-center border ${
+          <div className={`mt-4 p-3 text-[10px] uppercase tracking-wider text-center border-2 ${
             message.type === 'success'
-              ? 'border-green-500/30 text-green-600 dark:text-green-400 bg-green-500/10'
-              : 'border-red-500/30 text-red-600 dark:text-red-400 bg-red-500/10'
+              ? 'border-bull/40 text-bull bg-bull/10'
+              : 'border-bear/40 text-bear bg-bear/10'
           }`}>
             {message.text}
           </div>

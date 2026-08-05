@@ -1,31 +1,88 @@
 @import "tailwindcss";
 @custom-variant dark (&:where(.dark, .dark *)); /* custom dark variant DARK MODEEEEE*/
+
 :root {
-  --background: #f9fafb;
-  --foreground: #111827;
-  /* brand accent - electric indigo. used for primary ctas, active nav state, links,
-     focus rings. kept separate from green/red so it never gets confused with p&l color */
-  --accent: #6366f1;
+  /* base canvas + surfaces */
+  --page: #ffffff;
+  --card: #ffffff;
+  --card-alt: #f6f8fa;
+
+  /* text colors. "edge" (borders) reuses ink instead of its own muted gray - that's the
+     actual brutalist trick, borders are drawn in the same weight as text, not a
+     separate hairline color */
+  --ink: #1f2328;
+  --ink-muted: #656d76;
+  --edge: var(--ink);
+
+  /* github's real link/button blue - the whole point of this palette is that it reads
+     as an extension of github instead of an unrelated brand */
+  --accent: #0969da;
   --accent-foreground: #ffffff;
+
+  /* semantic green/red, pulled from github's own open-pr/closed-pr colors so they stay
+     in the same family as the accent instead of clashing with it */
+  --bull: #1a7f37;
+  --bear: #cf222e;
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
+  --color-page: var(--page);
+  --color-card: var(--card);
+  --color-card-alt: var(--card-alt);
+  --color-ink: var(--ink);
+  --color-ink-muted: var(--ink-muted);
+  --color-edge: var(--edge);
   --color-accent: var(--accent);
   --color-accent-foreground: var(--accent-foreground);
-  --font-sans: var(--font-inter);
+  --color-bull: var(--bull);
+  --color-bear: var(--bear);
+  --font-display: var(--font-display);
+  --font-sans: var(--font-sans);
 }
 
 .dark {
-  --background: #121212;
-  --foreground: #f3f4f6;
-  /* lighter indigo in dark mode so it still has enough contrast against the near-black bg */
-  --accent: #818cf8;
-  --accent-foreground: #1e1b4b;
+  /* github's actual dark theme values, not a generic near-black - picking "github blue"
+     only makes sense if the dark mode is actually github's dark mode */
+  --page: #0d1117;
+  --card: #161b22;
+  --card-alt: #21262d;
+
+  --ink: #e6edf3;
+  --ink-muted: #7d8590;
+
+  --accent: #58a6ff;
+  --accent-foreground: #0d1117;
+
+  --bull: #3fb950;
+  --bear: #f85149;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
+  background: var(--page);
+  color: var(--ink);
+}
+
+/* brutalist mechanics - the reusable part of this whole system. hard offset shadows
+   with zero blur, drawn in ink so they read as linework instead of a soft drop shadow.
+   -sm is for smaller elements (buttons, inputs) where a full 4px offset looks oversized */
+.shadow-brutal {
+  box-shadow: 4px 4px 0 0 var(--edge);
+}
+.shadow-brutal-sm {
+  box-shadow: 2px 2px 0 0 var(--edge);
+}
+
+/* the "press" interaction - hover lifts the block up-left as its shadow grows to
+   compensate, clicking slams it back down flush with a tiny shadow. makes bordered
+   blocks feel like physical objects sitting on the page instead of flat rectangles */
+.press-brutal {
+  transition: transform 0.1s ease, box-shadow 0.1s ease;
+}
+.press-brutal:hover {
+  transform: translate(-2px, -2px);
+  box-shadow: 6px 6px 0 0 var(--edge);
+}
+.press-brutal:active {
+  transform: translate(0, 0);
+  box-shadow: 1px 1px 0 0 var(--edge);
 }

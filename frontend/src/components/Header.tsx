@@ -126,7 +126,8 @@ export function Header() {
   }
 
   // shared between the desktop and mobile layout - the search input plus its suggestions
-  // dropdown underneath
+  // dropdown underneath. zero border radius + a hard shadow on focus, same brutalist
+  // triplet as everything else, just without the hover lift since it's an input not a card
   const searchBox = (
     <form ref={searchRef} onSubmit={handleSearch} className="relative flex-1">
       <input
@@ -135,19 +136,19 @@ export function Header() {
         onChange={(e) => setSearchQuery(e.target.value)}
         onFocus={() => setShowSuggestions(true)}
         placeholder="Search owner/repo..."
-        className="w-full px-4 py-2 rounded-full bg-gray-100 dark:bg-gray-800/60 text-sm focus:outline-none focus:ring-2 focus:ring-accent/50 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 transition-all"
+        className="w-full px-4 py-2 border-2 border-edge bg-card text-sm text-ink placeholder-ink-muted focus:outline-none focus:shadow-brutal-sm transition-all"
       />
       {showSuggestions && suggestions.length > 0 && (
-        <div className="absolute top-full left-0 right-0 mt-2 border border-gray-200 dark:border-gray-800 bg-white dark:bg-[#161616] shadow-lg z-50 py-1 max-h-72 overflow-y-auto">
+        <div className="absolute top-full left-0 right-0 mt-2 border-2 border-edge bg-card shadow-brutal-sm z-50 py-1 max-h-72 overflow-y-auto">
           {suggestions.map((s) => (
             <button
               key={s.ticker}
               type="button"
               onClick={() => goToAsset(s.ticker)}
-              className="w-full text-left px-4 py-2 text-sm font-mono text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors flex items-center justify-between gap-2"
+              className="w-full text-left px-4 py-2 text-sm font-mono text-ink hover:bg-card-alt transition-colors flex items-center justify-between gap-2"
             >
               <span className="truncate">{s.ticker}</span>
-              <span className="text-[9px] uppercase tracking-wider text-gray-400 dark:text-gray-500 shrink-0">{s.category}</span>
+              <span className="text-[9px] uppercase tracking-wider text-ink-muted shrink-0">{s.category}</span>
             </button>
           ))}
         </div>
@@ -156,21 +157,21 @@ export function Header() {
   );
 
   return (
-    <header className="border-b border-gray-200 dark:border-gray-800 bg-white/80 dark:bg-[#121212]/80 backdrop-blur-sm transition-colors duration-300 sticky top-0 z-40">
+    <header className="border-b-2 border-edge bg-page/90 backdrop-blur-sm transition-colors duration-300 sticky top-0 z-40">
       <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between gap-4">
         <div className="flex items-center gap-6 shrink-0">
-          <Link href="/" className="flex items-center gap-2 font-semibold text-lg tracking-tight text-gray-900 dark:text-gray-100 hover:text-accent transition-colors">
+          <Link href="/" className="flex items-center gap-2 font-display font-bold text-lg tracking-tight text-ink hover:text-accent transition-colors">
             <Logo className="h-5 w-5 text-accent" />
             <span className="hidden sm:inline">TRX.EXCHANGE</span>
           </Link>
-          <div className="hidden md:block h-5 w-[1px] bg-gray-300 dark:bg-gray-700"></div>
-          {/* just a fake "market open" indicator, doesn't actually check anything, it's always on */}
+          <div className="hidden md:block h-5 w-[2px] bg-edge"></div>
+          {/* just a fake "market open" indicator, doesn't actually check anything, it's always on. stays a circle - it's a status led, not a card corner */}
           <div className="hidden md:flex items-center gap-2">
             <span className="relative flex h-2 w-2">
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-accent opacity-40"></span>
               <span className="relative inline-flex rounded-full h-2 w-2 bg-accent"></span>
             </span>
-            <span className="text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">Market Open</span>
+            <span className="text-xs font-medium uppercase tracking-wider text-ink-muted">Market Open</span>
           </div>
         </div>
 
@@ -180,7 +181,7 @@ export function Header() {
 
           <Link
             href="/portfolio"
-            className="font-medium text-gray-600 dark:text-gray-300 hover:text-accent transition-colors"
+            className="font-medium text-ink-muted hover:text-accent transition-colors"
           >
             Portfolio
           </Link>
@@ -188,31 +189,31 @@ export function Header() {
           {mounted && (
             <button
               onClick={() => setTheme(resolvedTheme === "dark" ? "light" : "dark")}
-              className="p-2 rounded-full text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+              className="p-2 text-ink-muted hover:bg-card-alt transition-colors"
               aria-label="Toggle Theme"
             >
               {resolvedTheme === "dark" ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
             </button>
           )}
 
-          <div ref={dropdownRef} className="relative border-l border-gray-200 dark:border-gray-800 pl-6">
+          <div ref={dropdownRef} className="relative border-l-2 border-edge pl-6">
             <button
               onClick={() => setIsDropdownOpen(!isDropdownOpen)}
               className="flex items-center gap-3 hover:opacity-80 transition-opacity"
             >
-              <div className="h-8 w-8 rounded-full bg-accent text-accent-foreground flex items-center justify-center text-xs font-bold tracking-wider shadow-sm">
+              <div className="h-8 w-8 border-2 border-edge bg-accent text-accent-foreground flex items-center justify-center text-xs font-bold tracking-wider">
                 {userInitials}
               </div>
-              <span className="font-medium text-gray-900 dark:text-gray-100">
+              <span className="font-medium text-ink">
                 {userFullName}
               </span>
             </button>
 
             {isDropdownOpen && (
-              <div className="absolute right-0 top-10 mt-2 w-48 border border-gray-200 dark:border-gray-800 bg-white dark:bg-[#161616] shadow-lg z-50 py-1">
+              <div className="absolute right-0 top-10 mt-2 w-48 border-2 border-edge bg-card shadow-brutal-sm z-50 py-1">
                 <Link
                   href="/settings"
-                  className="block px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+                  className="block px-4 py-2 text-sm text-ink hover:bg-card-alt transition-colors"
                   onClick={() => setIsDropdownOpen(false)}
                 >
                   Account Settings
@@ -222,7 +223,7 @@ export function Header() {
                     setIsDropdownOpen(false);
                     handleLogout();
                   }}
-                  className="w-full text-left block px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+                  className="w-full text-left block px-4 py-2 text-sm text-ink hover:bg-card-alt transition-colors"
                 >
                   Sign Out
                 </button>
@@ -234,7 +235,7 @@ export function Header() {
         {/* mobile layout - just a hamburger toggle, everything else lives in the panel below */}
         <button
           onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-          className="md:hidden p-2 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+          className="md:hidden p-2 text-ink-muted hover:bg-card-alt transition-colors"
           aria-label="Toggle menu"
         >
           {isMobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
@@ -242,36 +243,36 @@ export function Header() {
       </div>
 
       {isMobileMenuOpen && (
-        <div className="md:hidden border-t border-gray-200 dark:border-gray-800 bg-white dark:bg-[#121212] px-6 py-4 space-y-4">
+        <div className="md:hidden border-t-2 border-edge bg-page px-6 py-4 space-y-4">
           {searchBox}
           <div className="flex items-center justify-between">
             <Link
               href="/portfolio"
               onClick={() => setIsMobileMenuOpen(false)}
-              className="font-medium text-sm text-gray-600 dark:text-gray-300 hover:text-accent transition-colors"
+              className="font-medium text-sm text-ink-muted hover:text-accent transition-colors"
             >
               Portfolio
             </Link>
             <Link
               href="/settings"
               onClick={() => setIsMobileMenuOpen(false)}
-              className="font-medium text-sm text-gray-600 dark:text-gray-300 hover:text-accent transition-colors"
+              className="font-medium text-sm text-ink-muted hover:text-accent transition-colors"
             >
               Account Settings
             </Link>
           </div>
-          <div className="flex items-center justify-between pt-2 border-t border-gray-200 dark:border-gray-800">
+          <div className="flex items-center justify-between pt-2 border-t-2 border-edge">
             <div className="flex items-center gap-2">
-              <div className="h-7 w-7 rounded-full bg-accent text-accent-foreground flex items-center justify-center text-xs font-bold tracking-wider">
+              <div className="h-7 w-7 border-2 border-edge bg-accent text-accent-foreground flex items-center justify-center text-xs font-bold tracking-wider">
                 {userInitials}
               </div>
-              <span className="text-sm font-medium text-gray-900 dark:text-gray-100">{userFullName}</span>
+              <span className="text-sm font-medium text-ink">{userFullName}</span>
             </div>
             <div className="flex items-center gap-2">
               {mounted && (
                 <button
                   onClick={() => setTheme(resolvedTheme === "dark" ? "light" : "dark")}
-                  className="p-2 rounded-full text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                  className="p-2 text-ink-muted hover:bg-card-alt transition-colors"
                   aria-label="Toggle Theme"
                 >
                   {resolvedTheme === "dark" ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
@@ -279,7 +280,7 @@ export function Header() {
               )}
               <button
                 onClick={handleLogout}
-                className="text-xs font-bold uppercase tracking-wider text-gray-600 dark:text-gray-300 hover:text-accent transition-colors"
+                className="text-xs font-bold uppercase tracking-wider text-ink-muted hover:text-accent transition-colors"
               >
                 Sign Out
               </button>

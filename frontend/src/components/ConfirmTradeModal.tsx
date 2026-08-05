@@ -32,40 +32,40 @@ export function ConfirmTradeModal({ action, ticker, quantity, price, processing,
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-ink/40 backdrop-blur-sm p-4"
       onClick={onCancel} // clicking the backdrop backs out, same as escape
     >
       <div
-        className="w-full max-w-sm bg-white dark:bg-[#161616] border border-gray-200 dark:border-gray-800 shadow-xl p-6"
+        className="w-full max-w-sm bg-card border-2 border-edge shadow-brutal p-6"
         onClick={(e) => e.stopPropagation()} // don't let clicks inside the card bubble up and close it
       >
-        <p className="text-[11px] font-mono uppercase tracking-[0.2em] text-gray-500 dark:text-gray-400 mb-5">
+        <p className="text-[11px] uppercase tracking-[0.2em] text-ink-muted mb-5">
           Confirm {action === "BUY" ? "Purchase" : "Sale"}
         </p>
 
-        <div className="mb-6 space-y-3 font-mono">
+        <div className="mb-6 space-y-3">
           <div className="flex justify-between text-sm">
-            <span className="text-gray-500 dark:text-gray-400">Ticker</span>
-            <span className="font-bold text-gray-900 dark:text-gray-100">{ticker}</span>
+            <span className="text-ink-muted">Ticker</span>
+            <span className="font-bold text-ink">{ticker}</span>
           </div>
           <div className="flex justify-between text-sm">
-            <span className="text-gray-500 dark:text-gray-400">Quantity</span>
-            <span className="text-gray-900 dark:text-gray-100">{quantity} shares</span>
+            <span className="text-ink-muted">Quantity</span>
+            <span className="text-ink tabular-nums">{quantity} shares</span>
           </div>
           <div className="flex justify-between text-sm">
-            <span className="text-gray-500 dark:text-gray-400">Est. Price</span>
-            <span className="text-gray-900 dark:text-gray-100">${price.toFixed(2)}</span>
+            <span className="text-ink-muted">Est. Price</span>
+            <span className="text-ink tabular-nums">${price.toFixed(2)}</span>
           </div>
-          <div className="flex justify-between text-base pt-3 border-t border-gray-200 dark:border-gray-800">
-            <span className="font-bold text-gray-900 dark:text-gray-100">Total</span>
-            <span className="font-bold text-gray-900 dark:text-gray-100">${total.toFixed(2)}</span>
+          <div className="flex justify-between items-center pt-3 border-t-2 border-edge">
+            <span className="font-bold text-ink">Total</span>
+            <span className="font-display font-bold text-xl text-ink tabular-nums">${total.toFixed(2)}</span>
           </div>
         </div>
 
         <div className="flex gap-3">
           <button
             onClick={onCancel}
-            className="flex-1 h-10 border border-gray-300 dark:border-gray-700 text-xs font-bold tracking-widest uppercase text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+            className="flex-1 h-10 border-2 border-edge text-xs font-bold tracking-widest uppercase text-ink-muted hover:bg-card-alt press-brutal shadow-brutal-sm transition-colors"
           >
             Cancel
           </button>
@@ -73,7 +73,7 @@ export function ConfirmTradeModal({ action, ticker, quantity, price, processing,
             onClick={onConfirm}
             disabled={processing}
             autoFocus
-            className="flex-1 h-10 bg-accent text-accent-foreground text-xs font-bold tracking-widest uppercase hover:opacity-90 active:scale-[0.98] transition-all disabled:opacity-50"
+            className="flex-1 h-10 border-2 border-edge bg-accent text-accent-foreground text-xs font-bold tracking-widest uppercase press-brutal shadow-brutal-sm transition-all disabled:opacity-50"
           >
             {processing ? "Routing..." : `Confirm ${action}`}
           </button>

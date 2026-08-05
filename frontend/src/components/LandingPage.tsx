@@ -41,15 +41,16 @@ export function LandingPage() {
   }, []);
 
   return (
-    <div className="min-h-screen bg-white dark:bg-[#121212] text-gray-900 dark:text-gray-100 font-sans relative selection:bg-gray-900 selection:text-white dark:selection:bg-white dark:selection:text-gray-900 transition-colors duration-300">
+    <div className="min-h-screen bg-page text-ink font-sans relative selection:bg-accent selection:text-accent-foreground transition-colors duration-300">
+      {/* keeping this exactly as-is, it's the one piece of the old look that's staying */}
       <div className="absolute inset-0 z-0 bg-[radial-gradient(#e5e7eb_1px,transparent_1px)] dark:bg-[radial-gradient(#374151_1px,transparent_1px)] [background-size:16px_16px] pointer-events-none" />
 
       <div className="relative z-10">
         {/* nav - this page has its own nav bar since the shared Header component hides
             itself when there's no logged in user */}
-        <nav className="border-b border-gray-200 dark:border-gray-800 bg-white/80 dark:bg-[#121212]/80 backdrop-blur-sm transition-colors duration-300">
+        <nav className="border-b-2 border-edge bg-page/90 backdrop-blur-sm transition-colors duration-300">
           <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
-            <Link href="/" className="flex items-center gap-2 font-semibold text-lg tracking-tight text-gray-900 dark:text-gray-100">
+            <Link href="/" className="flex items-center gap-2 font-display font-bold text-lg tracking-tight text-ink">
               <Logo className="h-5 w-5 text-accent" />
               TRX.EXCHANGE
             </Link>
@@ -57,18 +58,18 @@ export function LandingPage() {
               {mounted && (
                 <button
                   onClick={() => setTheme(resolvedTheme === "dark" ? "light" : "dark")}
-                  className="p-2 rounded-full text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                  className="p-2 text-ink-muted hover:bg-card-alt transition-colors"
                   aria-label="Toggle Theme"
                 >
                   {resolvedTheme === "dark" ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
                 </button>
               )}
-              <Link href="/login" className="hidden sm:inline font-medium text-gray-600 dark:text-gray-300 hover:text-accent transition-colors">
+              <Link href="/login" className="hidden sm:inline font-medium text-ink-muted hover:text-accent transition-colors">
                 Sign In
               </Link>
               <Link
                 href="/login"
-                className="h-8 px-4 flex items-center bg-accent text-accent-foreground text-xs font-bold tracking-widest uppercase hover:opacity-90 active:scale-[0.98] transition-all"
+                className="h-8 px-4 flex items-center border-2 border-edge bg-accent text-accent-foreground text-xs font-bold tracking-widest uppercase press-brutal shadow-brutal-sm"
               >
                 Get Started
               </Link>
@@ -79,26 +80,26 @@ export function LandingPage() {
         {/* hero */}
         <section className="max-w-7xl mx-auto px-6 pt-24 pb-16 md:pt-32 md:pb-20 text-center relative overflow-hidden">
           <div className="absolute inset-0 flex items-center justify-center pointer-events-none select-none opacity-[0.03] dark:opacity-[0.04]">
-            <span className="text-[20rem] md:text-[28rem] font-mono font-bold tracking-tighter leading-none">$</span>
+            <span className="text-[20rem] md:text-[28rem] font-display font-bold tracking-tighter leading-none">$</span>
           </div>
           <div className="relative">
-            <p className="text-[10px] uppercase tracking-[0.2em] text-gray-500 dark:text-gray-400 mb-4">The Repo Exchange</p>
-            <h1 className="text-5xl md:text-7xl font-semibold tracking-tighter mb-6 text-gray-900 dark:text-gray-100">
-              The Stock Market<br />for <em className="not-italic font-light italic">Code</em>
+            <p className="text-[10px] uppercase tracking-[0.2em] text-ink-muted mb-4">The Repo Exchange</p>
+            <h1 className="font-display text-5xl md:text-7xl font-bold tracking-tighter mb-6 text-ink">
+              The Stock Market<br />for <em className="not-italic font-medium">Code</em>
             </h1>
-            <p className="text-base md:text-lg text-gray-500 dark:text-gray-400 max-w-lg mx-auto mb-10 leading-relaxed">
+            <p className="text-base md:text-lg text-ink-muted max-w-lg mx-auto mb-10 leading-relaxed">
               Trade shares in open-source repositories. Prices move with real GitHub stars. Build your portfolio of the world&apos;s best code.
             </p>
             <div className="flex items-center justify-center gap-4">
               <Link
                 href="/login"
-                className="inline-flex items-center h-10 px-6 bg-accent text-accent-foreground text-xs font-bold tracking-widest uppercase hover:opacity-90 active:scale-[0.98] transition-all"
+                className="inline-flex items-center h-10 px-6 border-2 border-edge bg-accent text-accent-foreground text-xs font-bold tracking-widest uppercase press-brutal shadow-brutal-sm"
               >
                 Start Trading
               </Link>
               <a
                 href="#how-it-works"
-                className="inline-flex items-center h-10 px-6 border border-gray-300 dark:border-gray-700 text-xs font-bold tracking-widest uppercase text-gray-600 dark:text-gray-400 hover:border-accent hover:text-accent transition-all"
+                className="inline-flex items-center h-10 px-6 border-2 border-edge text-xs font-bold tracking-widest uppercase text-ink-muted press-brutal shadow-brutal-sm hover:text-accent transition-colors"
               >
                 Learn More
               </a>
@@ -109,113 +110,113 @@ export function LandingPage() {
         {/* product preview - this is the fake terminal mockup using mockRepos up top,
             none of these numbers are real */}
         <section className="max-w-5xl mx-auto px-6 pb-24">
-          <div className="relative">
-            <div className="absolute -inset-px bg-gradient-to-b from-gray-200 via-gray-200/50 to-transparent dark:from-gray-700 dark:via-gray-700/50 rounded-sm pointer-events-none" />
-            <div className="relative border border-gray-200 dark:border-gray-800 bg-white dark:bg-[#121212] shadow-lg p-6 md:p-8">
-              <div className="flex items-center justify-between mb-6">
-                <div className="flex items-center gap-2">
-                  <span className="relative flex h-2 w-2">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-accent opacity-40"></span>
-                    <span className="relative inline-flex rounded-full h-2 w-2 bg-accent"></span>
-                  </span>
-                  <span className="text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">Market Open</span>
-                </div>
-                <div className="text-right">
-                  <p className="text-[10px] uppercase tracking-[0.15em] text-gray-500 dark:text-gray-400 mb-1">Purchasing Power</p>
-                  {/* hardcoded 100k here, real starting balance is set in the db when a user signs up */}
-                  <p className="text-lg font-mono tracking-tighter text-gray-900 dark:text-gray-100">$100,000.00</p>
-                </div>
+          <div className="border-2 border-edge bg-page shadow-brutal p-6 md:p-8">
+            <div className="flex items-center justify-between mb-6">
+              <div className="flex items-center gap-2">
+                <span className="relative flex h-2 w-2">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-accent opacity-40"></span>
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-accent"></span>
+                </span>
+                <span className="text-xs font-medium uppercase tracking-wider text-ink-muted">Market Open</span>
               </div>
+              <div className="text-right">
+                <p className="text-[10px] uppercase tracking-[0.15em] text-ink-muted mb-1">Purchasing Power</p>
+                {/* hardcoded 100k here, real starting balance is set in the db when a user signs up */}
+                <p className="font-display text-lg font-bold tracking-tighter text-ink tabular-nums">$100,000.00</p>
+              </div>
+            </div>
 
-              <h3 className="text-[11px] tracking-[0.25em] font-bold uppercase text-gray-500 dark:text-gray-400 mb-4">Trending</h3>
+            <h3 className="text-[11px] tracking-[0.25em] font-bold uppercase text-ink-muted mb-4">Trending</h3>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                {mockRepos.map((repo) => (
-                  <div key={repo.name} className="border border-gray-200 dark:border-gray-800 bg-white dark:bg-[#121212] p-5 flex flex-col justify-between hover:bg-gray-50 dark:hover:bg-[#1a1a1a] transition-colors">
-                    <div className="mb-6">
-                      <div className="flex items-start justify-between">
-                        <div>
-                          <h3 className="text-lg font-bold tracking-tighter text-gray-900 dark:text-gray-100 truncate">{repo.name}</h3>
-                          <p className="text-[10px] text-gray-500 dark:text-gray-400 mt-0.5 truncate">{repo.owner}</p>
-                        </div>
-                        <MiniSparkline data={repo.sparkline} positive={repo.change >= 0} />
-                      </div>
-                    </div>
-                    <div className="flex justify-between items-end mt-auto">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              {mockRepos.map((repo) => (
+                <div key={repo.name} className="border-2 border-edge bg-page p-5 flex flex-col justify-between press-brutal shadow-brutal-sm">
+                  <div className="mb-6">
+                    <div className="flex items-start justify-between">
                       <div>
-                        <p className="text-[10px] uppercase tracking-[0.15em] text-gray-500 dark:text-gray-400 mb-1">Mark Price</p>
-                        <div className="flex items-baseline gap-1">
-                          <span className="text-sm text-gray-500 dark:text-gray-400 font-mono">$</span>
-                          <span className="text-2xl font-light tracking-tighter text-gray-900 dark:text-gray-100 font-mono">
-                            {repo.price.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                          </span>
-                        </div>
-                        <span className={`text-[10px] font-mono font-medium ${repo.change >= 0 ? "text-green-500" : "text-red-500"}`}>
-                          {repo.change >= 0 ? "+" : ""}{repo.change.toFixed(1)}%
-                        </span>
+                        <h3 className="font-display text-lg font-bold tracking-tighter text-ink truncate">{repo.name}</h3>
+                        <p className="text-[10px] text-ink-muted mt-0.5 truncate">{repo.owner}</p>
                       </div>
-                      <div className="h-8 px-4 flex items-center text-[10px] font-bold tracking-widest uppercase bg-accent text-accent-foreground">
-                        Buy
-                      </div>
+                      <MiniSparkline data={repo.sparkline} positive={repo.change >= 0} />
                     </div>
                   </div>
-                ))}
-              </div>
+                  <div className="flex justify-between items-end mt-auto">
+                    <div>
+                      <p className="text-[10px] uppercase tracking-[0.15em] text-ink-muted mb-1">Mark Price</p>
+                      <div className="flex items-baseline gap-1">
+                        <span className="text-sm text-ink-muted">$</span>
+                        <span className="font-display text-2xl font-bold tracking-tighter text-ink tabular-nums">
+                          {repo.price.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </span>
+                      </div>
+                      <span className={`text-[10px] font-medium tabular-nums ${repo.change >= 0 ? "text-bull" : "text-bear"}`}>
+                        {repo.change >= 0 ? "+" : ""}{repo.change.toFixed(1)}%
+                      </span>
+                    </div>
+                    <div className="h-8 px-4 flex items-center text-[10px] font-bold tracking-widest uppercase bg-accent text-accent-foreground border-2 border-edge">
+                      Buy
+                    </div>
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
         </section>
 
         {/* how it works */}
-        <section id="how-it-works" className="max-w-7xl mx-auto px-6 py-24 border-t border-gray-200 dark:border-gray-800">
-          <p className="text-[10px] uppercase tracking-[0.2em] text-gray-500 dark:text-gray-400 mb-4">How It Works</p>
-          <h2 className="text-3xl font-semibold tracking-tighter mb-16 text-gray-900 dark:text-gray-100">Three steps to your first trade</h2>
+        <section id="how-it-works" className="max-w-7xl mx-auto px-6 py-24 border-t-2 border-edge">
+          <p className="text-[10px] uppercase tracking-[0.2em] text-ink-muted mb-4">How It Works</p>
+          <h2 className="font-display text-3xl font-bold tracking-tighter mb-16 text-ink">Three steps to your first trade</h2>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-12 md:gap-16">
             {steps.map((step) => (
               <div key={step.num}>
-                <span className="text-5xl font-bold tracking-tighter text-gray-200 dark:text-gray-800 font-mono block mb-4">{step.num}</span>
-                <h3 className="text-xl font-semibold tracking-tighter mb-3 text-gray-900 dark:text-gray-100">{step.title}</h3>
-                <p className="text-sm text-gray-500 dark:text-gray-400 leading-relaxed">{step.desc}</p>
+                <span className="font-display text-5xl font-bold tracking-tighter text-card-alt block mb-4 tabular-nums">{step.num}</span>
+                <h3 className="font-display text-xl font-bold tracking-tighter mb-3 text-ink">{step.title}</h3>
+                <p className="text-sm text-ink-muted leading-relaxed">{step.desc}</p>
               </div>
             ))}
           </div>
         </section>
 
         {/* features */}
-        <section className="max-w-7xl mx-auto px-6 py-24 border-t border-gray-200 dark:border-gray-800">
+        <section className="max-w-7xl mx-auto px-6 py-24 border-t-2 border-edge">
           <div className="max-w-2xl mb-16">
-            <p className="text-[10px] uppercase tracking-[0.2em] text-gray-500 dark:text-gray-400 mb-4">Features</p>
-            <h2 className="text-3xl font-semibold tracking-tighter mb-4 text-gray-900 dark:text-gray-100">Built for the open-source era</h2>
-            <p className="text-sm text-gray-500 dark:text-gray-400 leading-relaxed">
+            <p className="text-[10px] uppercase tracking-[0.2em] text-ink-muted mb-4">Features</p>
+            <h2 className="font-display text-3xl font-bold tracking-tighter mb-4 text-ink">Built for the open-source era</h2>
+            <p className="text-sm text-ink-muted leading-relaxed">
               A full trading simulation powered by real data. No artificial prices, no fake metrics — just GitHub stars driving the market.
             </p>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-px bg-gray-200 dark:bg-gray-800 border border-gray-200 dark:border-gray-800">
+          {/* each tile is its own independent bordered/shadowed block with real gaps between
+              them, not the old shared-hairline-divider trick */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             {features.map((feature) => (
-              <div key={feature.title} className="bg-white dark:bg-[#121212] p-8">
-                <span className="text-2xl mb-4 block opacity-20">{feature.icon}</span>
-                <h3 className="text-lg font-semibold tracking-tighter mb-2 text-gray-900 dark:text-gray-100">{feature.title}</h3>
-                <p className="text-sm text-gray-500 dark:text-gray-400 leading-relaxed">{feature.desc}</p>
+              <div key={feature.title} className="bg-page border-2 border-edge shadow-brutal-sm p-8">
+                <span className="text-2xl mb-4 block opacity-40 text-accent">{feature.icon}</span>
+                <h3 className="font-display text-lg font-bold tracking-tighter mb-2 text-ink">{feature.title}</h3>
+                <p className="text-sm text-ink-muted leading-relaxed">{feature.desc}</p>
               </div>
             ))}
           </div>
         </section>
 
-        {/* cta banner */}
+        {/* cta banner - the one place accent gets to be the whole background instead of
+            a small accent, it's meant to be the loudest moment on the page */}
         <section className="max-w-7xl mx-auto px-6 py-24">
-          <div className="bg-gray-900 dark:bg-white p-12 md:p-16 text-center relative overflow-hidden">
-            <div className="absolute inset-0 flex items-center justify-center pointer-events-none select-none opacity-[0.05]">
-              <span className="text-[16rem] font-mono font-bold tracking-tighter leading-none text-white dark:text-gray-900">TRX</span>
+          <div className="border-2 border-edge bg-accent text-accent-foreground p-12 md:p-16 text-center relative overflow-hidden shadow-brutal">
+            <div className="absolute inset-0 flex items-center justify-center pointer-events-none select-none opacity-[0.08]">
+              <span className="text-[16rem] font-display font-bold tracking-tighter leading-none">TRX</span>
             </div>
             <div className="relative">
-              <h2 className="text-3xl md:text-4xl font-semibold tracking-tighter mb-4 text-white dark:text-gray-900">
+              <h2 className="font-display text-3xl md:text-4xl font-bold tracking-tighter mb-4">
                 Start Building Your Portfolio
               </h2>
-              <p className="text-sm text-gray-400 dark:text-gray-500 max-w-md mx-auto mb-8">
+              <p className="text-sm opacity-80 max-w-md mx-auto mb-8">
                 Join the exchange and trade shares in the world&apos;s most popular open-source projects. No real money required.
               </p>
               <Link
                 href="/login"
-                className="inline-flex items-center h-10 px-6 bg-accent text-accent-foreground text-xs font-bold tracking-widest uppercase hover:opacity-90 active:scale-[0.98] transition-all"
+                className="inline-flex items-center h-10 px-6 border-2 border-edge bg-page text-ink text-xs font-bold tracking-widest uppercase press-brutal shadow-brutal-sm"
               >
                 Get Started
               </Link>
@@ -224,13 +225,13 @@ export function LandingPage() {
         </section>
 
         {/* footer */}
-        <footer className="border-t border-gray-200 dark:border-gray-800">
+        <footer className="border-t-2 border-edge">
           <div className="max-w-7xl mx-auto px-6 py-8 flex flex-col sm:flex-row items-center justify-between gap-4">
-            <span className="flex items-center gap-2 font-semibold text-sm tracking-tight text-gray-900 dark:text-gray-100">
+            <span className="flex items-center gap-2 font-display font-bold text-sm tracking-tight text-ink">
               <Logo className="h-4 w-4 text-accent" />
               TRX.EXCHANGE
             </span>
-            <span className="text-[10px] uppercase tracking-[0.2em] text-gray-500 dark:text-gray-400">
+            <span className="text-[10px] uppercase tracking-[0.2em] text-ink-muted">
               &copy; {new Date().getFullYear()} TRX Exchange. All rights reserved.
             </span>
           </div>

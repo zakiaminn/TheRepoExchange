@@ -91,18 +91,18 @@ useEffect(() => {
   };
 
   const pnlSign = totalPnL >= 0 ? "+" : "";
-  const pnlColor = totalPnL > 0 ? "text-green-600 dark:text-green-400" : totalPnL < 0 ? "text-red-600 dark:text-red-400" : "text-gray-500 dark:text-gray-400";
+  const pnlColor = totalPnL > 0 ? "text-bull" : totalPnL < 0 ? "text-bear" : "text-ink-muted";
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-white dark:bg-[#121212] flex items-center justify-center font-mono text-sm text-gray-500 dark:text-gray-400">
+      <div className="min-h-screen bg-page flex items-center justify-center text-sm text-ink-muted">
         LOADING PORTFOLIO...
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-white dark:bg-[#121212] text-gray-900 dark:text-gray-100 font-sans relative selection:bg-gray-900 selection:text-white dark:selection:bg-white dark:selection:text-gray-900 pb-20 transition-colors duration-300">
+    <div className="min-h-screen bg-page text-ink font-sans relative selection:bg-accent selection:text-accent-foreground pb-20 transition-colors duration-300">
       <div className="absolute inset-0 z-0 bg-[radial-gradient(#e5e7eb_1px,transparent_1px)] dark:bg-[radial-gradient(#374151_1px,transparent_1px)] [background-size:16px_16px] pointer-events-none"></div>
 
       <div className="relative z-10">
@@ -110,42 +110,42 @@ useEffect(() => {
           {/* hero section - big net worth number front and center */}
           <div className="mb-16 pb-12 text-center relative">
             <div className="absolute inset-0 flex items-center justify-center pointer-events-none select-none opacity-[0.02] dark:opacity-[0.04]">
-              <span className="text-[16rem] font-mono font-bold tracking-tighter leading-none">$</span>
+              <span className="text-[16rem] font-display font-bold tracking-tighter leading-none">$</span>
             </div>
             <div className="relative">
-              <p className="text-[10px] font-mono uppercase tracking-[0.2em] text-gray-500 dark:text-gray-400 mb-4">Total Net Worth</p>
-              <h1 className="text-7xl font-light tracking-tighter text-gray-900 dark:text-gray-100 font-mono mb-6">
+              <p className="text-[10px] uppercase tracking-[0.2em] text-ink-muted mb-4">Total Net Worth</p>
+              <h1 className="font-display text-4xl sm:text-5xl md:text-7xl font-bold tracking-tighter text-ink mb-6 tabular-nums break-all sm:break-normal">
                 {formatCurrency(netWorth)}
               </h1>
-              <div className="inline-flex items-center gap-2 px-4 py-2 border border-gray-200 dark:border-gray-800 bg-white dark:bg-[#161616] shadow-sm">
-                <div className={`h-2 w-2 rounded-full ${totalPnL >= 0 ? 'bg-green-500' : 'bg-red-500'}`}></div>
-                <p className="text-[10px] font-mono uppercase tracking-[0.2em] text-gray-500 dark:text-gray-400">P&L</p>
-                <p className={`text-sm font-mono tracking-tighter font-medium ${pnlColor}`}>
+              <div className="inline-flex items-center gap-2 px-4 py-2 border-2 border-edge bg-card shadow-brutal-sm">
+                <div className={`h-2 w-2 rounded-full ${totalPnL >= 0 ? 'bg-bull' : 'bg-bear'}`}></div>
+                <p className="text-[10px] uppercase tracking-[0.2em] text-ink-muted">P&L</p>
+                <p className={`text-sm tracking-tighter font-medium tabular-nums ${pnlColor}`}>
                   {pnlSign}{formatCurrency(totalPnL)}
                 </p>
               </div>
             </div>
-            <div className="mt-12 border-b border-gray-200 dark:border-gray-800"></div>
+            <div className="mt-12 border-b-2 border-edge"></div>
           </div>
 
           {/* cash breakdown */}
-          <div className="mb-12 border border-gray-200 dark:border-gray-800 bg-white dark:bg-[#161616] p-6 shadow-sm flex justify-between items-center">
-            <span className="text-[11px] font-mono uppercase tracking-[0.25em] text-gray-500 dark:text-gray-400 font-bold">Available Cash</span>
-            <span className="text-xl font-mono tracking-tighter text-gray-900 dark:text-gray-100">
+          <div className="mb-12 border-2 border-edge bg-card p-6 shadow-brutal-sm flex justify-between items-center">
+            <span className="text-[11px] uppercase tracking-[0.25em] text-ink-muted font-bold">Available Cash</span>
+            <span className="font-display text-xl font-bold tracking-tighter text-ink tabular-nums">
               {formatCurrency(cash)}
             </span>
           </div>
 
           {/* holdings ledger - one row per position, with its own p&l calc'd inline */}
           <div>
-            <h2 className="text-[11px] tracking-[0.25em] font-bold uppercase text-gray-500 dark:text-gray-400 mb-6">Holdings Ledger</h2>
+            <h2 className="text-[11px] tracking-[0.25em] font-bold uppercase text-ink-muted mb-6">Holdings Ledger</h2>
 
             {portfolio.length === 0 ? (
-              <div className="border border-gray-200 dark:border-gray-800 bg-white dark:bg-[#161616] p-12 text-center text-sm font-mono text-gray-500 dark:text-gray-400 shadow-sm">
+              <div className="border-2 border-edge bg-card p-12 text-center text-sm text-ink-muted shadow-brutal-sm">
                 NO ASSETS HELD
               </div>
             ) : (
-              <div className="border border-gray-200 dark:border-gray-800 bg-white dark:bg-[#161616] shadow-sm font-mono">
+              <div className="border-2 border-edge bg-card shadow-brutal-sm">
                 {portfolio.map((holding, index) => {
                   const currentPrice = Number(holding.current_price);
                   const averagePrice = Number(holding.average_price);
@@ -154,36 +154,36 @@ useEffect(() => {
                   const holdingPnLPercent = ((currentPrice - averagePrice) / averagePrice) * 100;
 
                   const sign = holdingPnL >= 0 ? "+" : "";
-                  const colorClass = holdingPnL > 0 ? "text-green-600 dark:text-green-400" : holdingPnL < 0 ? "text-red-600 dark:text-red-400" : "text-gray-500 dark:text-gray-400";
+                  const colorClass = holdingPnL > 0 ? "text-bull" : holdingPnL < 0 ? "text-bear" : "text-ink-muted";
 
                   const [owner, repoName] = holding.ticker.split('/');
 
                   return (
                     <div
                       key={holding.ticker}
-                      className={`flex justify-between items-center px-6 py-6 group hover:bg-gray-50 dark:hover:bg-[#1a1a1a] transition-colors duration-200 border-l-2 ${
-                        holdingPnL >= 0 ? 'border-l-green-500/40 hover:border-l-green-500' : 'border-l-red-500/40 hover:border-l-red-500'
+                      className={`flex justify-between items-center px-6 py-6 group hover:bg-card-alt transition-colors duration-200 border-l-4 ${
+                        holdingPnL >= 0 ? 'border-l-bull/40 hover:border-l-bull' : 'border-l-bear/40 hover:border-l-bear'
                       } ${
-                        index !== portfolio.length - 1 ? 'border-b border-b-gray-200 dark:border-b-gray-800' : ''
+                        index !== portfolio.length - 1 ? 'border-b-2 border-edge' : ''
                       }`}
                     >
                       <div className="flex flex-col">
                         <Link
                           href={`/asset/${owner.toLowerCase()}/${repoName.toLowerCase()}`}
-                          className="text-lg font-bold tracking-tighter text-gray-900 dark:text-gray-100 hover:text-accent transition-colors mb-1"
+                          className="font-display text-lg font-bold tracking-tighter text-ink hover:text-accent transition-colors mb-1"
                         >
                           {holding.ticker}
                         </Link>
-                        <p className="text-[10px] text-gray-500 dark:text-gray-400 uppercase tracking-[0.1em]">
+                        <p className="text-[10px] text-ink-muted uppercase tracking-[0.1em]">
                           {holding.shares} Shares @ {formatCurrency(averagePrice)}
                         </p>
                       </div>
 
                       <div className="text-right flex flex-col items-end">
-                        <p className="text-xl tracking-tighter text-gray-900 dark:text-gray-100 mb-1">
+                        <p className="font-display text-xl tracking-tighter text-ink mb-1 tabular-nums">
                           {formatCurrency(totalValue)}
                         </p>
-                        <p className={`text-[10px] uppercase tracking-[0.1em] ${colorClass}`}>
+                        <p className={`text-[10px] uppercase tracking-[0.1em] tabular-nums ${colorClass}`}>
                           {sign}{formatCurrency(holdingPnL)} ({sign}{holdingPnLPercent.toFixed(2)}%)
                         </p>
                       </div>

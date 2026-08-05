@@ -45,33 +45,33 @@ function DiscoveryCard({ repo, onBuyRequest }: { repo: Repository; onBuyRequest:
     : true;
 
   return (
-    <div className="flex-none w-72 snap-center border border-gray-200 dark:border-gray-800 bg-white dark:bg-[#161616] p-5 flex flex-col justify-between hover:shadow-md hover:-translate-y-0.5 hover:border-gray-300 dark:hover:border-gray-700 transition-all duration-200">
+    <div className="flex-none w-72 snap-center border-2 border-edge bg-card p-5 flex flex-col justify-between press-brutal shadow-brutal-sm">
       <div className="mb-6">
         <div className="flex items-start justify-between gap-2 mb-3">
           <Link
             href={`/asset/${owner.toLowerCase()}/${name.toLowerCase()}`}
             className="block hover:text-accent transition-colors cursor-pointer min-w-0"
           >
-            <h3 className="text-lg font-bold tracking-tighter text-gray-900 dark:text-gray-100 truncate">
+            <h3 className="font-display text-lg font-bold tracking-tighter text-ink truncate">
               {name.toUpperCase()}
             </h3>
-            <p className="text-[10px] text-gray-500 dark:text-gray-400 mt-0.5 truncate">
+            <p className="text-[10px] text-ink-muted mt-0.5 truncate">
               {owner}
             </p>
           </Link>
           <MiniSparkline data={repo.sparkline} positive={trendPositive} className="shrink-0" />
         </div>
-        <p className="text-[10px] text-gray-500 dark:text-gray-400 line-clamp-2 h-7 leading-tight overflow-hidden">
+        <p className="text-[10px] text-ink-muted line-clamp-2 h-7 leading-tight overflow-hidden">
           {repo.description || "No description available."}
         </p>
       </div>
 
       <div className="flex justify-between items-end mt-auto gap-2">
         <div>
-          <p className="text-[10px] uppercase tracking-[0.15em] text-gray-500 dark:text-gray-400 mb-1">Mark Price</p>
+          <p className="text-[10px] uppercase tracking-[0.15em] text-ink-muted mb-1">Mark Price</p>
           <div className="flex items-baseline gap-1">
-            <span className="text-sm text-gray-500 dark:text-gray-400 font-mono">$</span>
-            <span className="text-2xl font-light tracking-tighter text-gray-900 dark:text-gray-100 font-mono">
+            <span className="text-sm text-ink-muted">$</span>
+            <span className="font-display text-2xl font-bold tracking-tighter text-ink tabular-nums">
               {Number(repo.current_price).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </span>
           </div>
@@ -84,11 +84,11 @@ function DiscoveryCard({ repo, onBuyRequest }: { repo: Repository; onBuyRequest:
             value={quantity}
             onChange={(e) => setQuantity(Math.max(1, parseInt(e.target.value) || 1))}
             aria-label={`Quantity of ${repo.ticker}`}
-            className="w-12 h-8 px-1 text-center text-xs font-mono border border-gray-300 dark:border-gray-700 bg-white dark:bg-[#1a1a1a] text-gray-900 dark:text-gray-100 focus:outline-none focus:border-accent"
+            className="w-12 h-8 px-1 text-center text-xs tabular-nums border-2 border-edge bg-card text-ink focus:outline-none focus:shadow-brutal-sm transition-shadow"
           />
           <button
             onClick={() => onBuyRequest(repo.ticker, quantity, repo.current_price)}
-            className="h-8 px-4 text-[10px] font-bold tracking-widest uppercase bg-accent text-accent-foreground hover:opacity-90 active:scale-[0.98] transition-all"
+            className="h-8 px-4 text-[10px] font-bold tracking-widest uppercase border-2 border-edge bg-accent text-accent-foreground press-brutal transition-all"
           >
             Buy
           </button>
@@ -244,7 +244,7 @@ export default function TradingTerminal() {
   // page and then immediately swapping to the terminal
   if (isInitializing) {
     return (
-      <div className="min-h-screen bg-white dark:bg-[#121212] flex items-center justify-center text-sm text-gray-500 dark:text-gray-400">
+      <div className="min-h-screen bg-page flex items-center justify-center text-sm text-ink-muted">
         SECURING CONNECTION...
       </div>
     );
@@ -256,23 +256,24 @@ export default function TradingTerminal() {
   }
 
   return (
-    <div className="min-h-screen bg-white dark:bg-[#121212] text-gray-900 dark:text-gray-100 font-sans relative selection:bg-gray-900 selection:text-white dark:selection:bg-white dark:selection:text-gray-900 transition-colors duration-300">
+    <div className="min-h-screen bg-page text-ink font-sans relative selection:bg-accent selection:text-accent-foreground transition-colors duration-300">
       <div className="absolute inset-0 z-0 bg-[radial-gradient(#e5e7eb_1px,transparent_1px)] dark:bg-[radial-gradient(#374151_1px,transparent_1px)] [background-size:16px_16px] pointer-events-none"></div>
 
       <div className="relative z-10">
         <main className="max-w-7xl mx-auto px-6 py-12">
-          <div className="mb-12 flex justify-between items-end">
+          <div className="mb-12 flex flex-col gap-4 sm:flex-row sm:justify-between sm:items-end">
             <div>
-              <h1 className="text-3xl font-semibold tracking-tighter mb-1">The Repo Exchange</h1>
-              <p className="text-sm text-gray-500 dark:text-gray-400">
+              <h1 className="font-display text-3xl font-bold tracking-tighter mb-1">The Repo Exchange</h1>
+              <p className="text-sm text-ink-muted">
                 The Stock Market for Code
               </p>
             </div>
 
-            {/* purchasing power / cash balance readout */}
-            <div className="text-right border border-gray-200 dark:border-gray-800 bg-white dark:bg-[#161616] px-5 py-3 shadow-sm">
-              <p className="text-[10px] uppercase tracking-[0.15em] text-gray-500 dark:text-gray-400 mb-1">Purchasing Power</p>
-              <p className="text-xl font-mono tracking-tighter text-gray-900 dark:text-gray-100">
+            {/* purchasing power / cash balance readout - stacks above the heading on
+                narrow screens instead of squeezing into the same row */}
+            <div className="sm:text-right border-2 border-edge bg-card px-5 py-3 shadow-brutal-sm self-start sm:self-auto">
+              <p className="text-[10px] uppercase tracking-[0.15em] text-ink-muted mb-1">Purchasing Power</p>
+              <p className="font-display text-xl font-bold tracking-tighter text-ink tabular-nums">
                 {balance !== null
                   ? new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(balance)
                   : "AWAITING LEDGER..."}
@@ -283,13 +284,13 @@ export default function TradingTerminal() {
           {/* discovery feed - one horizontally scrolling row per category from the api */}
           <div className="space-y-12">
             {Object.keys(discoveryData).length === 0 ? (
-              <div className="p-12 text-center text-sm text-gray-500 dark:text-gray-400 border border-gray-200 dark:border-gray-800 bg-white dark:bg-[#121212] shadow-sm">
+              <div className="p-12 text-center text-sm text-ink-muted border-2 border-edge bg-card shadow-brutal-sm">
                 INITIALIZING DISCOVERY...
               </div>
             ) : (
               Object.entries(discoveryData).map(([category, repos]) => (
                 <div key={category}>
-                  <h2 className="text-[11px] tracking-[0.25em] font-bold uppercase text-gray-500 dark:text-gray-400 mb-4">{category}</h2>
+                  <h2 className="text-[11px] tracking-[0.25em] font-bold uppercase text-ink-muted mb-4">{category}</h2>
                   <div className="flex overflow-x-auto gap-4 pb-4 snap-x [&::-webkit-scrollbar]:hidden" style={{ scrollbarWidth: 'none' }}>
                     {repos.map((repo) => (
                       <DiscoveryCard key={repo.ticker} repo={repo} onBuyRequest={handleBuyRequest} />
@@ -303,40 +304,40 @@ export default function TradingTerminal() {
           {/* current holdings table, separate from the /portfolio page - this is just a
               quick glance, /portfolio has the full breakdown with p&l */}
           <div className="mt-16">
-            <h2 className="text-xl font-semibold tracking-tighter mb-4 text-gray-900 dark:text-gray-100">Current Holdings</h2>
-            <div className="border border-gray-200 dark:border-gray-800 bg-white dark:bg-[#161616] shadow-sm">
+            <h2 className="font-display text-xl font-bold tracking-tighter mb-4 text-ink">Current Holdings</h2>
+            <div className="border-2 border-edge bg-card shadow-brutal-sm">
               {portfolio.length === 0 ? (
-                <div className="p-12 text-center text-sm text-gray-500 dark:text-gray-400">
+                <div className="p-12 text-center text-sm text-ink-muted">
                   NO ASSETS HELD
                 </div>
               ) : (
                 <div className="w-full text-left">
-                  <div className="grid grid-cols-3 border-b border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-[#1a1a1a] px-6 py-3">
-                    <div className="text-[10px] uppercase tracking-[0.2em] text-gray-500 dark:text-gray-400">Ticker</div>
-                    <div className="text-[10px] uppercase tracking-[0.2em] text-gray-500 dark:text-gray-400 text-right">Total Shares</div>
-                    <div className="text-[10px] uppercase tracking-[0.2em] text-gray-500 dark:text-gray-400 text-right">Avg Entry Price</div>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 border-b-2 border-edge bg-card-alt px-3 sm:px-6 py-3">
+                    <div className="text-[10px] uppercase tracking-[0.2em] text-ink-muted">Ticker</div>
+                    <div className="text-[10px] uppercase tracking-[0.2em] text-ink-muted text-right">Total Shares</div>
+                    <div className="text-[10px] uppercase tracking-[0.2em] text-ink-muted text-right hidden sm:block">Avg Entry Price</div>
                   </div>
                   {portfolio.map((holding, index) => {
                     const [owner, repo] = holding.ticker.split('/');
                     return (
                     <div
                       key={holding.ticker}
-                      className={`grid grid-cols-3 px-6 py-4 items-center group hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors duration-200 ${
-                        index !== portfolio.length - 1 ? 'border-b border-gray-200 dark:border-gray-800' : ''
+                      className={`grid grid-cols-2 sm:grid-cols-3 px-3 sm:px-6 py-4 items-center group hover:bg-card-alt transition-colors duration-200 ${
+                        index !== portfolio.length - 1 ? 'border-b-2 border-edge' : ''
                       }`}
                     >
-                      <div className="font-bold tracking-tighter text-sm text-gray-900 dark:text-gray-100">
+                      <div className="font-bold tracking-tighter text-sm text-ink min-w-0">
                         <Link
                           href={`/asset/${owner.toLowerCase()}/${repo.toLowerCase()}`}
-                          className="hover:text-accent transition-colors"
+                          className="hover:text-accent transition-colors truncate block"
                         >
                           {holding.ticker}
                         </Link>
                       </div>
-                      <div className="text-sm tracking-tighter text-gray-900 dark:text-gray-100 text-right font-mono">
+                      <div className="text-sm tracking-tighter text-ink text-right tabular-nums">
                         {holding.shares.toLocaleString()}
                       </div>
-                      <div className="text-sm tracking-tighter text-gray-900 dark:text-gray-100 text-right font-mono">
+                      <div className="text-sm tracking-tighter text-ink text-right tabular-nums hidden sm:block">
                         {new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(holding.average_price)}
                       </div>
                     </div>

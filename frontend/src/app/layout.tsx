@@ -1,12 +1,22 @@
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
+import { Space_Grotesk, IBM_Plex_Sans } from "next/font/google";
 import "./globals.css";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import { Header } from "@/components/Header";
 
-const inter = Inter({ // variable font so we get all the weights we need
+// display font - headlines, big stat numbers (price/index/pnl), the logo wordmark.
+// only need the two weights we actually use, no point shipping the rest
+const spaceGrotesk = Space_Grotesk({
   subsets: ["latin"],
-  variable: "--font-inter",
+  weight: ["500", "700"],
+  variable: "--font-display",
+});
+
+// body font - everything else. labels, paragraphs, buttons, table cells
+const ibmPlexSans = IBM_Plex_Sans({
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700"],
+  variable: "--font-sans",
 });
 
 // shows up in the browser tab and in link previews when someone shares the site
@@ -24,8 +34,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" suppressHydrationWarning className={`${inter.variable} h-full antialiased`}>
-      <body className="min-h-full flex flex-col bg-gray-50 text-gray-900 dark:bg-[#121212] dark:text-gray-100 transition-colors duration-300 font-sans">
+    <html lang="en" suppressHydrationWarning className={`${spaceGrotesk.variable} ${ibmPlexSans.variable} h-full antialiased`}>
+      <body className="min-h-full flex flex-col bg-page text-ink transition-colors duration-300 font-sans">
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
           <Header />
           {children}
