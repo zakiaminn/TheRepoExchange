@@ -1,77 +1,71 @@
 "use client";
 
-import { useEffect, useRef, useState, use } from "react";
+import { useEffect, useMemo, useRef, useState, use } from "react";
 import { createChart, ColorType, IChartApi, ISeriesApi, AreaSeries, Time } from "lightweight-charts";
 import Link from "next/link";
 import { createClient } from "@/utils/supabase/client";
 import { useTheme } from "next-themes";
 import { Toast, ToastMessage } from "@/components/Toast";
 import { ConfirmTradeModal } from "@/components/ConfirmTradeModal";
+import { SectionRule, DocRef, Panel, Notice, Pending, Delta } from "@/components/ui";
+import { usd, count, change, toneClass } from "@/lib/format";
+import { SECTIONS, LABELS, STATE, ERROR, ORDER, NAV } from "@/lib/copy";
 
 interface PageProps {
-  params: Promise<{
-    owner: string;
-    repo: string;
-  }>;
+  params: Promise<{ owner: string; repo: string }>;
 }
 
-type ChartData = {
-  time: Time;
-  value: number;
-};
+type ChartData = { time: Time; value: number };
+type PendingTrade = { action: "BUY" | "SELL"; quantity: number } | null;
 
-// a trade waiting on confirmation - ticker/price come from page state, this just needs
-// to remember which action and how many shares
-type PendingTrade = {
-  action: "BUY" | "SELL";
-  quantity: number;
-} | null;
+// Client-side windows over the history we already hold. No extra requests —
+// the data is in memory, and an exchange that makes you wait on the network
+// to look at last week is not much of an exchange.
+const RANGES = [
+  { key: "7D", days: 7 },
+  { key: "30D", days: 30 },
+  { key: "90D", days: 90 },
+  { key: "ALL", days: Infinity },
+] as const;
 
-// per-asset page - the price chart plus the actual buy/sell trade panel. this is the
-// only place in the app you can sell shares or buy a specific quantity (the home page
-// buy button is always just 1 share)
-export default function AssetChartPage(props: PageProps) {
-  // next.js 15 made params a promise, so we need to unwrap it
+/* the single-repo page, treated like a stock: price + its move up top, period
+   stats next to it, the chart below, buy/sell ticket last. that order is on
+   purpose — you read price, then range, then chart, then decide. leading with
+   the buy button is what a casino would do. */
+export default function ListingPage(props: PageProps) {
   const params = use(props.params);
   const { owner, repo } = params;
   const ticker = `${owner}/${repo}`.toUpperCase();
 
-  // refs for the chart instance itself, so we can tear it down / resize it without
-  // triggering a react re-render every time
   const chartContainerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
   const seriesRef = useRef<ISeriesApi<"Area"> | null>(null);
 
   const [history, setHistory] = useState<ChartData[]>([]);
   const [currentPrice, setCurrentPrice] = useState<number | null>(null);
-  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [assetExists, setAssetExists] = useState<boolean | null>(null); // null = still checking, true/false once we know
+  const [listed, setListed] = useState<boolean | null>(null); // null while unknown
+  const [range, setRange] = useState<(typeof RANGES)[number]["key"]>("30D");
 
-  // everything related to the buy/sell panel
   const [userId, setUserId] = useState<string | null>(null);
   const [balance, setBalance] = useState<number | null>(null);
-  const [ownedShares, setOwnedShares] = useState<number>(0);
-  const [tradeQuantity, setTradeQuantity] = useState<number | "">(1);
+  const [ownedShares, setOwnedShares] = useState(0);
+  const [avgPrice, setAvgPrice] = useState<number | null>(null);
   const [message, setMessage] = useState<ToastMessage>(null);
-  const [pendingTrade, setPendingTrade] = useState<PendingTrade>(null);
-  const [processingAction, setProcessingAction] = useState<"BUY" | "SELL" | null>(null);
+  const [pending, setPending] = useState<PendingTrade>(null);
+  const [processing, setProcessing] = useState<"BUY" | "SELL" | null>(null);
 
   const { resolvedTheme } = useTheme();
   const supabase = createClient();
 
-  // this page requires login, unlike the home page which just falls back to the landing
-  // page - here we hard redirect instead since there's no logged-out version of this page
+  // unlike the home page, there's no logged-out version of this route
   useEffect(() => {
-    const checkAuth = async () => {
+    const check = async () => {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        window.location.href = "/login";
-      } else {
-        setUserId(user.id);
-      }
+      if (!user) window.location.href = "/login";
+      else setUserId(user.id);
     };
-    checkAuth();
+    check();
   }, [supabase]);
 
   const fetchBalance = async (uid: string) => {
@@ -79,375 +73,409 @@ export default function AssetChartPage(props: PageProps) {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) return;
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/balance/${uid}`, {
-        headers: { Authorization: `Bearer ${session.access_token}` }
+        headers: { Authorization: `Bearer ${session.access_token}` },
       });
-      if (res.ok) {
-        const data = await res.json();
-        setBalance(data.balance);
-      }
-    } catch (err) {
-      console.error("Ledger offline");
+      if (res.ok) setBalance(Number((await res.json()).balance));
+    } catch {
+      console.error(ERROR.ledger);
     }
   };
 
-  const fetchPortfolio = async (uid: string) => {
+  const fetchPosition = async (uid: string) => {
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) return;
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/portfolio/${uid}`, {
-        headers: { Authorization: `Bearer ${session.access_token}` }
+        headers: { Authorization: `Bearer ${session.access_token}` },
       });
-      if (res.ok) {
-        const data = await res.json();
-        const portfolio = data.portfolio || [];
-        // we only actually care about this one ticker's position, not the whole portfolio,
-        // so just find the matching row and pull the share count out of it
-        const holding = portfolio.find((h: any) => h.ticker.toLowerCase() === ticker.toLowerCase());
-        setOwnedShares(holding ? holding.shares : 0);
-      }
-    } catch (err) {
-      console.error("Ledger offline");
+      if (!res.ok) return;
+      const data = await res.json();
+      // only this listing matters here, not the whole book
+      const holding = (data.portfolio || []).find(
+        (h: any) => h.ticker.toLowerCase() === ticker.toLowerCase()
+      );
+      setOwnedShares(holding ? holding.shares : 0);
+      setAvgPrice(holding ? Number(holding.average_price) : null);
+    } catch {
+      console.error(ERROR.ledger);
     }
   };
 
   useEffect(() => {
-    if (userId) {
-      fetchBalance(userId);
-      fetchPortfolio(userId);
-    }
+    if (!userId) return;
+    fetchBalance(userId);
+    fetchPosition(userId);
   }, [userId, ticker]);
 
-  // fetches the price history for the chart. this also doubles as the "does this asset
-  // even exist" check - if the ledger 404s or comes back empty we treat it as not found
+  // price history, which doubles as the admission check — if the ledger has
+  // nothing on file, the repository isn't listed
   useEffect(() => {
     const fetchHistory = async () => {
       try {
         const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/history/${owner}/${repo}`);
         if (!res.ok) {
-          setAssetExists(false);
-          throw new Error("Failed to fetch historical data");
+          setListed(false);
+          return;
         }
-
         const data = await res.json();
 
         if (data.history && data.history.length > 0) {
-          // dedupe by unix timestamp just in case the backend ever sends two points for
-          // the same day, then sort so the chart draws left to right correctly
-          const dataMap = new Map<number, number>();
+          // dedupe on the unix timestamp in case the engine ever emits two
+          // points for one day, then sort so the series draws left to right
+          const byTime = new Map<number, number>();
           data.history.forEach((item: any) => {
-            const unixTime = Math.floor(new Date(item.time).getTime() / 1000);
-            dataMap.set(unixTime, item.value);
+            byTime.set(Math.floor(new Date(item.time).getTime() / 1000), item.value);
           });
+          const series = Array.from(byTime.entries())
+            .map(([time, value]) => ({ time: time as Time, value }))
+            .sort((a, b) => (a.time as number) - (b.time as number));
 
-          const sortedArray = Array.from(dataMap.entries())
-            .map(([time, value]) => ({ time, value }))
-            .sort((a, b) => a.time - b.time);
-
-          const formattedHistory = sortedArray.map(item => ({
-            time: item.time as Time,
-            value: item.value
-          }));
-
-          setHistory(formattedHistory);
-          setCurrentPrice(formattedHistory[formattedHistory.length - 1].value); // latest point in history = current price
-          setAssetExists(true);
+          setHistory(series);
+          setCurrentPrice(series[series.length - 1].value);
+          setListed(true);
         } else {
-          setAssetExists(false);
-          setError("NO HISTORICAL DATA");
+          setListed(false);
+          setError(STATE.noHistory);
         }
-      } catch (err) {
-        setAssetExists(false);
-        setError("DATA ENGINE OFFLINE");
-      } finally {
-        setLoading(false);
+      } catch {
+        setListed(false);
+        setError(ERROR.engine);
       }
     };
-
     fetchHistory();
   }, [owner, repo]);
 
-  // this is the actual chart setup, runs once we've got history data and a theme to
-  // draw it in. rebuilds the whole chart from scratch on theme change since
-  // lightweight-charts doesn't really support live-restyling an existing instance well
-  useEffect(() => {
-    if (!chartContainerRef.current || history.length === 0 || assetExists === false) return;
+  // the visible window, plus everything derived from it
+  const view = useMemo(() => {
+    const spec = RANGES.find((r) => r.key === range)!;
+    const windowed =
+      spec.days === Infinity
+        ? history
+        : history.filter(
+            (p) => (p.time as number) >= Date.now() / 1000 - spec.days * 86400
+          );
+    // never render an empty chart just because the window outran the data
+    const data = windowed.length > 1 ? windowed : history;
+    const values = data.map((d) => d.value);
+    return {
+      data,
+      high: values.length ? Math.max(...values) : null,
+      low: values.length ? Math.min(...values) : null,
+      delta: values.length > 1 ? change(values[0], values[values.length - 1]) : null,
+      observations: data.length,
+    };
+  }, [history, range]);
 
-    const isDark = resolvedTheme === "dark";
-    // pulled straight from the css tokens in globals.css - keeps the chart line the same
-    // accent blue as the rest of the ui instead of a plain black/white line
-    const textColor = isDark ? "#7d8590" : "#656d76"; // ink-muted
-    const lineColor = isDark ? "#58a6ff" : "#0969da"; // accent
-    const crosshairColor = isDark ? "#e6edf3" : "#1f2328"; // ink
-    const areaTopColor = isDark ? "rgba(88, 166, 255, 0.15)" : "rgba(9, 105, 218, 0.12)"; // accent, faded
-    const areaBottomColor = isDark ? "rgba(88, 166, 255, 0.0)" : "rgba(9, 105, 218, 0.0)";
+  // The chart is rebuilt from scratch on theme change — lightweight-charts
+  // doesn't restyle an existing instance cleanly, and a chart carrying the
+  // previous theme's colours is worse than a brief remount.
+  useEffect(() => {
+    if (!chartContainerRef.current || view.data.length === 0 || listed === false) return;
+
+    const dark = resolvedTheme === "dark";
+    // pulled from the Bureau tokens; lightweight-charts needs literal values
+    const ink3 = dark ? "#85818C" : "#6E6A75";
+    const ink = dark ? "#EDEAE3" : "#16151A";
+    const rule = dark ? "#2A2A33" : "#DCD7CC";
+    const brand = dark ? "#F5A623" : "#C77A0A";
+    const wash = dark ? "rgba(245,166,35,0.16)" : "rgba(199,122,10,0.14)";
+    const fade = dark ? "rgba(245,166,35,0)" : "rgba(199,122,10,0)";
 
     const chart = createChart(chartContainerRef.current, {
       layout: {
         background: { type: ColorType.Solid, color: "transparent" },
-        textColor: textColor,
+        textColor: ink3,
+        // axis figures in the same mono as every other number in the product
+        fontFamily: "var(--font-mono)",
+        fontSize: 11,
+        attributionLogo: false,
       },
       grid: {
+        // horizontal rules only. Vertical gridlines add a second axis of
+        // linework that competes with the series for no informational gain.
         vertLines: { visible: false },
-        horzLines: { visible: false },
+        horzLines: { color: rule },
       },
       crosshair: {
-        vertLine: {
-          color: crosshairColor,
-          width: 1,
-          style: 3, // dotted
-          labelBackgroundColor: crosshairColor,
-        },
-        horzLine: {
-          color: crosshairColor,
-          width: 1,
-          style: 3,
-          labelBackgroundColor: crosshairColor,
-        },
+        vertLine: { color: ink, width: 1, style: 3, labelBackgroundColor: ink },
+        horzLine: { color: ink, width: 1, style: 3, labelBackgroundColor: ink },
       },
-      rightPriceScale: {
-        borderVisible: false,
-      },
-      timeScale: {
-        borderVisible: false,
-        timeVisible: true,
-      },
+      rightPriceScale: { borderVisible: true, borderColor: rule },
+      timeScale: { borderVisible: true, borderColor: rule, timeVisible: false },
       width: chartContainerRef.current.clientWidth,
-      height: 400,
+      height: 380,
     });
 
-    // area chart with a gradient fill under the line, matches the "terminal" look of
-    // the rest of the app
-    const newSeries = chart.addSeries(AreaSeries, {
-      lineColor: lineColor,
-      topColor: areaTopColor,
-      bottomColor: areaBottomColor,
+    const series = chart.addSeries(AreaSeries, {
+      lineColor: brand,
+      topColor: wash,
+      bottomColor: fade,
       lineWidth: 2,
+      priceLineVisible: false,
+      lastValueVisible: false,
     });
 
-    newSeries.setData(history);
-    chart.timeScale().fitContent(); // zoom to fit all the data instead of some default range
+    series.setData(view.data);
+    chart.timeScale().fitContent();
 
     chartRef.current = chart;
-    seriesRef.current = newSeries;
+    seriesRef.current = series;
 
-    // lightweight-charts doesn't auto-resize with its container, so we have to do it
-    // manually on window resize
-    const handleResize = () => {
+    // the library doesn't track its container's width on its own
+    const onResize = () => {
       if (chartContainerRef.current && chartRef.current) {
         chartRef.current.applyOptions({ width: chartContainerRef.current.clientWidth });
       }
     };
+    window.addEventListener("resize", onResize);
 
-    window.addEventListener("resize", handleResize);
-
-    // cleanup - remove the listener and destroy the chart instance so we don't leak
-    // memory every time this effect re-runs (theme toggle, new history, etc)
     return () => {
-      window.removeEventListener("resize", handleResize);
-      chart.remove();
+      window.removeEventListener("resize", onResize);
+      chart.remove(); // otherwise every theme toggle leaks an instance
     };
-  }, [history, resolvedTheme, assetExists]);
+  }, [view.data, resolvedTheme, listed]);
 
-  // step 1 - validate, then just open the confirm modal instead of firing the trade
-  // straight away like it used to
-  const handleTradeRequest = (action: "BUY" | "SELL") => {
-    if (currentPrice === null) return;
-    if (!userId || assetExists !== true) return;
-    if (tradeQuantity === "" || tradeQuantity <= 0) return;
-    if (action === "SELL" && ownedShares < tradeQuantity) return;
-
-    setPendingTrade({ action, quantity: tradeQuantity });
+  const openTicket = (action: "BUY" | "SELL") => {
+    if (currentPrice === null || !userId || listed !== true) return;
+    if (action === "SELL" && ownedShares === 0) return;
+    setPending({ action, quantity: 1 });
   };
 
-  // step 2 - only runs once the user actually hits confirm in the modal. same
-  // slippage/quantity checks happen again server-side, this is just to avoid firing off
-  // obviously-bad requests
-  const handleConfirmTrade = async () => {
-    if (!pendingTrade || currentPrice === null) return;
-    const { action, quantity } = pendingTrade;
+  const confirmTrade = async () => {
+    if (!pending || currentPrice === null) return;
+    const { action, quantity } = pending;
 
-    setProcessingAction(action);
+    setProcessing(action);
     setMessage(null);
 
     try {
-      const endpoint = action === "BUY" ? "/api/buy" : "/api/sell";
       const { data: { session } } = await supabase.auth.getSession();
-      if (!session) throw new Error("No session");
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}${endpoint}`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${session.access_token}`
-        },
-        body: JSON.stringify({
-          ticker: ticker,
-          shares: quantity,
-          expectedPrice: currentPrice,
-        }),
-      });
+      if (!session) throw new Error("no session");
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}${action === "BUY" ? "/api/buy" : "/api/sell"}`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${session.access_token}`,
+          },
+          body: JSON.stringify({ ticker, shares: quantity, expectedPrice: currentPrice }),
+        }
+      );
+      const result = await res.json();
 
-      const result = await response.json();
-
-      if (response.ok) {
-        setMessage({ text: `Filled: ${action} ${quantity} QTY of ${ticker} @ Market`, type: "success" });
+      if (res.ok) {
+        setMessage({
+          text: ORDER.filled(action, quantity, ticker, usd(currentPrice)),
+          type: "success",
+        });
         fetchBalance(userId!);
-        fetchPortfolio(userId!);
-        setTradeQuantity(1); // reset qty back to 1 after a fill
+        fetchPosition(userId!);
       } else {
-        setMessage({ text: `Rejected: ${result.error}`, type: "error" });
+        setMessage({ text: ORDER.rejected(result.error), type: "error" });
       }
-    } catch (err) {
-      setMessage({ text: "Connection refused by Ledger.", type: "error" });
+    } catch {
+      setMessage({ text: ERROR.ledgerRefused, type: "error" });
     } finally {
-      setProcessingAction(null);
-      setPendingTrade(null);
-      setTimeout(() => setMessage(null), 4000);
+      setProcessing(null);
+      setPending(null);
+      setTimeout(() => setMessage(null), 4500);
     }
   };
 
+  const positionValue = currentPrice !== null ? ownedShares * currentPrice : null;
+  const positionPnl =
+    currentPrice !== null && avgPrice !== null ? (currentPrice - avgPrice) * ownedShares : null;
+
   return (
-    <div className="min-h-screen bg-page text-ink font-sans relative selection:bg-accent selection:text-accent-foreground pb-20 transition-colors duration-300">
-      <div className="absolute inset-0 z-0 bg-[radial-gradient(#e5e7eb_1px,transparent_1px)] dark:bg-[radial-gradient(#374151_1px,transparent_1px)] [background-size:16px_16px] pointer-events-none"></div>
+    <div className="flex-1 pb-20">
+      <main className="mx-auto w-full max-w-[64rem] px-5 py-8 sm:px-8 sm:py-10">
+        <Link href="/" className="label inline-block transition-colors hover:text-brand-ink">
+          ← {NAV.back}
+        </Link>
 
-      <div className="relative z-10">
-        <main className="max-w-4xl mx-auto px-6 py-12">
-          {/* breadcrumb back to the terminal - the shared Header (rendered once, globally,
-              in layout.tsx) already covers logo/search/nav, so this page doesn't need its
-              own header bar on top of that */}
-          <Link
-            href="/"
-            className="inline-flex items-center gap-1 text-[10px] uppercase tracking-[0.2em] text-ink-muted hover:text-accent transition-colors mb-6"
-          >
-            ← Back to Terminal
-          </Link>
+        {/* ── listing header ─────────────────────────────────────────── */}
+        <div className="mt-6 border-b border-rule-2 pb-8">
+          <SectionRule
+            label="Listing"
+            meta={<DocRef code={`TRX-SEC-${repo.slice(0, 6).toUpperCase()}`} />}
+            className="mb-6"
+          />
 
-          <div className="mb-12 border-b-2 border-edge pb-8 flex flex-col gap-6 sm:flex-row sm:justify-between sm:items-end">
-            <div>
-              <p className="text-[10px] uppercase tracking-[0.2em] text-ink-muted mb-2">Ticker</p>
-              <h1 className="font-display text-4xl font-bold tracking-tighter text-ink mb-1">{repo.toUpperCase()}</h1>
-              <p className="text-sm text-ink-muted">{owner}</p>
+          <div className="flex flex-col gap-8 sm:flex-row sm:items-end sm:justify-between">
+            <div className="min-w-0">
+              <h1 className="display truncate text-[clamp(2.25rem,6vw,4rem)] uppercase text-ink">
+                {repo}
+              </h1>
+              <p className="figure mt-1 text-sm text-ink-3">{owner}</p>
             </div>
 
-            {/* current price - shows n/a if the asset doesn't exist, --- while still loading */}
             <div className="sm:text-right">
-              <p className="text-[10px] uppercase tracking-[0.2em] text-ink-muted mb-2">Current Mark</p>
-              {assetExists === false ? (
-                <div className="font-display text-xl font-bold tracking-tighter text-ink-muted">N/A</div>
+              <div className="label mb-2">{LABELS.mark}</div>
+              {listed === false ? (
+                <div className="figure text-2xl text-ink-3">—</div>
               ) : currentPrice !== null ? (
-                <div className="flex items-baseline sm:justify-end gap-1">
-                  <span className="text-xl text-ink-muted">$</span>
-                  <span className="font-display text-4xl sm:text-5xl font-bold tracking-tighter text-ink tabular-nums">
-                    {currentPrice.toLocaleString("en-US", { minimumFractionDigits: 2 })}
-                  </span>
-                </div>
+                <>
+                  <div className="figure text-[clamp(2rem,7vw,3.25rem)] leading-none text-ink">
+                    {usd(currentPrice)}
+                  </div>
+                  <div className="mt-2 flex items-baseline gap-2 sm:justify-end">
+                    <Delta value={view.delta} className="text-sm" />
+                    <span className="label">over {range.toLowerCase()}</span>
+                  </div>
+                </>
               ) : (
-                <div className="font-display text-xl font-bold tracking-tighter text-ink-muted">---</div>
+                <div className="figure text-2xl text-ink-3">—</div>
               )}
             </div>
           </div>
+        </div>
 
-          {/* chart card - has three different states: still checking, asset not found,
-              and generic error, before it finally shows the actual chart */}
-          <div className="border-2 border-edge bg-card p-6 shadow-brutal mb-8">
-            {assetExists === null ? (
-              <div className="h-[400px] flex items-center justify-center text-sm text-ink-muted">
-                VERIFYING ASSET DATA...
-              </div>
-            ) : assetExists === false ? (
-              <div className="h-[400px] flex flex-col items-center justify-center text-center p-6 bg-card-alt border-2 border-edge">
-                <div className="font-display text-2xl font-bold tracking-widest text-ink mb-2">ASSET NOT FOUND</div>
-                <div className="text-sm text-ink-muted max-w-md">
-                  The repository {owner}/{repo} either does not exist on GitHub or is private. Trading is suspended.
-                </div>
-              </div>
-            ) : error ? (
-              <div className="h-[400px] flex items-center justify-center text-sm text-ink-muted">
-                {error}
-              </div>
-            ) : (
-              // this empty div is what lightweight-charts actually renders into, see the
-              // chart setup effect above
-              <div ref={chartContainerRef} className="w-full h-[400px]" />
-            )}
+        {/* ── history ────────────────────────────────────────────────── */}
+        <section className="mt-10">
+          <div className="mb-4 flex items-center justify-between gap-4">
+            <SectionRule label={SECTIONS.history} className="min-w-0 flex-1" />
+            {/* range control: a single bordered group of segments sharing
+                hairlines, not four separate buttons floating apart */}
+            <div className="flex shrink-0 border border-rule" role="group" aria-label={LABELS.range}>
+              {RANGES.map((r) => (
+                <button
+                  key={r.key}
+                  onClick={() => setRange(r.key)}
+                  aria-pressed={range === r.key}
+                  className={`figure border-r border-rule px-2.5 py-1.5 text-[11px] last:border-r-0 transition-colors ${
+                    range === r.key
+                      ? "bg-brand text-brand-fg"
+                      : "text-ink-2 hover:bg-paper-2 hover:text-ink"
+                  }`}
+                >
+                  {r.key}
+                </button>
+              ))}
+            </div>
           </div>
 
-          {/* trade panel - shows position, available cash, quantity input, and buy/sell
-              buttons. dims out and disables everything if the asset doesn't exist */}
-          <div className={`border-2 border-edge bg-card p-6 shadow-brutal-sm ${assetExists === false ? "opacity-50" : ""}`}>
-            <div className="flex flex-col md:flex-row items-center justify-between gap-6">
-              <div className="flex gap-8">
-                <div className="flex flex-col">
-                  <span className="text-[10px] uppercase tracking-[0.2em] text-ink-muted mb-1">Position</span>
-                  <span className="font-display text-xl font-bold tracking-tighter text-ink tabular-nums">
-                    {ownedShares} <span className="text-sm font-sans font-normal text-ink-muted">SHRS</span>
-                  </span>
+          <Panel registered className="p-4 sm:p-6">
+            {listed === null ? (
+              <div className="flex h-[380px] items-center justify-center">
+                <Pending>{STATE.verifying}</Pending>
+              </div>
+            ) : listed === false ? (
+              <div className="flex h-[380px] flex-col items-center justify-center px-6 text-center">
+                <div className="label label-ink mb-3">{ERROR.suspended}</div>
+                <p className="prose-measure text-sm leading-relaxed text-ink-2">
+                  {ERROR.notListed(`${owner}/${repo}`)}
+                </p>
+                {error && <p className="ref mt-4">{error}</p>}
+              </div>
+            ) : (
+              <div ref={chartContainerRef} className="h-[380px] w-full" />
+            )}
+          </Panel>
+
+          {/* period statistics, read straight off the visible window */}
+          {listed === true && (
+            <dl className="mt-px grid grid-cols-2 border-x border-b border-rule sm:grid-cols-4">
+              {[
+                { term: LABELS.high, value: view.high !== null ? usd(view.high) : "—" },
+                { term: LABELS.low, value: view.low !== null ? usd(view.low) : "—" },
+                { term: LABELS.observations, value: count(view.observations) },
+                { term: LABELS.range, value: range },
+              ].map((s, i) => (
+                <div
+                  key={s.term}
+                  className={`px-4 py-3 ${i < 3 ? "sm:border-r sm:border-rule" : ""} ${
+                    i % 2 === 0 ? "border-r border-rule sm:border-r" : ""
+                  } ${i < 2 ? "border-b border-rule sm:border-b-0" : ""}`}
+                >
+                  <dt className="label mb-1">{s.term}</dt>
+                  <dd className="figure text-[13px] text-ink">{s.value}</dd>
                 </div>
-                <div className="flex flex-col">
-                  <span className="text-[10px] uppercase tracking-[0.2em] text-ink-muted mb-1">Available Cash</span>
-                  <span className="font-display text-xl font-bold tracking-tighter text-ink tabular-nums">
-                    {balance !== null
-                      ? new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(balance)
-                      : "---"}
-                  </span>
+              ))}
+            </dl>
+          )}
+        </section>
+
+        {/* ── ticket ─────────────────────────────────────────────────── */}
+        <section className="mt-12">
+          <SectionRule label={SECTIONS.ticket} className="mb-5" />
+
+          <Panel className={listed === false ? "opacity-50" : ""}>
+            <div className="grid grid-cols-2 border-b border-rule sm:grid-cols-4">
+              <div className="border-b border-r border-rule px-4 py-4 sm:border-b-0">
+                <div className="label mb-1.5">{LABELS.position}</div>
+                <div className="figure text-lg text-ink">
+                  {count(ownedShares)}{" "}
+                  <span className="text-[11px] text-ink-3">{LABELS.shares}</span>
                 </div>
               </div>
-
-              <div className="flex items-center gap-4 w-full md:w-auto">
-                <div className="flex flex-col">
-                  <label htmlFor="qty" className="text-[10px] uppercase tracking-[0.2em] text-ink-muted mb-1">Quantity</label>
-                  <input
-                    id="qty"
-                    type="number"
-                    min="1"
-                    value={tradeQuantity}
-                    onChange={(e) => setTradeQuantity(e.target.value === "" ? "" : parseInt(e.target.value))}
-                    disabled={assetExists === false}
-                    className={`w-24 h-10 px-3 border-2 border-edge bg-card text-center text-ink tabular-nums focus:outline-none focus:shadow-brutal-sm transition-shadow ${assetExists === false ? "cursor-not-allowed bg-card-alt" : ""}`}
-                  />
+              <div className="border-b border-rule px-4 py-4 sm:border-b-0 sm:border-r">
+                <div className="label mb-1.5">Avg entry</div>
+                <div className="figure text-lg text-ink">
+                  {avgPrice !== null ? usd(avgPrice) : "—"}
                 </div>
-
-                <div className="flex gap-2 items-end h-full">
-                  {/* buy is disabled while asset is missing or a trade is already in flight */}
-                  <button
-                    onClick={() => handleTradeRequest("BUY")}
-                    disabled={assetExists === false || processingAction !== null || tradeQuantity === ""}
-                    className={`h-10 px-8 text-xs font-bold tracking-widest uppercase border-2 transition-all duration-150 ${
-                      assetExists === false || processingAction === "BUY" || tradeQuantity === ""
-                        ? "bg-card-alt text-ink-muted cursor-not-allowed border-edge"
-                        : "bg-accent text-accent-foreground border-edge press-brutal shadow-brutal-sm"
-                    }`}
-                  >
-                    {processingAction === "BUY" ? "Routing" : "Buy"}
-                  </button>
-
-                  {/* sell has the extra check that you can't sell more than you own */}
-                  <button
-                    onClick={() => handleTradeRequest("SELL")}
-                    disabled={assetExists === false || processingAction !== null || ownedShares === 0 || tradeQuantity === "" || tradeQuantity > ownedShares}
-                    className={`h-10 px-8 text-xs font-bold tracking-widest uppercase border-2 transition-all duration-150 ${
-                      assetExists === false || processingAction === "SELL" || ownedShares === 0 || tradeQuantity === "" || tradeQuantity > ownedShares
-                        ? "bg-card-alt text-ink-muted cursor-not-allowed border-edge"
-                        : "bg-card text-ink border-edge press-brutal shadow-brutal-sm"
-                    }`}
-                  >
-                    {processingAction === "SELL" ? "Routing" : "Sell"}
-                  </button>
+              </div>
+              <div className="border-r border-rule px-4 py-4">
+                <div className="label mb-1.5">{LABELS.unrealised}</div>
+                <div className={`figure text-lg ${toneClass(positionPnl)}`}>
+                  {positionPnl !== null && ownedShares > 0 ? usd(positionPnl) : "—"}
+                </div>
+              </div>
+              <div className="px-4 py-4">
+                <div className="label mb-1.5">{LABELS.purchasingPower}</div>
+                <div className="figure text-lg text-ink">
+                  {balance !== null ? usd(balance) : "—"}
                 </div>
               </div>
             </div>
-          </div>
-        </main>
-      </div>
 
-      {pendingTrade && currentPrice !== null && (
+            <div className="flex flex-col gap-4 px-4 py-4 sm:flex-row sm:items-center sm:justify-between">
+              <p className="text-[12px] leading-relaxed text-ink-3">
+                Market orders only. Size is set on the ticket.
+              </p>
+              <div className="grid grid-cols-2 gap-2 sm:w-auto sm:grid-cols-2">
+                <button
+                  onClick={() => openTicket("BUY")}
+                  disabled={listed !== true || processing !== null}
+                  className="ctl ctl-primary px-8"
+                >
+                  {processing === "BUY" ? ORDER.routing : ORDER.buy}
+                </button>
+                <button
+                  onClick={() => openTicket("SELL")}
+                  disabled={listed !== true || processing !== null || ownedShares === 0}
+                  className="ctl ctl-neg px-8"
+                >
+                  {processing === "SELL" ? ORDER.routing : ORDER.sell}
+                </button>
+              </div>
+            </div>
+          </Panel>
+
+          {ownedShares === 0 && listed === true && (
+            <Notice className="mt-5">{ORDER.noPosition} Buy to open one.</Notice>
+          )}
+          {positionValue !== null && ownedShares > 0 && (
+            <p className="ref mt-4 block">
+              Position marked at {usd(positionValue)} against a cost basis of{" "}
+              {avgPrice !== null ? usd(avgPrice * ownedShares) : "—"}.
+            </p>
+          )}
+        </section>
+      </main>
+
+      {pending && currentPrice !== null && (
         <ConfirmTradeModal
-          action={pendingTrade.action}
+          action={pending.action}
           ticker={ticker}
-          quantity={pendingTrade.quantity}
+          quantity={pending.quantity}
+          onQuantityChange={(q) => setPending({ ...pending, quantity: q })}
           price={currentPrice}
-          processing={processingAction !== null}
-          onConfirm={handleConfirmTrade}
-          onCancel={() => setPendingTrade(null)}
+          balance={balance}
+          ownedShares={ownedShares}
+          processing={processing !== null}
+          onConfirm={confirmTrade}
+          onCancel={() => setPending(null)}
         />
       )}
 

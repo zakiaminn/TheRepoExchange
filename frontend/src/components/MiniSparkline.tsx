@@ -1,29 +1,56 @@
-// tiny inline line chart, just draws a polyline through the data points scaled to fit a
-// 48x24 box. used on the landing page's fake preview cards and on the real discovery
-// cards (fed by actual recent price history from the ledger). for anything more
-// detailed than "is this going up or down at a glance," the real chart on the asset
-// page uses the actual lightweight-charts library instead
-export function MiniSparkline({ data, positive, className }: { data: number[]; positive: boolean; className?: string }) {
-  // need at least two points to draw a line - brand new listings with only one price
-  // point yet just don't get a sparkline, no point drawing a single dot
-  if (data.length < 2) return null;
+/* A trend line small enough to live inside a table cell. Deliberately not a
+   chart: no axes, no fill, no gradient, no dots. It answers exactly one
+   question — which way has this been going — and anything added to it makes
+   it answer that question more slowly.
+
+   The real chart, on the asset page, uses lightweight-charts. */
+export function MiniSparkline({
+  data,
+  positive,
+  className,
+  w = 60,
+  h = 18,
+}: {
+  data: number[];
+  positive: boolean;
+  className?: string;
+  w?: number;
+  h?: number;
+}) {
+  // one point is a dot, not a trend — brand new listings just don't get a line
+  if (!Array.isArray(data) || data.length < 2) {
+    return <span className={`inline-block ${className || ""}`} style={{ width: w, height: h }} />;
+  }
 
   const min = Math.min(...data);
   const max = Math.max(...data);
-  const range = max - min || 1; // avoid dividing by zero if every value in the data is the same
-  const h = 24;
-  const w = 48;
-  const points = data.map((v, i) => `${(i / (data.length - 1)) * w},${h - ((v - min) / range) * h}`).join(" ");
+  const range = max - min || 1; // guard the flat-line case
+  const pad = 1.5; // keep the stroke off the edges of the box
+  const points = data
+    .map((v, i) => {
+      const x = (i / (data.length - 1)) * w;
+      const y = h - pad - ((v - min) / range) * (h - pad * 2);
+      return `${x.toFixed(2)},${y.toFixed(2)}`;
+    })
+    .join(" ");
 
   return (
-    <svg width={w} height={h} viewBox={`0 0 ${w} ${h}`} className={`overflow-visible ${className || ""}`}>
+    <svg
+      width={w}
+      height={h}
+      viewBox={`0 0 ${w} ${h}`}
+      className={className}
+      aria-hidden="true"
+      focusable="false"
+    >
       <polyline
         points={points}
         fill="none"
-        stroke={positive ? "var(--bull)" : "var(--bear)"}
-        strokeWidth="1.5"
+        stroke={positive ? "var(--pos)" : "var(--neg)"}
+        strokeWidth="1.25"
         strokeLinecap="round"
         strokeLinejoin="round"
+        vectorEffect="non-scaling-stroke"
       />
     </svg>
   );

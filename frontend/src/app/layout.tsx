@@ -1,44 +1,61 @@
 import type { Metadata } from "next";
-import { Space_Grotesk, IBM_Plex_Sans } from "next/font/google";
+import { Bricolage_Grotesque, Martian_Mono } from "next/font/google";
 import "./globals.css";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import { Header } from "@/components/Header";
 
-// display font - headlines, big stat numbers (price/index/pnl), the logo wordmark.
-// only need the two weights we actually use, no point shipping the rest
-const spaceGrotesk = Space_Grotesk({
+// the fonts — and this is the actual trademark, meant to carry into every
+// project i build, not just TRX:
+//
+//   Bricolage Grotesque = the words. slightly wonky, mixed-width grotesque
+//   with real character (look at the g) that still reads fine at any size. it
+//   looks chosen, which is the whole point — not a default.
+//
+//   Martian Mono = the machine voice AND the logo. every number, every
+//   reference code, and the "TRX" wordmark itself use it. making the mono the
+//   brand mark is the ownable bit — it reads as built-by-someone-who-ships.
+
+const bricolage = Bricolage_Grotesque({
   subsets: ["latin"],
-  weight: ["500", "700"],
-  variable: "--font-display",
+  variable: "--font-bricolage",
+  display: "swap",
 });
 
-// body font - everything else. labels, paragraphs, buttons, table cells
-const ibmPlexSans = IBM_Plex_Sans({
+const martian = Martian_Mono({
   subsets: ["latin"],
-  weight: ["400", "500", "600", "700"],
-  variable: "--font-sans",
+  variable: "--font-martian",
+  display: "swap",
 });
 
-// shows up in the browser tab and in link previews when someone shares the site
 export const metadata: Metadata = {
-  title: "TRX Exchange",
-  description: "Modern retail brokerage platform",
+  title: {
+    default: "TRX · The Repo Exchange",
+    template: "%s · TRX",
+  },
+  description:
+    "A market in open source. Listings are priced from live GitHub activity. Settlement is simulated.",
+  openGraph: {
+    title: "TRX · The Repo Exchange",
+    description: "A market in open source. Listings priced from live GitHub activity.",
+    type: "website",
+  },
 };
 
-// this wraps literally every page in the app. themeprovider handles dark/light mode
-// switching and header shows up on every route except login (header bails out early if
-// you're on /login, see Header.tsx)
 export default function RootLayout({
   children,
-}: Readonly<{
-  children: React.ReactNode;
-}>) {
+}: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="en" suppressHydrationWarning className={`${spaceGrotesk.variable} ${ibmPlexSans.variable} h-full antialiased`}>
-      <body className="min-h-full flex flex-col bg-page text-ink transition-colors duration-300 font-sans">
+    <html
+      lang="en"
+      suppressHydrationWarning
+      className={`${bricolage.variable} ${martian.variable} h-full`}
+    >
+      <body className="min-h-full flex flex-col">
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
-          <Header />
-          {children}
+          <div className="relative z-10 flex min-h-full flex-1 flex-col">
+            <Header />
+            {children}
+          </div>
         </ThemeProvider>
       </body>
     </html>
