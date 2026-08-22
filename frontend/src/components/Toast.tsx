@@ -1,20 +1,51 @@
-export type ToastMessage = {
-  text: string;
-  type: "success" | "error";
-} | null;
+"use client";
 
-// bottom-right toast, used for trade fills/rejections and any other one-off status
-// message. purely presentational - whoever's using it owns the message state and the
-// setTimeout that clears it after a few seconds, this component just renders whatever
-// it's handed (or nothing, if message is null)
+import { useEffect, useState } from "react";
+
+export type ToastMessage = { text: string; type: "success" | "error" } | null;
+
+/* the little pop-up message. styled like a notice pinned to the corner, not a
+   confetti moment: hairline box, coloured bar on the left, mono text, no icon,
+   no rounded pill.
+
+   it's dumb on purpose — whoever uses it owns the message + the timer that
+   clears it. the only thing it handles itself is fading out, so it doesn't
+   just vanish mid-word. */
 export function Toast({ message }: { message: ToastMessage }) {
-  if (!message) return null;
+  const [shown, setShown] = useState<ToastMessage>(null);
+  const [leaving, setLeaving] = useState(false);
+
+  useEffect(() => {
+    if (message) {
+      setShown(message);
+      setLeaving(false);
+      return;
+    }
+    // hold the last message on screen through its fade instead of dropping it
+    if (shown) {
+      setLeaving(true);
+      const t = window.setTimeout(() => setShown(null), 200);
+      return () => window.clearTimeout(t);
+    }
+  }, [message]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  if (!shown) return null;
+
+  const tone = shown.type === "success" ? "border-l-pos" : "border-l-neg";
 
   return (
-    <div className="fixed bottom-6 right-6 z-50 animate-in slide-in-from-bottom-4 fade-in duration-300">
-      <div className="px-4 py-3 text-sm shadow-brutal-sm flex items-center gap-3 border-2 border-edge bg-card text-ink">
-        <div className={`h-2 w-2 rounded-full ${message.type === "success" ? "bg-bull" : "bg-bear"}`}></div>
-        {message.text}
+    <div
+      role="status"
+      aria-live="polite"
+      className="pointer-events-none fixed inset-x-4 bottom-5 z-50 flex justify-center sm:inset-x-auto sm:right-6 sm:justify-end"
+    >
+      <div
+        className={`panel border-l-2 ${tone} max-w-md px-4 py-3 transition-all duration-200 ${
+          leaving ? "translate-y-1 opacity-0" : "translate-y-0 opacity-100"
+        }`}
+        style={{ background: "var(--paper)" }}
+      >
+        <div className="figure text-[12px] leading-relaxed text-ink">{shown.text}</div>
       </div>
     </div>
   );

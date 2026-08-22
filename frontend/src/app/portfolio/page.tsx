@@ -3,6 +3,9 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { createClient } from "@/utils/supabase/client";
+import { SectionRule, DocRef, Panel, Empty, Pending, Delta } from "@/components/ui";
+import { usd, signedUsd, count, change, toneClass, tickerParts } from "@/lib/format";
+import { SECTIONS, COLUMNS, LABELS, STATE, ERROR } from "@/lib/copy";
 
 type Holding = {
   ticker: string;
@@ -11,8 +14,9 @@ type Holding = {
   current_price: string | number;
 };
 
-// net worth summary page - shows total value, overall p&l, and a breakdown of every
-// position the user is holding
+/* the portfolio page. net worth, what it's made of, and the holdings. laid out
+   like a brokerage statement: one big number up top, the cash/positions
+   breakdown under it, then every position listed out row by row. */
 export default function PortfolioPage() {
   const [userId, setUserId] = useState<string | null>(null);
   const [balance, setBalance] = useState<number | null>(null);
@@ -22,179 +26,197 @@ export default function PortfolioPage() {
   const supabase = createClient();
 
   useEffect(() => {
-    const checkAuth = async () => {
+    const check = async () => {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        window.location.href = "/login";
-      } else {
-        setUserId(user.id);
-      }
+      if (!user) window.location.href = "/login";
+      else setUserId(user.id);
     };
-    checkAuth();
+    check();
   }, [supabase]);
 
-useEffect(() => {
+  useEffect(() => {
     if (!userId) return;
 
-    const fetchData = async () => {
+    const load = async () => {
       try {
         const { data: { session } } = await supabase.auth.getSession();
         if (!session) return;
-        const fetchOptions = {
-          headers: { Authorization: `Bearer ${session.access_token}` }
-        };
+        const opts = { headers: { Authorization: `Bearer ${session.access_token}` } };
 
-        // fire both requests off at the same time instead of one after the other,
-        // cuts the load time roughly in half
+        // both in flight at once rather than in sequence — halves the wait
         const [balanceRes, portfolioRes] = await Promise.all([
-          fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/balance/${userId}`, fetchOptions),
-          fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/portfolio/${userId}`, fetchOptions)
+          fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/balance/${userId}`, opts),
+          fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/portfolio/${userId}`, opts),
         ]);
 
-        if (balanceRes.ok) {
-          const balanceData = await balanceRes.json();
-          setBalance(Number(balanceData.balance));
-        }
-
-        if (portfolioRes.ok) {
-          const portfolioData = await portfolioRes.json();
-          setPortfolio(portfolioData.portfolio || []);
-        }
-      } catch (err) {
-        console.error("Ledger offline");
+        if (balanceRes.ok) setBalance(Number((await balanceRes.json()).balance));
+        if (portfolioRes.ok) setPortfolio((await portfolioRes.json()).portfolio || []);
+      } catch {
+        console.error(ERROR.ledger);
       } finally {
         setLoading(false);
       }
     };
 
-    fetchData();
+    load();
   }, [userId, supabase.auth]);
 
-  // derive the portfolio summary numbers from what we fetched. all of this is just math
-  // on data we already have, no extra api calls needed
-  const cash = balance || 0;
-
-  // sum up what every position is currently worth (shares * live price)
-  const totalAssetValue = portfolio.reduce((acc, holding) => {
-    return acc + (holding.shares * Number(holding.current_price));
-  }, 0);
-
-  const netWorth = cash + totalAssetValue;
-
-  // total profit/loss across everything - current value minus what they paid for it
-  const totalPnL = portfolio.reduce((acc, holding) => {
-    return acc + ((Number(holding.current_price) - Number(holding.average_price)) * holding.shares);
-  }, 0);
-
-  const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(value);
-  };
-
-  const pnlSign = totalPnL >= 0 ? "+" : "";
-  const pnlColor = totalPnL > 0 ? "text-bull" : totalPnL < 0 ? "text-bear" : "text-ink-muted";
+  // everything below is arithmetic on data already fetched — no extra calls
+  const cash = balance ?? 0;
+  const positionsValue = portfolio.reduce(
+    (sum, h) => sum + h.shares * Number(h.current_price),
+    0
+  );
+  const netWorth = cash + positionsValue;
+  const costBasis = portfolio.reduce(
+    (sum, h) => sum + h.shares * Number(h.average_price),
+    0
+  );
+  const unrealised = positionsValue - costBasis;
+  const unrealisedPct = costBasis > 0 ? (unrealised / costBasis) * 100 : null;
+  const investedShare = netWorth > 0 ? (positionsValue / netWorth) * 100 : 0;
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-page flex items-center justify-center text-sm text-ink-muted">
-        LOADING PORTFOLIO...
+      <div className="flex min-h-[60vh] items-center justify-center">
+        <Pending>{STATE.portfolio}</Pending>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-page text-ink font-sans relative selection:bg-accent selection:text-accent-foreground pb-20 transition-colors duration-300">
-      <div className="absolute inset-0 z-0 bg-[radial-gradient(#e5e7eb_1px,transparent_1px)] dark:bg-[radial-gradient(#374151_1px,transparent_1px)] [background-size:16px_16px] pointer-events-none"></div>
+    <div className="flex-1 pb-20">
+      <main className="mx-auto w-full max-w-[64rem] px-5 py-10 sm:px-8 sm:py-12">
+        <SectionRule
+          label={SECTIONS.summary}
+          meta={<DocRef code="TRX-ACC-0001" />}
+          className="mb-10"
+        />
 
-      <div className="relative z-10">
-        <main className="max-w-4xl mx-auto px-6 py-12">
-          {/* hero section - big net worth number front and center */}
-          <div className="mb-16 pb-12 text-center relative">
-            <div className="absolute inset-0 flex items-center justify-center pointer-events-none select-none opacity-[0.02] dark:opacity-[0.04]">
-              <span className="text-[16rem] font-display font-bold tracking-tighter leading-none">$</span>
-            </div>
-            <div className="relative">
-              <p className="text-[10px] uppercase tracking-[0.2em] text-ink-muted mb-4">Total Net Worth</p>
-              <h1 className="font-display text-4xl sm:text-5xl md:text-7xl font-bold tracking-tighter text-ink mb-6 tabular-nums break-all sm:break-normal">
-                {formatCurrency(netWorth)}
-              </h1>
-              <div className="inline-flex items-center gap-2 px-4 py-2 border-2 border-edge bg-card shadow-brutal-sm">
-                <div className={`h-2 w-2 rounded-full ${totalPnL >= 0 ? 'bg-bull' : 'bg-bear'}`}></div>
-                <p className="text-[10px] uppercase tracking-[0.2em] text-ink-muted">P&L</p>
-                <p className={`text-sm tracking-tighter font-medium tabular-nums ${pnlColor}`}>
-                  {pnlSign}{formatCurrency(totalPnL)}
-                </p>
-              </div>
-            </div>
-            <div className="mt-12 border-b-2 border-edge"></div>
+        {/* ── net asset value ────────────────────────────────────────── */}
+        <div className="border-b border-rule-2 pb-10">
+          <div className="label mb-3">{LABELS.netWorth}</div>
+          {/* the one place the serif carries a figure. At this size
+              Newsreader's lining numerals are the most expensive-looking
+              thing on the site, and it costs nothing to use them */}
+          <div className="display text-[clamp(2.75rem,11vw,5.5rem)] leading-none text-ink">
+            {usd(netWorth)}
           </div>
-
-          {/* cash breakdown */}
-          <div className="mb-12 border-2 border-edge bg-card p-6 shadow-brutal-sm flex justify-between items-center">
-            <span className="text-[11px] uppercase tracking-[0.25em] text-ink-muted font-bold">Available Cash</span>
-            <span className="font-display text-xl font-bold tracking-tighter text-ink tabular-nums">
-              {formatCurrency(cash)}
+          <div className="mt-4 flex flex-wrap items-baseline gap-x-3 gap-y-1">
+            <span className={`figure text-base ${toneClass(unrealised)}`}>
+              {signedUsd(unrealised)}
             </span>
+            <Delta value={unrealisedPct} className="text-base" />
+            <span className="label">{LABELS.unrealised}</span>
+          </div>
+        </div>
+
+        {/* ── composition ────────────────────────────────────────────── */}
+        <section className="mt-10">
+          <SectionRule label={SECTIONS.allocation} className="mb-5" />
+
+          {/* Two segments, one chroma. A colour per holding would look like
+              a pie chart and mean nothing — the only split that matters here
+              is deployed against undeployed. */}
+          <div className="flex h-2 w-full overflow-hidden border border-rule">
+            <div
+              className="bg-brand transition-[width] duration-500"
+              style={{ width: `${Math.min(100, Math.max(0, investedShare))}%` }}
+              aria-hidden="true"
+            />
+            <div className="flex-1 bg-paper-3" aria-hidden="true" />
           </div>
 
-          {/* holdings ledger - one row per position, with its own p&l calc'd inline */}
-          <div>
-            <h2 className="text-[11px] tracking-[0.25em] font-bold uppercase text-ink-muted mb-6">Holdings Ledger</h2>
-
-            {portfolio.length === 0 ? (
-              <div className="border-2 border-edge bg-card p-12 text-center text-sm text-ink-muted shadow-brutal-sm">
-                NO ASSETS HELD
+          <dl className="mt-px grid grid-cols-1 border-x border-b border-rule sm:grid-cols-3">
+            {[
+              { term: LABELS.cash, value: usd(cash), note: `${(100 - investedShare).toFixed(1)}% undeployed` },
+              { term: LABELS.positionsValue, value: usd(positionsValue), note: `${investedShare.toFixed(1)}% deployed` },
+              { term: "Cost basis", value: usd(costBasis), note: `${count(portfolio.length)} listings` },
+            ].map((row, i) => (
+              <div
+                key={row.term}
+                className={`px-4 py-4 ${i < 2 ? "border-b border-rule sm:border-b-0 sm:border-r" : ""}`}
+              >
+                <dt className="label mb-1.5">{row.term}</dt>
+                <dd className="figure text-lg text-ink">{row.value}</dd>
+                <dd className="ref mt-1 block">{row.note}</dd>
               </div>
+            ))}
+          </dl>
+        </section>
+
+        {/* ── the book ───────────────────────────────────────────────── */}
+        <section className="mt-12">
+          <SectionRule
+            label={SECTIONS.holdings}
+            meta={`${count(portfolio.length)} of record`}
+            className="mb-5"
+          />
+
+          <Panel>
+            {portfolio.length === 0 ? (
+              <Empty>
+                {STATE.noPositions}{" "}
+                <Link href="/" className="link">
+                  View the board
+                </Link>
+                .
+              </Empty>
             ) : (
-              <div className="border-2 border-edge bg-card shadow-brutal-sm">
-                {portfolio.map((holding, index) => {
-                  const currentPrice = Number(holding.current_price);
-                  const averagePrice = Number(holding.average_price);
-                  const totalValue = currentPrice * holding.shares;
-                  const holdingPnL = (currentPrice - averagePrice) * holding.shares;
-                  const holdingPnLPercent = ((currentPrice - averagePrice) / averagePrice) * 100;
+              <div className="overflow-x-auto no-bar">
+                <table className="board min-w-[44rem]">
+                  <thead>
+                    <tr>
+                      <th>{COLUMNS.listing}</th>
+                      <th className="text-right">{COLUMNS.qty}</th>
+                      <th className="text-right">{COLUMNS.avg}</th>
+                      <th className="text-right">{COLUMNS.mark}</th>
+                      <th className="text-right">{COLUMNS.value}</th>
+                      <th className="text-right">{COLUMNS.pnl}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {portfolio.map((h) => {
+                      const mark = Number(h.current_price);
+                      const avg = Number(h.average_price);
+                      const value = mark * h.shares;
+                      const pnl = (mark - avg) * h.shares;
+                      const pnlPct = change(avg, mark);
+                      const { owner, repo } = tickerParts(h.ticker);
 
-                  const sign = holdingPnL >= 0 ? "+" : "";
-                  const colorClass = holdingPnL > 0 ? "text-bull" : holdingPnL < 0 ? "text-bear" : "text-ink-muted";
-
-                  const [owner, repoName] = holding.ticker.split('/');
-
-                  return (
-                    <div
-                      key={holding.ticker}
-                      className={`flex justify-between items-center px-6 py-6 group hover:bg-card-alt transition-colors duration-200 border-l-4 ${
-                        holdingPnL >= 0 ? 'border-l-bull/40 hover:border-l-bull' : 'border-l-bear/40 hover:border-l-bear'
-                      } ${
-                        index !== portfolio.length - 1 ? 'border-b-2 border-edge' : ''
-                      }`}
-                    >
-                      <div className="flex flex-col">
-                        <Link
-                          href={`/asset/${owner.toLowerCase()}/${repoName.toLowerCase()}`}
-                          className="font-display text-lg font-bold tracking-tighter text-ink hover:text-accent transition-colors mb-1"
-                        >
-                          {holding.ticker}
-                        </Link>
-                        <p className="text-[10px] text-ink-muted uppercase tracking-[0.1em]">
-                          {holding.shares} Shares @ {formatCurrency(averagePrice)}
-                        </p>
-                      </div>
-
-                      <div className="text-right flex flex-col items-end">
-                        <p className="font-display text-xl tracking-tighter text-ink mb-1 tabular-nums">
-                          {formatCurrency(totalValue)}
-                        </p>
-                        <p className={`text-[10px] uppercase tracking-[0.1em] tabular-nums ${colorClass}`}>
-                          {sign}{formatCurrency(holdingPnL)} ({sign}{holdingPnLPercent.toFixed(2)}%)
-                        </p>
-                      </div>
-                    </div>
-                  );
-                })}
+                      return (
+                        <tr key={h.ticker}>
+                          <td className="max-w-0">
+                            <Link
+                              href={`/asset/${owner.toLowerCase()}/${repo.toLowerCase()}`}
+                              className="group block"
+                            >
+                              <span className="figure block truncate text-[13px] font-medium uppercase text-ink transition-colors group-hover:text-brand-ink">
+                                {repo}
+                              </span>
+                              <span className="figure block truncate text-[11px] text-ink-3">
+                                {owner}
+                              </span>
+                            </Link>
+                          </td>
+                          <td className="num text-[13px] text-ink">{count(h.shares)}</td>
+                          <td className="num text-[13px] text-ink-2">{usd(avg)}</td>
+                          <td className="num text-[13px] text-ink">{usd(mark)}</td>
+                          <td className="num text-[13px] text-ink">{usd(value)}</td>
+                          <td className="num pr-3">
+                            <div className={`text-[13px] ${toneClass(pnl)}`}>{signedUsd(pnl)}</div>
+                            <Delta value={pnlPct} className="text-[11px]" />
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
               </div>
             )}
-          </div>
-        </main>
-      </div>
+          </Panel>
+        </section>
+      </main>
     </div>
   );
 }

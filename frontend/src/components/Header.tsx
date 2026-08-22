@@ -2,81 +2,79 @@
 
 import Link from "next/link";
 import { useTheme } from "next-themes";
-import { Sun, Moon, Menu, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import { createClient } from "@/utils/supabase/client";
 import { usePathname, useRouter } from "next/navigation";
-import { Logo } from "@/components/Logo";
+import { createClient } from "@/utils/supabase/client";
+import { Wordmark } from "@/components/Logo";
+import { TickerTape, type TapeItem } from "@/components/TickerTape";
+import { LiveDot } from "@/components/ui";
+import { change } from "@/lib/format";
+import { NAV, STATE } from "@/lib/copy";
 
 type TickerSuggestion = { ticker: string; category: string };
 
-// the top nav bar that sticks around on every page except login and the landing page.
-// handles the search box + autocomplete, theme toggle, the user avatar dropdown, and a
-// mobile hamburger menu since none of this fit on one row on a small screen
+/* the top bar. two rows: the masthead, and the ticker tape under it. that
+   title-then-quotes stack is how newspapers have opened their front page
+   forever, and it's most of why this feels like an exchange and not a
+   dashboard. shows up on every logged-in page; it just returns null when
+   there's no session (the landing page brings its own nav). */
 export function Header() {
   const { resolvedTheme, setTheme } = useTheme();
-  const [mounted, setMounted] = useState(false); // need this so we don't render the theme toggle icon before we actually know the theme (avoids a hydration mismatch)
+  const [mounted, setMounted] = useState(false); // guards the theme glyph against a hydration mismatch
   const [user, setUser] = useState<any>(null);
   const [authLoading, setAuthLoading] = useState(true);
-  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [mobileOpen, setMobileOpen] = useState(false);
+
+  const [query, setQuery] = useState("");
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [tickers, setTickers] = useState<TickerSuggestion[]>([]);
+  const [tape, setTape] = useState<TapeItem[]>([]);
+
   const supabase = createClient();
   const pathname = usePathname();
   const router = useRouter();
-  const [searchQuery, setSearchQuery] = useState("");
-  const [showSuggestions, setShowSuggestions] = useState(false);
-  const [allTickers, setAllTickers] = useState<TickerSuggestion[]>([]);
 
-  const dropdownRef = useRef<HTMLDivElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
   const searchRef = useRef<HTMLFormElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
 
-  // pull the full ticker list once on mount so we can filter it client-side as the user
-  // types, instead of hitting the api on every keystroke. same /api/discovery endpoint
-  // the home page uses, just flattened out of its category grouping
+  // one call feeds two things: the autocomplete index and the tape. Filtering
+  // client-side means typing doesn't hit the API on every keystroke.
   useEffect(() => {
-    const loadTickers = async () => {
+    const load = async () => {
       try {
         const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/discovery`);
         if (!res.ok) return;
         const data = await res.json();
-        const flattened: TickerSuggestion[] = Object.entries(data).flatMap(([category, repos]: [string, any]) =>
-          (repos as any[]).map((r) => ({ ticker: r.ticker, category }))
+
+        const flat: TickerSuggestion[] = Object.entries(data).flatMap(
+          ([category, repos]: [string, any]) =>
+            (repos as any[]).map((r) => ({ ticker: r.ticker, category }))
         );
-        setAllTickers(flattened);
+        setTickers(flat);
+
+        // the tape wants the most active listings, not all of them — a strip
+        // with two hundred items on it scrolls for four minutes before it
+        // repeats, which defeats the point of a repeating strip
+        const items: TapeItem[] = Object.values(data)
+          .flat()
+          .map((r: any) => ({
+            ticker: r.ticker,
+            price: Number(r.current_price),
+            change: Array.isArray(r.sparkline) && r.sparkline.length > 1
+              ? change(r.sparkline[0], r.sparkline[r.sparkline.length - 1])
+              : null,
+          }))
+          .filter((r: TapeItem) => Number.isFinite(r.price))
+          .slice(0, 18);
+        setTape(items);
       } catch {
-        // no autocomplete data, not a big deal - direct owner/repo search still works
+        // no tape and no autocomplete; typing owner/repo directly still works
       }
     };
-    loadTickers();
+    load();
   }, []);
-
-  // matches anywhere in the ticker, not just the start - "react" should surface both
-  // "facebook/react" and "react/react"
-  const suggestions = searchQuery.trim().length > 0
-    ? allTickers.filter((t) => t.ticker.toLowerCase().includes(searchQuery.toLowerCase())).slice(0, 6)
-    : [];
-
-  const goToAsset = (tickerStr: string) => {
-    const [o, r] = tickerStr.split('/');
-    setSearchQuery("");
-    setShowSuggestions(false);
-    setIsMobileMenuOpen(false);
-    router.push(`/asset/${o.toLowerCase()}/${r.toLowerCase()}`);
-  };
-
-  const handleSearch = (e: React.FormEvent) => {
-    e.preventDefault();
-    // if there's a suggestion showing, enter just goes to the first one
-    if (suggestions.length > 0) {
-      goToAsset(suggestions[0].ticker);
-      return;
-    }
-    // otherwise fall back to treating it as a direct "owner/repo" string
-    const repoRegex = /^[a-zA-Z0-9_.-]+\/[a-zA-Z0-9_.-]+$/;
-    if (repoRegex.test(searchQuery)) {
-      goToAsset(searchQuery);
-    }
-  };
 
   useEffect(() => {
     setMounted(true);
@@ -88,206 +86,238 @@ export function Header() {
     getUser();
   }, [supabase.auth]);
 
-  // close the account dropdown and the search suggestions when clicking anywhere outside
-  // them - before this the dropdown just stayed open until you clicked the avatar again
+  // dismiss the account menu and the suggestion list on any outside click
   useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
-        setIsDropdownOpen(false);
-      }
-      if (searchRef.current && !searchRef.current.contains(e.target as Node)) {
-        setShowSuggestions(false);
-      }
+    const onDown = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) setMenuOpen(false);
+      if (searchRef.current && !searchRef.current.contains(e.target as Node)) setShowSuggestions(false);
     };
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
+    document.addEventListener("mousedown", onDown);
+    return () => document.removeEventListener("mousedown", onDown);
   }, []);
 
-  const handleLogout = async () => {
+  // "/" focuses search, Escape leaves it. Terminal convention, and the kind
+  // of thing the people who'd actually use this expect to work.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const el = document.activeElement;
+      const typing = el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement;
+      if (e.key === "/" && !typing) {
+        e.preventDefault();
+        inputRef.current?.focus();
+      }
+      if (e.key === "Escape") {
+        setShowSuggestions(false);
+        inputRef.current?.blur();
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
+  // matches anywhere in the string, so "react" surfaces facebook/react as
+  // well as react/react
+  const suggestions =
+    query.trim().length > 0
+      ? tickers.filter((t) => t.ticker.toLowerCase().includes(query.toLowerCase())).slice(0, 7)
+      : [];
+
+  const goTo = (ticker: string) => {
+    const [o, r] = ticker.split("/");
+    setQuery("");
+    setShowSuggestions(false);
+    setMobileOpen(false);
+    router.push(`/asset/${o.toLowerCase()}/${r.toLowerCase()}`);
+  };
+
+  const onSearch = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (suggestions.length > 0) return goTo(suggestions[0].ticker);
+    if (/^[a-zA-Z0-9_.-]+\/[a-zA-Z0-9_.-]+$/.test(query.trim())) goTo(query.trim());
+  };
+
+  const signOut = async () => {
     await supabase.auth.signOut();
     window.location.href = "/login";
   };
 
   if (pathname === "/login" || authLoading || !user) return null;
 
-  let userInitials = "U";
-  let userFullName = "User";
-
+  let initials = "—";
+  let displayName = "Member";
   if (user?.user_metadata) {
-    const firstName = user.user_metadata.first_name || "";
-    const lastName = user.user_metadata.last_name || "";
-    if (firstName && lastName) {
-      userInitials = `${firstName[0]}${lastName[0]}`.toUpperCase();
-      userFullName = `${firstName} ${lastName}`;
+    const first = user.user_metadata.first_name || "";
+    const last = user.user_metadata.last_name || "";
+    if (first && last) {
+      initials = `${first[0]}${last[0]}`.toUpperCase();
+      displayName = `${first} ${last}`;
     } else if (user.email) {
-      userInitials = user.email[0].toUpperCase();
-      userFullName = user.email.split('@')[0];
+      initials = user.email[0].toUpperCase();
+      displayName = user.email.split("@")[0];
     }
   }
 
-  // shared between the desktop and mobile layout - the search input plus its suggestions
-  // dropdown underneath. zero border radius + a hard shadow on focus, same brutalist
-  // triplet as everything else, just without the hover lift since it's an input not a card
-  const searchBox = (
-    <form ref={searchRef} onSubmit={handleSearch} className="relative flex-1">
+  const search = (
+    <form ref={searchRef} onSubmit={onSearch} className="relative w-full" role="search">
       <input
+        ref={inputRef}
         type="text"
-        value={searchQuery}
-        onChange={(e) => setSearchQuery(e.target.value)}
+        value={query}
+        onChange={(e) => setQuery(e.target.value)}
         onFocus={() => setShowSuggestions(true)}
-        placeholder="Search owner/repo..."
-        className="w-full px-4 py-2 border-2 border-edge bg-card text-sm text-ink placeholder-ink-muted focus:outline-none focus:shadow-brutal-sm transition-all"
+        placeholder={NAV.search}
+        aria-label={NAV.search}
+        className="field h-9 pr-9 font-mono text-[13px]"
       />
-      {showSuggestions && suggestions.length > 0 && (
-        <div className="absolute top-full left-0 right-0 mt-2 border-2 border-edge bg-card shadow-brutal-sm z-50 py-1 max-h-72 overflow-y-auto">
-          {suggestions.map((s) => (
-            <button
-              key={s.ticker}
-              type="button"
-              onClick={() => goToAsset(s.ticker)}
-              className="w-full text-left px-4 py-2 text-sm font-mono text-ink hover:bg-card-alt transition-colors flex items-center justify-between gap-2"
-            >
-              <span className="truncate">{s.ticker}</span>
-              <span className="text-[9px] uppercase tracking-wider text-ink-muted shrink-0">{s.category}</span>
-            </button>
-          ))}
+      {/* the slash hint disappears the moment the field has focus or content */}
+      {query.length === 0 && (
+        <span className="pointer-events-none absolute right-2.5 top-1/2 hidden -translate-y-1/2 items-center justify-center border border-rule-2 px-1.5 py-0.5 text-[10px] text-ink-3 md:flex">
+          /
+        </span>
+      )}
+      {showSuggestions && query.trim().length > 0 && (
+        <div className="absolute left-0 right-0 top-full z-50 mt-1 max-h-72 overflow-y-auto border border-rule-2 bg-paper">
+          {suggestions.length === 0 ? (
+            <div className="px-3 py-2.5 text-xs text-ink-3">{STATE.noSuggestions}</div>
+          ) : (
+            suggestions.map((s) => (
+              <button
+                key={s.ticker}
+                type="button"
+                onClick={() => goTo(s.ticker)}
+                className="flex w-full items-center justify-between gap-3 border-b border-rule px-3 py-2 text-left last:border-b-0 hover:bg-paper-2"
+              >
+                <span className="figure truncate text-[13px] text-ink">{s.ticker}</span>
+                <span className="label shrink-0 text-[10px]">{s.category}</span>
+              </button>
+            ))
+          )}
         </div>
       )}
     </form>
   );
 
+  const themeToggle = mounted && (
+    <button
+      onClick={() => setTheme(resolvedTheme === "dark" ? "light" : "dark")}
+      aria-label={NAV.theme}
+      title={NAV.theme}
+      className="flex h-9 w-9 items-center justify-center border border-rule text-ink-2 transition-colors hover:border-rule-2 hover:text-brand-ink"
+    >
+      {/* a filled/hollow square rather than a sun and a moon. Two glyphs from
+          the same geometric family read as one system; clip-art weather does
+          not. */}
+      <span
+        className={`h-3 w-3 border border-current ${resolvedTheme === "dark" ? "bg-current" : ""}`}
+        aria-hidden="true"
+      />
+    </button>
+  );
+
   return (
-    <header className="border-b-2 border-edge bg-page/90 backdrop-blur-sm transition-colors duration-300 sticky top-0 z-40">
-      <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between gap-4">
-        <div className="flex items-center gap-6 shrink-0">
-          <Link href="/" className="flex items-center gap-2 font-display font-bold text-lg tracking-tight text-ink hover:text-accent transition-colors">
-            <Logo className="h-5 w-5 text-accent" />
-            <span className="hidden sm:inline">TRX.EXCHANGE</span>
-          </Link>
-          <div className="hidden md:block h-5 w-[2px] bg-edge"></div>
-          {/* just a fake "market open" indicator, doesn't actually check anything, it's always on. stays a circle - it's a status led, not a card corner */}
-          <div className="hidden md:flex items-center gap-2">
-            <span className="relative flex h-2 w-2">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-accent opacity-40"></span>
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-accent"></span>
-            </span>
-            <span className="text-xs font-medium uppercase tracking-wider text-ink-muted">Market Open</span>
-          </div>
-        </div>
+    <header className="sticky top-0 z-40 border-b border-rule bg-[var(--paper)]/92 backdrop-blur-md">
+      <div className="mx-auto flex h-14 max-w-[76rem] items-center gap-5 px-5 sm:px-8">
+        <Link href="/" className="shrink-0" aria-label="TRX, The Repo Exchange">
+          <Wordmark size="md" showName={false} />
+        </Link>
 
-        {/* desktop layout - search + nav links + avatar all inline */}
-        <div className="hidden md:flex items-center gap-6 text-sm flex-1 justify-end">
-          <div className="flex-1 max-w-md">{searchBox}</div>
+        <span className="hidden h-5 w-px shrink-0 bg-rule-2 lg:block" aria-hidden="true" />
 
+        <span className="hidden shrink-0 items-center gap-2 lg:flex">
+          <LiveDot />
+          <span className="label">{NAV.board}</span>
+        </span>
+
+        <div className="ml-auto hidden max-w-sm flex-1 md:block">{search}</div>
+
+        <nav className="hidden shrink-0 items-center gap-1 md:flex">
           <Link
             href="/portfolio"
-            className="font-medium text-ink-muted hover:text-accent transition-colors"
+            className={`px-3 py-2 text-[13px] transition-colors hover:text-brand-ink ${
+              pathname === "/portfolio" ? "text-ink" : "text-ink-2"
+            }`}
           >
-            Portfolio
+            {NAV.positions}
           </Link>
+          {themeToggle}
+        </nav>
 
-          {mounted && (
-            <button
-              onClick={() => setTheme(resolvedTheme === "dark" ? "light" : "dark")}
-              className="p-2 text-ink-muted hover:bg-card-alt transition-colors"
-              aria-label="Toggle Theme"
-            >
-              {resolvedTheme === "dark" ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
-            </button>
+        <div ref={menuRef} className="relative hidden shrink-0 md:block">
+          <button
+            onClick={() => setMenuOpen(!menuOpen)}
+            aria-expanded={menuOpen}
+            aria-haspopup="menu"
+            className="flex items-center gap-2.5 border border-rule py-1 pl-1 pr-3 transition-colors hover:border-rule-2"
+          >
+            <span className="figure flex h-7 w-7 items-center justify-center bg-paper-3 text-[11px] font-medium text-ink">
+              {initials}
+            </span>
+            <span className="max-w-[9rem] truncate text-[13px] text-ink-2">{displayName}</span>
+          </button>
+
+          {menuOpen && (
+            <div role="menu" className="absolute right-0 top-full z-50 mt-1 w-52 border border-rule-2 bg-paper">
+              <div className="border-b border-rule px-3 py-2.5">
+                <div className="label mb-0.5">{NAV.account}</div>
+                <div className="figure truncate text-[11px] text-ink-2">{user?.email}</div>
+              </div>
+              <Link
+                href="/settings"
+                onClick={() => setMenuOpen(false)}
+                className="block border-b border-rule px-3 py-2.5 text-[13px] text-ink hover:bg-paper-2"
+              >
+                {NAV.account}
+              </Link>
+              <button
+                onClick={() => { setMenuOpen(false); signOut(); }}
+                className="block w-full px-3 py-2.5 text-left text-[13px] text-ink hover:bg-paper-2"
+              >
+                Sign out
+              </button>
+            </div>
           )}
-
-          <div ref={dropdownRef} className="relative border-l-2 border-edge pl-6">
-            <button
-              onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-              className="flex items-center gap-3 hover:opacity-80 transition-opacity"
-            >
-              <div className="h-8 w-8 border-2 border-edge bg-accent text-accent-foreground flex items-center justify-center text-xs font-bold tracking-wider">
-                {userInitials}
-              </div>
-              <span className="font-medium text-ink">
-                {userFullName}
-              </span>
-            </button>
-
-            {isDropdownOpen && (
-              <div className="absolute right-0 top-10 mt-2 w-48 border-2 border-edge bg-card shadow-brutal-sm z-50 py-1">
-                <Link
-                  href="/settings"
-                  className="block px-4 py-2 text-sm text-ink hover:bg-card-alt transition-colors"
-                  onClick={() => setIsDropdownOpen(false)}
-                >
-                  Account Settings
-                </Link>
-                <button
-                  onClick={() => {
-                    setIsDropdownOpen(false);
-                    handleLogout();
-                  }}
-                  className="w-full text-left block px-4 py-2 text-sm text-ink hover:bg-card-alt transition-colors"
-                >
-                  Sign Out
-                </button>
-              </div>
-            )}
-          </div>
         </div>
 
-        {/* mobile layout - just a hamburger toggle, everything else lives in the panel below */}
+        {/* mobile: everything collapses into the panel below */}
         <button
-          onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-          className="md:hidden p-2 text-ink-muted hover:bg-card-alt transition-colors"
-          aria-label="Toggle menu"
+          onClick={() => setMobileOpen(!mobileOpen)}
+          aria-label={NAV.menu}
+          aria-expanded={mobileOpen}
+          className="ml-auto flex h-9 w-9 items-center justify-center border border-rule text-ink-2 md:hidden"
         >
-          {isMobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+          <span className="flex flex-col gap-[3px]" aria-hidden="true">
+            <span className="block h-px w-4 bg-current" />
+            <span className={`block h-px w-4 bg-current ${mobileOpen ? "opacity-0" : ""}`} />
+            <span className="block h-px w-4 bg-current" />
+          </span>
         </button>
       </div>
 
-      {isMobileMenuOpen && (
-        <div className="md:hidden border-t-2 border-edge bg-page px-6 py-4 space-y-4">
-          {searchBox}
-          <div className="flex items-center justify-between">
-            <Link
-              href="/portfolio"
-              onClick={() => setIsMobileMenuOpen(false)}
-              className="font-medium text-sm text-ink-muted hover:text-accent transition-colors"
-            >
-              Portfolio
+      {mobileOpen && (
+        <div className="border-t border-rule bg-paper px-5 py-4 md:hidden">
+          {search}
+          <div className="mt-4 grid grid-cols-2 gap-px border border-rule bg-rule">
+            <Link href="/portfolio" onClick={() => setMobileOpen(false)} className="bg-paper px-3 py-3 text-[13px] text-ink">
+              {NAV.positions}
             </Link>
-            <Link
-              href="/settings"
-              onClick={() => setIsMobileMenuOpen(false)}
-              className="font-medium text-sm text-ink-muted hover:text-accent transition-colors"
-            >
-              Account Settings
+            <Link href="/settings" onClick={() => setMobileOpen(false)} className="bg-paper px-3 py-3 text-[13px] text-ink">
+              {NAV.account}
             </Link>
           </div>
-          <div className="flex items-center justify-between pt-2 border-t-2 border-edge">
-            <div className="flex items-center gap-2">
-              <div className="h-7 w-7 border-2 border-edge bg-accent text-accent-foreground flex items-center justify-center text-xs font-bold tracking-wider">
-                {userInitials}
-              </div>
-              <span className="text-sm font-medium text-ink">{userFullName}</span>
-            </div>
-            <div className="flex items-center gap-2">
-              {mounted && (
-                <button
-                  onClick={() => setTheme(resolvedTheme === "dark" ? "light" : "dark")}
-                  className="p-2 text-ink-muted hover:bg-card-alt transition-colors"
-                  aria-label="Toggle Theme"
-                >
-                  {resolvedTheme === "dark" ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
-                </button>
-              )}
-              <button
-                onClick={handleLogout}
-                className="text-xs font-bold uppercase tracking-wider text-ink-muted hover:text-accent transition-colors"
-              >
-                Sign Out
-              </button>
-            </div>
+          <div className="mt-4 flex items-center justify-between border-t border-rule pt-4">
+            <span className="flex items-center gap-2.5">
+              <span className="figure flex h-7 w-7 items-center justify-center bg-paper-3 text-[11px] text-ink">{initials}</span>
+              <span className="truncate text-[13px] text-ink-2">{displayName}</span>
+            </span>
+            <span className="flex items-center gap-2">
+              {themeToggle}
+              <button onClick={signOut} className="label hover:text-brand-ink">Sign out</button>
+            </span>
           </div>
         </div>
       )}
+
+      <TickerTape items={tape} />
     </header>
   );
 }

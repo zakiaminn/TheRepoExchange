@@ -1,88 +1,487 @@
 @import "tailwindcss";
-@custom-variant dark (&:where(.dark, .dark *)); /* custom dark variant DARK MODEEEEE*/
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* the whole design system lives in this file. i call it "Bureau" and the plan
+   is to reuse it across projects — TRX just happens to be the first one wearing
+   it. the short version:
+
+   - structure comes from hairlines and things lining up. no drop shadows, no
+     rounded corners, nothing floating on the page.
+   - every number is mono + tabular so columns actually line up, and negatives
+     use a real minus sign (−) instead of a hyphen. yes it matters.
+   - motion is almost nothing on purpose: a 4px fade-in and a little flash when
+     a value changes. that's the whole budget.
+   - labels are tiny uppercase (11px) and they never get to be bigger.
+   - ONE accent colour. green/red are for market data only and never sneak into
+     the UI.
+
+   want this on another project? change --brand, --brand-ink and the fonts.
+   everything else comes along for free. */
 
 :root {
-  /* base canvas + surfaces */
-  --page: #ffffff;
-  --card: #ffffff;
-  --card-alt: #f6f8fa;
+  /* backgrounds, lightest to darkest. "Chalk" isn't pure white on purpose —
+     white feels a bit clinical, and the tiny bit of warmth ties it to the ink
+     and the accent. three levels, that's all you get. */
+  --paper:   #FAFAF9;
+  --paper-2: #F1F1EE;
+  --paper-3: #E9E9E5;
 
-  /* text colors. "edge" (borders) reuses ink instead of its own muted gray - that's the
-     actual brutalist trick, borders are drawn in the same weight as text, not a
-     separate hairline color */
-  --ink: #1f2328;
-  --ink-muted: #656d76;
-  --edge: var(--ink);
+  /* text colours. warm-neutral rather than dead grey so it sits right on the
+     Chalk. all three pass contrast on the ground. */
+  --ink:   #16160E;
+  --ink-2: #565448;
+  --ink-3: #78766A;
 
-  /* github's real link/button blue - the whole point of this palette is that it reads
-     as an extension of github instead of an unrelated brand */
-  --accent: #0969da;
-  --accent-foreground: #ffffff;
+  /* the hairlines. --rule-2 is the heavier one for real structural breaks
+     (section rules, table headers); --rule is everything else. */
+  --rule:   #E5E5E1;
+  --rule-2: #D4D4CF;
 
-  /* semantic green/red, pulled from github's own open-pr/closed-pr colors so they stay
-     in the same family as the accent instead of clashing with it */
-  --bull: #1a7f37;
-  --bear: #cf222e;
-}
+  /* the brand colour. "Sulfur" — an acid chartreuse. nobody's framework ships
+     it and it stays out of the way of the market's green/red. the catch:
+     bright chartreuse is a great FILL and a terrible bit of TEXT, so it splits
+     in two:
 
-@theme inline {
-  --color-page: var(--page);
-  --color-card: var(--card);
-  --color-card-alt: var(--card-alt);
-  --color-ink: var(--ink);
-  --color-ink-muted: var(--ink-muted);
-  --color-edge: var(--edge);
-  --color-accent: var(--accent);
-  --color-accent-foreground: var(--accent-foreground);
-  --color-bull: var(--bull);
-  --color-bear: var(--bear);
-  --font-display: var(--font-display);
-  --font-sans: var(--font-sans);
+     --brand      the bright one. buttons, the accent underline, selection.
+                  always has dark text on it (--brand-fg), never white.
+     --brand-ink  the text-safe version. on light it drops to olive so you can
+                  actually read links/labels/the seal; on dark the bright one
+                  is already legible so this just matches it. */
+  --brand:     #DCEC3A;
+  --brand-ink: #6F7A00;   /* text-safe signal: accent text, links, the seal, the live dot */
+  --brand-fg:  #16160E;   /* dark text that sits ON a signal fill */
+  --brand-wash: #EFF0CE;
+
+  /* green up, red down. kept a little muted — full-blast green/red on a light
+     page screams "error", and this should read like a statement, not an alarm. */
+  --pos: #2E7D4F;   /* 4.8:1 */
+  --neg: #B33A3A;   /* 5.5:1 */
+  --pos-wash: rgba(46, 125, 79, 0.12);
+  --neg-wash: rgba(179, 58, 58, 0.12);
+
+  --focus: #8A9600;
+
+  /* the fonts, and this is the actual trademark: Bricolage Grotesque for words,
+     Martian Mono for anything the machine spits out (numbers, labels, the
+     wordmark). display + sans both point at Bricolage for now — kept them as
+     separate tokens so a future project can split them without touching a
+     single component. (don't rename the next/font vars to --font-sans/mono,
+     tailwind v4 eats them — see the other note about that.) */
+  --font-display: var(--font-bricolage), "Helvetica Neue", Arial, sans-serif;
+  --font-sans:    var(--font-bricolage), "Helvetica Neue", Arial, sans-serif;
+  --font-mono:    var(--font-martian), ui-monospace, "SF Mono", Menlo, monospace;
+
+  /* spacing. everything sits on an 8px grid; the big section gaps are the only
+     exception. */
+  --gap-section: 5.5rem;   /* 88px  — between major sections */
+  --gap-block:   2.5rem;   /* 40px  — between blocks inside a section */
+  --gap-row:     1rem;     /* 16px  — inside a block */
+  --measure:     62ch;     /* prose line length ceiling */
+  --shell:       76rem;    /* 1216px content shell */
+
+  /* one easing curve for the whole app. it slows down hard at the end and
+     never overshoots — nothing here should feel bouncy. */
+  --ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --dur:  240ms;
+  --dur-fast: 140ms;
 }
 
 .dark {
-  /* github's actual dark theme values, not a generic near-black - picking "github blue"
-     only makes sense if the dark mode is actually github's dark mode */
-  --page: #0d1117;
-  --card: #161b22;
-  --card-alt: #21262d;
+  /* dark mode = a terminal, not a generic dark theme. the text stays warm
+     (#EDEDE0, not pure white) so it still reads as the same brand as the light
+     side and not some unrelated second skin. */
+  --paper:   #0E0E0A;
+  --paper-2: #17170F;
+  --paper-3: #212118;
 
-  --ink: #e6edf3;
-  --ink-muted: #7d8590;
+  --ink:   #EDEDE0;
+  --ink-2: #9C9A86;
+  --ink-3: #86846F;
 
-  --accent: #58a6ff;
-  --accent-foreground: #0d1117;
+  --rule:   #29291C;
+  --rule-2: #3A3A29;
 
-  --bull: #3fb950;
-  --bear: #f85149;
+  /* on black the chartreuse is already readable, so brand-ink just equals
+     brand here — no separate text version needed. */
+  --brand:     #DCEC3A;
+  --brand-ink: #DCEC3A;
+  --brand-fg:  #14140A;
+  --brand-wash: #23260F;
+
+  --pos: #55B37E;   /* 7.6:1 */
+  --neg: #E8635E;   /* 5.9:1 */
+  --pos-wash: rgba(85, 179, 126, 0.14);
+  --neg-wash: rgba(232, 99, 94, 0.14);
+
+  --focus: #DCEC3A;
+}
+
+@theme inline {
+  --color-paper:   var(--paper);
+  --color-paper-2: var(--paper-2);
+  --color-paper-3: var(--paper-3);
+  --color-ink:     var(--ink);
+  --color-ink-2:   var(--ink-2);
+  --color-ink-3:   var(--ink-3);
+  --color-rule:    var(--rule);
+  --color-rule-2:  var(--rule-2);
+  --color-brand:     var(--brand);
+  --color-brand-ink: var(--brand-ink);
+  --color-brand-fg:  var(--brand-fg);
+  --color-brand-wash: var(--brand-wash);
+  --color-pos: var(--pos);
+  --color-neg: var(--neg);
+  --color-pos-wash: var(--pos-wash);
+  --color-neg-wash: var(--neg-wash);
+
+  --font-display: var(--font-display);
+  --font-sans:  var(--font-sans);
+  --font-mono:  var(--font-mono);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   CASCADE LAYERS
+   ───────────────────────────────────────────────────────────────────────────
+   Everything below is layered, and that is load-bearing rather than tidiness.
+
+   A plain `.board thead th { text-align: left }` has specificity 0-1-2, which
+   quietly beats Tailwind's `.text-right` at 0-1-0 — so a utility written in
+   the markup silently does nothing and you spend twenty minutes in devtools
+   working out why. Putting the system's classes in `components` means every
+   utility wins by construction, which is the contract people expect when they
+   reach for one.
+
+   Order (established by Tailwind): theme → base → components → utilities.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+@layer base {
+
+/* ═══ BASE ═══════════════════════════════════════════════════════════════ */
+
+* { border-color: var(--rule); }
+
+html {
+  -webkit-text-size-adjust: 100%;
+  scroll-behavior: smooth;
 }
 
 body {
-  background: var(--page);
+  background: var(--paper);
   color: var(--ink);
+  font-family: var(--font-sans);
+  font-size: 0.9375rem;      /* 15px */
+  line-height: 1.6;
+  font-feature-settings: "kern" 1, "liga" 1;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
 }
 
-/* brutalist mechanics - the reusable part of this whole system. hard offset shadows
-   with zero blur, drawn in ink so they read as linework instead of a soft drop shadow.
-   -sm is for smaller elements (buttons, inputs) where a full 4px offset looks oversized */
-.shadow-brutal {
-  box-shadow: 4px 4px 0 0 var(--edge);
+/* Paper grain. 3.5% opacity — well below conscious perception, but it stops
+   the bone from reading as flat #RGB and gives the light theme an actual
+   surface. Fades to almost nothing in dark, where grain reads as noise. */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  opacity: 0.035;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
 }
-.shadow-brutal-sm {
-  box-shadow: 2px 2px 0 0 var(--edge);
+.dark body::before { opacity: 0.02; }
+
+::selection { background: var(--brand); color: var(--brand-fg); }
+
+/* one focus style everywhere. offset a couple px so it reads as a little
+   bracket around the control instead of a border stuck to it. */
+:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
 }
 
-/* the "press" interaction - hover lifts the block up-left as its shadow grows to
-   compensate, clicking slams it back down flush with a tiny shadow. makes bordered
-   blocks feel like physical objects sitting on the page instead of flat rectangles */
-.press-brutal {
-  transition: transform 0.1s ease, box-shadow 0.1s ease;
 }
-.press-brutal:hover {
-  transform: translate(-2px, -2px);
-  box-shadow: 6px 6px 0 0 var(--edge);
+
+@layer components {
+
+/* ═══ TYPE PRIMITIVES ════════════════════════════════════════════════════ */
+
+/* the little uppercase label. probably the most-used class in here — it sits
+   above basically every number and at the top of every section. hard-locked at
+   11px: make it any bigger and it stops being a label and starts fighting the
+   thing it's labelling. */
+.label {
+  font-family: var(--font-sans);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  line-height: 1.2;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink-3);
 }
-.press-brutal:active {
-  transform: translate(0, 0);
-  box-shadow: 1px 1px 0 0 var(--edge);
+.label-ink { color: var(--ink); }
+
+/* headlines. Bricolage at 700 — the slightly wonky letterforms are where the
+   personality is. tight tracking so it doesn't get gappy at big sizes. */
+.display {
+  font-family: var(--font-display);
+  font-weight: 700;
+  line-height: 1.03;
+  letter-spacing: -0.03em;
+  font-variant-numeric: lining-nums tabular-nums;
 }
+
+/* the accent move — a chunky Sulfur underline swiped under a phrase in a
+   headline. it's the one spot the bright colour gets to show up mid-sentence.
+   it's a background gradient (not a real underline) so it works inline and
+   survives line-wraps; the text keeps its normal colour and sits on top. use
+   it once per page, tops. */
+.swipe {
+  background-image: linear-gradient(var(--brand), var(--brand));
+  background-repeat: no-repeat;
+  background-position: 0 92%;
+  background-size: 100% 0.24em;
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+}
+
+/* every number in the app. tabular so columns line up, slashed zero so you
+   never misread a 0 as an O in a ticker. */
+.figure {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.035em;   /* Martian runs wide — pull it in so number columns don't sprawl */
+}
+
+/* the little machine-y bits — reference codes, timestamps, session ids. kept
+   tiny and quiet on purpose; should feel stamped onto the page. */
+.ref {
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  letter-spacing: 0.04em;
+  color: var(--ink-3);
+  font-variant-numeric: tabular-nums;
+}
+
+.prose-measure { max-width: var(--measure); }
+
+/* ═══ SIGNATURE DEVICES ══════════════════════════════════════════════════ */
+
+/* 1. the section rule — a full-width hairline with a little label sitting on
+   it. stolen from legal docs and technical drawings, where every section opens
+   with a ruled title. this one device is what makes the pages recognisable at
+   a glance. see <SectionRule>. */
+.rule-line {
+  flex: 1;
+  height: 1px;
+  background: var(--rule-2);
+  min-width: 1.5rem;
+}
+
+/* 2. registration marks — little print-style crop marks in the corners of an
+   important panel, in the accent at low opacity so they read as a nice detail
+   rather than decoration. only put them on the two or three panels that
+   matter; slap them on everything and they stop meaning anything. */
+.registered { position: relative; }
+.registered::before,
+.registered::after {
+  content: "";
+  position: absolute;
+  width: 9px;
+  height: 9px;
+  border-color: var(--brand);
+  opacity: 0.55;
+  pointer-events: none;
+}
+.registered::before {
+  top: -1px; left: -1px;
+  border-top: 1.5px solid;
+  border-left: 1.5px solid;
+}
+.registered::after {
+  bottom: -1px; right: -1px;
+  border-bottom: 1.5px solid;
+  border-right: 1.5px solid;
+}
+
+/* 3. panel — the only box in the whole system. one hairline, no rounded
+   corners, no shadow. depth comes from the surface colour behind it, never a
+   drop shadow. */
+.panel {
+  border: 1px solid var(--rule);
+  background: var(--paper);
+}
+.panel-2 { background: var(--paper-2); }
+
+/* ═══ CONTROLS ═══════════════════════════════════════════════════════════ */
+
+.ctl {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  height: 2.5rem;
+  padding: 0 1.125rem;
+  border: 1px solid var(--rule-2);
+  background: transparent;
+  color: var(--ink);
+  font-family: var(--font-sans);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: background var(--dur-fast) var(--ease),
+              color var(--dur-fast) var(--ease),
+              border-color var(--dur-fast) var(--ease);
+}
+.ctl:hover:not(:disabled) { background: var(--paper-2); border-color: var(--ink-3); }
+.ctl:disabled { opacity: 0.4; cursor: not-allowed; }
+
+/* the primary button. the bright fill shows up maybe three times on a page,
+   and that's the point — if it's everywhere it stops meaning "do this one". */
+.ctl-primary {
+  background: var(--brand);
+  border-color: var(--brand);
+  color: var(--brand-fg);
+}
+.ctl-primary:hover:not(:disabled) {
+  background: var(--brand-ink);
+  border-color: var(--brand-ink);
+  color: var(--paper);
+}
+.dark .ctl-primary:hover:not(:disabled) { filter: brightness(1.12); color: var(--brand-fg); }
+
+.ctl-pos { border-color: var(--pos); color: var(--pos); }
+.ctl-pos:hover:not(:disabled) { background: var(--pos); color: var(--paper); border-color: var(--pos); }
+.dark .ctl-pos:hover:not(:disabled) { color: var(--paper); }
+
+.ctl-neg { border-color: var(--neg); color: var(--neg); }
+.ctl-neg:hover:not(:disabled) { background: var(--neg); color: var(--paper); border-color: var(--neg); }
+
+.ctl-sm { height: 1.75rem; padding: 0 0.75rem; font-size: 0.625rem; letter-spacing: 0.1em; }
+
+/* inputs get a bottom border, not a full box — a form here should feel like
+   filling in a paper record, not stacking web widgets. */
+.field {
+  width: 100%;
+  height: 2.5rem;
+  padding: 0 0.75rem;
+  background: var(--paper-2);
+  border: 1px solid var(--rule);
+  color: var(--ink);
+  font-family: var(--font-sans);
+  font-size: 0.875rem;
+  transition: border-color var(--dur-fast) var(--ease), background var(--dur-fast) var(--ease);
+}
+.field::placeholder { color: var(--ink-3); }
+.field:hover:not(:disabled) { border-color: var(--rule-2); }
+.field:focus { outline: none; border-color: var(--brand); background: var(--paper); }
+.field:disabled { color: var(--ink-3); background: var(--paper-3); cursor: not-allowed; }
+.field-figure { font-family: var(--font-mono); font-variant-numeric: tabular-nums; text-align: right; }
+
+/* kill the little up/down arrows — nothing breaks the paper-form vibe faster
+   than a browser number spinner. */
+.field-figure::-webkit-outer-spin-button,
+.field-figure::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.field-figure[type="number"] { -moz-appearance: textfield; }
+
+/* text links — thin underline in the rule colour, only goes accent on hover. */
+.link {
+  color: var(--ink);
+  text-decoration: underline;
+  text-decoration-color: var(--rule-2);
+  text-underline-offset: 3px;
+  text-decoration-thickness: 1px;
+  transition: color var(--dur-fast) var(--ease), text-decoration-color var(--dur-fast) var(--ease);
+}
+.link:hover { color: var(--brand-ink); text-decoration-color: var(--brand); }
+
+/* ═══ TABLE — "the board" ═══
+   how we show more than a couple of anything. rows separated by hairlines and
+   that's it — no zebra stripes, no outer border, no rounded corners. */
+
+.board { width: 100%; border-collapse: collapse; }
+.board thead th {
+  padding: 0.625rem 0.875rem;
+  border-bottom: 1px solid var(--rule-2);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+  white-space: nowrap;
+}
+/* zero-specificity default so a `text-right` in the markup still wins */
+:where(.board thead th, .board tbody td) { text-align: left; }
+.board tbody td {
+  padding: 0.8125rem 0.875rem;
+  border-bottom: 1px solid var(--rule);
+  vertical-align: middle;
+}
+.board tbody tr:last-child td { border-bottom: none; }
+.board tbody tr { transition: background var(--dur-fast) var(--ease); }
+.board tbody tr:hover { background: var(--paper-2); }
+.board .num { text-align: right; font-family: var(--font-mono); font-variant-numeric: tabular-nums; letter-spacing: -0.02em; }
+
+/* ═══ MOTION ═════════════════════════════════════════════════════════════ */
+
+/* the fade-in. 4px, 240ms — just enough to feel like it arrived, not enough
+   to look "animated". lists stagger it with an inline --i. */
+@keyframes bureau-reveal {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: none; }
+}
+.reveal {
+  animation: bureau-reveal var(--dur) var(--ease) both;
+  animation-delay: calc(var(--i, 0) * 45ms);
+}
+
+/* the price tick. when a number changes its cell flashes and fades, like a
+   real quote board. note the number itself just snaps to the new value — no
+   rolling-counter nonsense, only the background reacts. */
+@keyframes bureau-tick-pos { from { background: var(--pos-wash); } to { background: transparent; } }
+@keyframes bureau-tick-neg { from { background: var(--neg-wash); } to { background: transparent; } }
+.tick-pos { animation: bureau-tick-pos 900ms var(--ease); }
+.tick-neg { animation: bureau-tick-neg 900ms var(--ease); }
+
+/* the ticker tape. the content is rendered twice and slid by exactly -50%, so
+   the loop point lands perfectly and you never see the seam. */
+@keyframes bureau-tape { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+.tape-track {
+  display: flex;
+  width: max-content;
+  animation: bureau-tape 70s linear infinite;
+}
+.tape:hover .tape-track { animation-play-state: paused; }
+
+/* the little "live" dot's pulse. it's a ring that expands and fades out, not
+   the dot itself growing — nothing in here should throb. */
+@keyframes bureau-ping {
+  0%   { transform: scale(1);   opacity: 0.6; }
+  100% { transform: scale(2.6); opacity: 0; }
+}
+.ping::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 999px;
+  background: currentColor;
+  animation: bureau-ping 2.4s var(--ease) infinite;
+}
+
+}
+
+/* Everything above is decorative. All of it goes. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+  .tape-track { animation: none; }
+}
+
+/* Hide scrollbars on horizontally-scrolling rails without losing the scroll. */
+.no-bar { scrollbar-width: none; -ms-overflow-style: none; }
+.no-bar::-webkit-scrollbar { display: none; }
