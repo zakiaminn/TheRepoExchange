@@ -1,13 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { useTheme } from "next-themes";
 import { useEffect, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { createClient } from "@/utils/supabase/client";
 import { Wordmark } from "@/components/Logo";
 import { TickerTape, type TapeItem } from "@/components/TickerTape";
 import { LiveDot } from "@/components/ui";
+import { ThemeToggle } from "@/components/ThemeToggle";
 import { change } from "@/lib/format";
 import { NAV, STATE } from "@/lib/copy";
 
@@ -19,8 +19,6 @@ type TickerSuggestion = { ticker: string; category: string };
    dashboard. shows up on every logged-in page; it just returns null when
    there's no session (the landing page brings its own nav). */
 export function Header() {
-  const { resolvedTheme, setTheme } = useTheme();
-  const [mounted, setMounted] = useState(false); // guards the theme glyph against a hydration mismatch
   const [user, setUser] = useState<any>(null);
   const [authLoading, setAuthLoading] = useState(true);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -77,7 +75,6 @@ export function Header() {
   }, []);
 
   useEffect(() => {
-    setMounted(true);
     const getUser = async () => {
       const { data: { user } } = await supabase.auth.getUser();
       setUser(user);
@@ -197,22 +194,7 @@ export function Header() {
     </form>
   );
 
-  const themeToggle = mounted && (
-    <button
-      onClick={() => setTheme(resolvedTheme === "dark" ? "light" : "dark")}
-      aria-label={NAV.theme}
-      title={NAV.theme}
-      className="flex h-9 w-9 items-center justify-center border border-rule text-ink-2 transition-colors hover:border-rule-2 hover:text-brand-ink"
-    >
-      {/* a filled/hollow square rather than a sun and a moon. Two glyphs from
-          the same geometric family read as one system; clip-art weather does
-          not. */}
-      <span
-        className={`h-3 w-3 border border-current ${resolvedTheme === "dark" ? "bg-current" : ""}`}
-        aria-hidden="true"
-      />
-    </button>
-  );
+  const themeToggle = <ThemeToggle />;
 
   return (
     <header className="sticky top-0 z-40 border-b border-rule bg-[var(--paper)]/92 backdrop-blur-md">
