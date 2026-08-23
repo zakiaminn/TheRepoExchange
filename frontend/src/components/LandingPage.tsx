@@ -2,8 +2,8 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { useTheme } from "next-themes";
-import { Mark, Wordmark } from "@/components/Logo";
+import { Wordmark } from "@/components/Logo";
+import { ThemeToggle } from "@/components/ThemeToggle";
 import { MiniSparkline } from "@/components/MiniSparkline";
 import { TickerTape, type TapeItem } from "@/components/TickerTape";
 import { SectionRule, DocRef, Notice, LiveDot } from "@/components/ui";
@@ -38,12 +38,8 @@ const FALLBACK: Listing[] = [
    mechanics, the notice). everything on it is literally true, disclaimer
    included — which is the actual joke, since it's played completely straight. */
 export function LandingPage() {
-  const { resolvedTheme, setTheme } = useTheme();
-  const [mounted, setMounted] = useState(false);
   const [listings, setListings] = useState<Listing[]>(FALLBACK);
   const [live, setLive] = useState(false);
-
-  useEffect(() => setMounted(true), []);
 
   // discovery is public, so the front page can show the actual board
   useEffect(() => {
@@ -94,15 +90,7 @@ export function LandingPage() {
             <Wordmark size="md" />
           </Link>
           <div className="flex items-center gap-2 sm:gap-3">
-            {mounted && (
-              <button
-                onClick={() => setTheme(resolvedTheme === "dark" ? "light" : "dark")}
-                aria-label={NAV.theme}
-                className="flex h-9 w-9 items-center justify-center border border-rule text-ink-2 transition-colors hover:border-rule-2 hover:text-brand-ink"
-              >
-                <span className={`h-3 w-3 border border-current ${resolvedTheme === "dark" ? "bg-current" : ""}`} aria-hidden="true" />
-              </button>
-            )}
+            <ThemeToggle />
             <Link href="/login" className="hidden px-3 py-2 text-[13px] text-ink-2 transition-colors hover:text-brand-ink sm:block">
               {AUTH.signIn}
             </Link>
@@ -271,7 +259,6 @@ export function LandingPage() {
             {/* the seal, oversized and nearly invisible, sitting behind the
                 block — a watermark, which is what an institution puts on a
                 document it wants to look official */}
-            <Mark className="pointer-events-none absolute left-1/2 top-1/2 h-64 w-64 -translate-x-1/2 -translate-y-1/2 text-brand-ink opacity-[0.055]" />
             <div className="relative">
               <p className="label mb-5">{CTA.kicker}</p>
               <h2 className="display mx-auto max-w-xl text-[clamp(1.85rem,4.5vw,3rem)] text-ink">

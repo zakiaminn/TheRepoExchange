@@ -4,7 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/utils/supabase/client";
-import { Mark, Wordmark } from "@/components/Logo";
+import { Wordmark } from "@/components/Logo";
 import { SectionRule, DocRef, Field, Notice } from "@/components/ui";
 import { AUTH, ERROR, NOTICE, MECHANICS, BRAND, HERO } from "@/lib/copy";
 
@@ -86,7 +86,6 @@ export default function LoginPage() {
     <div className="grid min-h-screen lg:grid-cols-2">
       {/* ── the terms ────────────────────────────────────────────────── */}
       <aside className="relative hidden flex-col justify-between overflow-hidden border-r border-rule bg-paper-2 p-10 lg:flex xl:p-14">
-        <Mark className="pointer-events-none absolute -right-16 -top-16 h-96 w-96 text-brand-ink opacity-[0.05]" />
 
         <Link href="/" className="relative">
           <Wordmark size="md" />
