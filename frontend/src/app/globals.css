@@ -402,9 +402,9 @@ body::before {
 
 .board { width: 100%; border-collapse: collapse; }
 .board thead th {
-  padding: 0.625rem 0.875rem;
+  padding: 0.5rem 0.75rem;
   border-bottom: 1px solid var(--rule-2);
-  font-size: 0.6875rem;
+  font-size: 0.625rem;
   font-weight: 600;
   letter-spacing: 0.14em;
   text-transform: uppercase;
@@ -414,7 +414,7 @@ body::before {
 /* zero-specificity default so a `text-right` in the markup still wins */
 :where(.board thead th, .board tbody td) { text-align: left; }
 .board tbody td {
-  padding: 0.8125rem 0.875rem;
+  padding: 0.45rem 0.75rem;
   border-bottom: 1px solid var(--rule);
   vertical-align: middle;
 }
