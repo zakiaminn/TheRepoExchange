@@ -54,7 +54,7 @@ export function countCompact(value: number | string | null | undefined): string 
 export function pct(value: number | null | undefined): string {
   const n = Number(value);
   if (!Number.isFinite(n)) return `${MINUS}${MINUS}`;
-  const sign = n > 0 ? "+" : n < 0 ? MINUS : "";
+  const sign = n > 0.005 ? "+" : n < -0.005 ? MINUS : "";
   return `${sign}${Math.abs(n).toFixed(2)}%`;
 }
 
@@ -77,7 +77,8 @@ export function change(from: number | null | undefined, to: number | null | unde
 /** Semantic token for a value's direction. Zero is neutral, never green. */
 export function tone(value: number | null | undefined): "pos" | "neg" | "flat" {
   const n = Number(value);
-  if (!Number.isFinite(n) || n === 0) return "flat";
+  // a move that rounds to 0.00% reads flat — no fake green/red on a dead tick
+  if (!Number.isFinite(n) || Math.abs(n) < 0.005) return "flat";
   return n > 0 ? "pos" : "neg";
 }
 

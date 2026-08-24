@@ -174,7 +174,18 @@ export default function Terminal() {
 
   if (!userId) return <LandingPage />;
 
-  const categories = Object.entries(discovery);
+  // dedupe by ticker inside each category — the feed sometimes returns the
+  // same repo twice (that was the double REACT on the board)
+  const categories = Object.entries(discovery).map(([cat, repos]) => {
+    const seen = new Set<string>();
+    const unique = repos.filter((r) => {
+      const key = r.ticker.toLowerCase();
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+    return [cat, unique] as [string, Repository[]];
+  });
   const totalListings = categories.reduce((n, [, repos]) => n + repos.length, 0);
 
   return (
@@ -245,15 +256,18 @@ export default function Terminal() {
                         return (
                           <tr key={repo.ticker}>
                             <td className="max-w-0">
+                              {/* one line per listing — name + owner inline. denser
+                                  than the old two-row cell; the description lives on
+                                  the asset page now */}
                               <Link
                                 href={`/asset/${owner.toLowerCase()}/${name.toLowerCase()}`}
-                                className="group block"
+                                className="group flex min-w-0 items-baseline gap-2"
                               >
-                                <span className="figure block truncate text-[13px] font-medium uppercase text-ink transition-colors group-hover:text-brand-ink">
+                                <span className="figure truncate text-[12px] font-medium uppercase text-ink transition-colors group-hover:text-brand-ink">
                                   {name}
                                 </span>
-                                <span className="block truncate text-[11px] text-ink-3">
-                                  {repo.description || owner}
+                                <span className="figure hidden truncate text-[11px] text-ink-3 sm:inline">
+                                  {owner}
                                 </span>
                               </Link>
                             </td>
@@ -282,7 +296,7 @@ export default function Terminal() {
                                     price: Number(repo.current_price),
                                   })
                                 }
-                                className="ctl ctl-sm ctl-primary"
+                                className="bg-brand px-2.5 py-1.5 text-[10px] font-semibold uppercase tracking-[0.1em] text-brand-fg transition hover:brightness-95"
                                 aria-label={`Buy ${repo.ticker}`}
                               >
                                 {ORDER.buy}
