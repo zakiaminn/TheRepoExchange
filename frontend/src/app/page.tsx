@@ -7,7 +7,7 @@ import { LandingPage } from "@/components/LandingPage";
 import { Toast, ToastMessage } from "@/components/Toast";
 import { ConfirmTradeModal } from "@/components/ConfirmTradeModal";
 import { MiniSparkline } from "@/components/MiniSparkline";
-import { SectionRule, DocRef, Empty, Pending, LiveDot } from "@/components/ui";
+import { SectionRule, DocRef, Empty, Pending, LiveDot, LiveClock } from "@/components/ui";
 import { usd, pct, count, countCompact, change, toneClass, tickerParts } from "@/lib/format";
 import { SECTIONS, COLUMNS, LABELS, STATE, ERROR, ORDER } from "@/lib/copy";
 
@@ -210,6 +210,8 @@ export default function Terminal() {
                 {totalListings > 0
                   ? `${count(totalListings)} listings, marked continuously`
                   : STATE.quotes}
+                <span className="text-rule-2" aria-hidden="true">·</span>
+                <LiveClock className="text-[12px]" />
               </p>
             </div>
 

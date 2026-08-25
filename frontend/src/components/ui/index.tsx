@@ -131,13 +131,32 @@ export function Delta({
   return <span className={cx("figure", toneClass(value), className)}>{pct(value)}</span>;
 }
 
-/* the little "live" dot. it's a ring that expands and fades, not a dot that
-   pulses bigger — nothing in here resizes itself. */
+/* a small STATIC marker — a filled square in the accent. this replaced the old
+   pulsing "live" dot: a throbbing dot is a livestream cliché and it's decorative
+   motion, which the rest of the system bans. the real "we're live" signal is the
+   ticking clock + the moving board, not a blinking light. square, not round,
+   because nothing else here is round either. */
 export function LiveDot({ className }: { className?: string }) {
+  return <span className={cx("inline-block h-1.5 w-1.5 shrink-0 bg-brand-ink", className)} aria-hidden="true" />;
+}
+
+/* the ticking session clock — local time, updates every second. THIS is the
+   honest liveness cue: the exchange is open because the clock is running. */
+export function LiveClock({ className }: { className?: string }) {
+  const [now, setNow] = useState<string | null>(null);
+  useEffect(() => {
+    const p = (n: number) => String(n).padStart(2, "0");
+    const tick = () => {
+      const d = new Date();
+      setNow(`${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`);
+    };
+    tick();
+    const id = window.setInterval(tick, 1000);
+    return () => window.clearInterval(id);
+  }, []);
   return (
-    <span className={cx("relative inline-flex h-1.5 w-1.5 shrink-0", className)}>
-      <span className="ping absolute inset-0 rounded-full text-brand-ink" aria-hidden="true" />
-      <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-brand-ink" />
+    <span className={cx("ref tabular-nums", className)} suppressHydrationWarning>
+      {now ?? ""}
     </span>
   );
 }

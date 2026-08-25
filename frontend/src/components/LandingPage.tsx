@@ -6,7 +6,7 @@ import { Wordmark } from "@/components/Logo";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { MiniSparkline } from "@/components/MiniSparkline";
 import { TickerTape, type TapeItem } from "@/components/TickerTape";
-import { SectionRule, DocRef, Notice, LiveDot } from "@/components/ui";
+import { SectionRule, DocRef, Notice, LiveDot, LiveClock } from "@/components/ui";
 import { usd, pct, count, countCompact, change, toneClass, tickerParts } from "@/lib/format";
 import { BRAND, HERO, MECHANICS, CLAUSES, NOTICE, CTA, SECTIONS, COLUMNS, AUTH, NAV, FOOTER, LABELS } from "@/lib/copy";
 
@@ -141,7 +141,7 @@ export function LandingPage() {
             <aside className="reveal lg:col-span-4 lg:pl-8" style={{ "--i": 3 } as React.CSSProperties}>
               <dl className="border-t border-rule-2">
                 {[
-                  { term: LABELS.session, value: <span className="inline-flex items-center gap-2"><LiveDot />Continuous</span> },
+                  { term: LABELS.session, value: <span className="inline-flex items-center gap-2"><LiveDot />Continuous <span className="text-rule-2" aria-hidden="true">·</span> <LiveClock /></span> },
                   { term: "Listings", value: count(listings.length) },
                   { term: "Opening capital", value: usd(100000) },
                   { term: "Settlement", value: "T+0" },
