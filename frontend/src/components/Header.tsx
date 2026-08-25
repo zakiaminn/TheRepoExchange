@@ -6,7 +6,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { createClient } from "@/utils/supabase/client";
 import { Wordmark } from "@/components/Logo";
 import { TickerTape, type TapeItem } from "@/components/TickerTape";
-import { LiveDot } from "@/components/ui";
+import { LiveDot, LiveClock } from "@/components/ui";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { change } from "@/lib/format";
 import { NAV, STATE } from "@/lib/copy";
@@ -208,6 +208,8 @@ export function Header() {
         <span className="hidden shrink-0 items-center gap-2 lg:flex">
           <LiveDot />
           <span className="label">{NAV.board}</span>
+          <span className="text-rule-2" aria-hidden="true">·</span>
+          <LiveClock className="text-[11px]" />
         </span>
 
         <div className="ml-auto hidden max-w-sm flex-1 md:block">{search}</div>

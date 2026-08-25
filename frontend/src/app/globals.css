@@ -454,21 +454,6 @@ body::before {
 }
 .tape:hover .tape-track { animation-play-state: paused; }
 
-/* the little "live" dot's pulse. it's a ring that expands and fades out, not
-   the dot itself growing — nothing in here should throb. */
-@keyframes bureau-ping {
-  0%   { transform: scale(1);   opacity: 0.6; }
-  100% { transform: scale(2.6); opacity: 0; }
-}
-.ping::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  border-radius: 999px;
-  background: currentColor;
-  animation: bureau-ping 2.4s var(--ease) infinite;
-}
-
 }
 
 /* Everything above is decorative. All of it goes. */

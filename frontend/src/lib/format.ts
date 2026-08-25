@@ -97,5 +97,14 @@ export function tickerParts(ticker: string): { owner: string; repo: string } {
 export function stamp(d: Date): string {
   const months = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
   const p = (n: number) => String(n).padStart(2, "0");
-  return `${p(d.getUTCDate())} ${months[d.getUTCMonth()]} ${d.getUTCFullYear()} · ${p(d.getUTCHours())}:${p(d.getUTCMinutes())}:${p(d.getUTCSeconds())}Z`;
+  // LOCAL time — the stamp should read as the clock on the machine viewing it,
+  // not UTC. we append the viewer's short timezone instead of a "Z".
+  let tz = "";
+  try {
+    const parts = new Intl.DateTimeFormat("en-US", { timeZoneName: "short" }).formatToParts(d);
+    tz = parts.find((x) => x.type === "timeZoneName")?.value ?? "";
+  } catch {
+    tz = "";
+  }
+  return `${p(d.getDate())} ${months[d.getMonth()]} ${d.getFullYear()} · ${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}${tz ? " " + tz : ""}`;
 }
