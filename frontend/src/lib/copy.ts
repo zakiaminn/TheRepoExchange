@@ -93,6 +93,7 @@ export const SECTIONS = {
   ticket: "Order ticket",
   summary: "Summary",
   allocation: "Allocation",
+  valuation: "Valuation",
 } as const;
 
 /** Column headers. Short, absolute, never a sentence. */

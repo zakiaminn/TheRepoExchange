@@ -8,8 +8,18 @@ import { useTheme } from "next-themes";
 import { Toast, ToastMessage } from "@/components/Toast";
 import { ConfirmTradeModal } from "@/components/ConfirmTradeModal";
 import { SectionRule, DocRef, Panel, Notice, Pending, Delta } from "@/components/ui";
-import { usd, count, change, toneClass } from "@/lib/format";
+import { usd, count, countCompact, change, toneClass } from "@/lib/format";
 import { SECTIONS, LABELS, STATE, ERROR, ORDER, NAV } from "@/lib/copy";
+
+// what each metric is worth per unit — same weights as the pricing formula, shown so
+// people can see WHY a repo is priced what it is. issues are the only negative term.
+const VALUATION = [
+  { key: "raw_stars", label: "Stars", unit: 0.001, neg: false },
+  { key: "raw_forks", label: "Forks", unit: 0.01, neg: false },
+  { key: "raw_watchers", label: "Watchers", unit: 0.05, neg: false },
+  { key: "raw_open_prs", label: "Open PRs", unit: 1.0, neg: false },
+  { key: "raw_open_issues", label: "Open issues", unit: 1.0, neg: true },
+] as const;
 
 interface PageProps {
   params: Promise<{ owner: string; repo: string }>;
@@ -43,6 +53,7 @@ export default function ListingPage(props: PageProps) {
 
   const [history, setHistory] = useState<ChartData[]>([]);
   const [currentPrice, setCurrentPrice] = useState<number | null>(null);
+  const [asset, setAsset] = useState<Record<string, number> | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [listed, setListed] = useState<boolean | null>(null); // null while unknown
   const [range, setRange] = useState<(typeof RANGES)[number]["key"]>("30D");
@@ -118,6 +129,7 @@ export default function ListingPage(props: PageProps) {
           return;
         }
         const data = await res.json();
+        if (data.asset) setAsset(data.asset);
 
         if (data.history && data.history.length > 0) {
           // dedupe on the unix timestamp in case the engine ever emits two
@@ -395,6 +407,51 @@ export default function ListingPage(props: PageProps) {
             </dl>
           )}
         </section>
+
+        {/* ── valuation breakdown — why the mark is what it is ─────────── */}
+        {listed === true && asset && (
+          <section className="mt-12">
+            <SectionRule label={SECTIONS.valuation} className="mb-5" />
+            <Panel>
+              {VALUATION.map((v, i) => {
+                const n = Number(asset[v.key] ?? 0);
+                const contrib = n * v.unit;
+                return (
+                  <div
+                    key={v.key}
+                    className={`flex items-baseline justify-between gap-4 px-4 py-3 sm:px-6 ${
+                      i > 0 ? "border-t border-rule" : ""
+                    }`}
+                  >
+                    <div className="flex items-baseline gap-2 min-w-0">
+                      <span className="label label-ink">{v.label}</span>
+                      <span className="figure text-[12px] text-ink-3">{countCompact(n)}</span>
+                    </div>
+                    <div className="flex items-baseline gap-3">
+                      <span className="ref hidden sm:block">
+                        × ${v.unit < 1 ? v.unit.toFixed(3) : v.unit.toFixed(2)}
+                      </span>
+                      <span className={`figure text-[13px] ${v.neg ? "text-neg" : "text-pos"}`}>
+                        {v.neg ? "−" : "+"}
+                        {usd(Math.abs(contrib))}
+                      </span>
+                    </div>
+                  </div>
+                );
+              })}
+              <div className="flex items-baseline justify-between gap-4 border-t border-rule-2 px-4 py-3 sm:px-6">
+                <span className="label label-ink">Mark</span>
+                <span className="figure text-base text-ink">
+                  {currentPrice !== null ? usd(currentPrice) : "—"}
+                </span>
+              </div>
+            </Panel>
+            <p className="ref mt-3 block leading-relaxed">
+              Popularity plus contribution, minus issue drag, aged by how recently the repo
+              was pushed. Not a plain sum — the issue drag is capped and stale repos decay.
+            </p>
+          </section>
+        )}
 
         {/* ── ticket ─────────────────────────────────────────────────── */}
         <section className="mt-12">

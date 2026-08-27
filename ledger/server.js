@@ -22,6 +22,38 @@ function isValidTicker(ticker) {
     return typeof ticker === 'string' && ticker.length <= 140 && TICKER_REGEX.test(ticker);
 }
 
+// ── how we price a repo ──
+// this MUST stay in sync with compute_price() in data-engine/worker.py. it's only used
+// as a fallback when someone views a repo the worker hasn't discovered yet, but if the
+// two drift apart a freshly-seeded repo would jump in price on the next worker pass.
+// weights are dollars, tweak freely (but change both files).
+const W_STAR = 0.001, W_FORK = 0.01, W_WATCH = 0.05, W_PR = 1.00, W_ISSUE = 1.00;
+const ISSUE_DRAG_CAP = 0.60, BASE_LISTING = 5.00, PRICE_FLOOR = 1.00;
+
+function recencyMultiplier(pushedAt) {
+    if (!pushedAt) return 1.0;
+    const pushed = new Date(pushedAt);
+    if (isNaN(pushed.getTime())) return 1.0;
+    const days = (Date.now() - pushed.getTime()) / 86400000;
+    if (days <= 30) return 1.0;
+    if (days >= 365) return 0.70;
+    return 1.0 - 0.30 * (days - 30) / (365 - 30);
+}
+
+function computePrice({ stars = 0, forks = 0, watchers = null, openIssues = 0, openPrs = null, pushedAt = null }) {
+    stars = stars || 0; forks = forks || 0; openIssues = openIssues || 0;
+    if (watchers == null) watchers = stars * 0.03;           // guess for missing data
+    if (openPrs == null) {
+        const estPrs = openIssues * 0.15;                    // ~15% of open issues are really PRs
+        openPrs = estPrs;
+        openIssues = Math.max(0, openIssues - estPrs);
+    }
+    const gross = BASE_LISTING + stars * W_STAR + forks * W_FORK + watchers * W_WATCH + openPrs * W_PR;
+    const debt = Math.min(openIssues * W_ISSUE, ISSUE_DRAG_CAP * gross); // capped so big repos don't go negative
+    const price = (gross - debt) * recencyMultiplier(pushedAt);
+    return Math.round(Math.max(PRICE_FLOOR, price) * 100) / 100;
+}
+
 const app = express();
 // we're behind render's proxy, so trust the x-forwarded-for header for rate limiting /
 // getting the real client ip instead of render's internal one
@@ -341,7 +373,13 @@ app.get('/api/history/:owner/:repo', readLimiter, async (req, res) => {
                 time: row.time,
                 value: Number(row.value)
             }));
-            return res.json({ history: formattedHistory });
+            // grab the current metrics too so the asset page can show the price breakdown
+            const assetRes = await pool.query(
+                `SELECT current_price, raw_stars, raw_forks, raw_watchers, raw_open_issues, raw_open_prs, description
+                 FROM repositories WHERE ticker ILIKE $1`,
+                [ticker]
+            );
+            return res.json({ history: formattedHistory, asset: assetRes.rows[0] || null });
         }
 
         // no history yet, so we go grab it from github and seed it right here. this covers
@@ -359,23 +397,36 @@ app.get('/api/history/:owner/:repo', readLimiter, async (req, res) => {
         // gotta type-check everything coming back from github before it touches the db,
         // don't just trust the shape of an external api's response
         const stargazers_count = typeof githubData.stargazers_count === 'number' ? githubData.stargazers_count : 0;
+        const forks = typeof githubData.forks_count === 'number' ? githubData.forks_count : 0;
+        const watchers = typeof githubData.subscribers_count === 'number' ? githubData.subscribers_count : 0;
+        const oiTotal = typeof githubData.open_issues_count === 'number' ? githubData.open_issues_count : 0; // issues + PRs
+        const pushedAt = githubData.pushed_at || null;
         let description = typeof githubData.description === 'string' ? githubData.description : '';
         if (description.length > 500) description = description.substring(0, 497) + '...';
-        const language = githubData.language;
-        const current_price = stargazers_count / 100; // same pricing formula as the data engine, stars / 100
-        const category = language || "Unknown";
+        const category = githubData.language || "Unknown";
+
+        // this path doesn't cheaply give the issue/PR split, so estimate it the same way
+        // the worker does; the worker corrects it on its next hourly pass
+        const openPrs = Math.round(oiTotal * 0.15);
+        const openIssues = Math.max(0, oiTotal - openPrs);
+        const current_price = computePrice({ stars: stargazers_count, forks, watchers, openIssues, openPrs, pushedAt });
 
         await pool.query(
-            `INSERT INTO repositories (ticker, current_price, description, category, raw_stars, is_active)
-             VALUES ($1, $2, $3, $4, $5, TRUE)
+            `INSERT INTO repositories (ticker, current_price, description, category, raw_stars,
+                                       raw_forks, raw_watchers, raw_open_issues, raw_open_prs, is_active)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, TRUE)
              ON CONFLICT (ticker)
              DO UPDATE SET
                 current_price = EXCLUDED.current_price,
                 description = EXCLUDED.description,
                 category = EXCLUDED.category,
                 raw_stars = EXCLUDED.raw_stars,
+                raw_forks = EXCLUDED.raw_forks,
+                raw_watchers = EXCLUDED.raw_watchers,
+                raw_open_issues = EXCLUDED.raw_open_issues,
+                raw_open_prs = EXCLUDED.raw_open_prs,
                 is_active = TRUE`,
-            [ticker, current_price, description, category, stargazers_count]
+            [ticker, current_price, description, category, stargazers_count, forks, watchers, openIssues, openPrs]
         );
 
         // just seed a single history point for right now, the data engine will backfill
@@ -385,7 +436,13 @@ app.get('/api/history/:owner/:repo', readLimiter, async (req, res) => {
             [ticker, current_price]
         );
 
-        return res.json({ history: [{ time: historyInsert.rows[0].time, value: current_price }] });
+        return res.json({
+            history: [{ time: historyInsert.rows[0].time, value: current_price }],
+            asset: {
+                current_price, raw_stars: stargazers_count, raw_forks: forks,
+                raw_watchers: watchers, raw_open_issues: openIssues, raw_open_prs: openPrs, description,
+            },
+        });
     } catch (error) {
         console.error(`[Ledger Error] History query failed: ${error.message}`);
         res.status(500).json({ error: "Could not fetch history data." });

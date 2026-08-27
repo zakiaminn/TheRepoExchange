@@ -241,10 +241,9 @@ def update_known_assets(conn) -> set:
                         # since github lumps issues and PRs together in that number
                         open_prs = get_open_pr_count(ticker, headers)
                         if open_prs is None:
-                            current_price = compute_price(raw_stars, forks, watchers, oi_total, None, pushed_at)
-                        else:
-                            open_issues = max(0, oi_total - open_prs)
-                            current_price = compute_price(raw_stars, forks, watchers, open_issues, open_prs, pushed_at)
+                            open_prs = int(round(oi_total * 0.15))   # call failed, just estimate
+                        open_issues = max(0, oi_total - open_prs)
+                        current_price = compute_price(raw_stars, forks, watchers, open_issues, open_prs, pushed_at)
                         current_time = datetime.now()
 
                         # update the live price on the repo's row
@@ -252,10 +251,14 @@ def update_known_assets(conn) -> set:
                             UPDATE repositories SET
                                 current_price = %s,
                                 raw_stars = %s,
+                                raw_forks = %s,
+                                raw_watchers = %s,
+                                raw_open_issues = %s,
+                                raw_open_prs = %s,
                                 is_active = TRUE
                             WHERE ticker = %s;
                         """
-                        cursor.execute(update_query, (current_price, raw_stars, ticker))
+                        cursor.execute(update_query, (current_price, raw_stars, forks, watchers, open_issues, open_prs, ticker))
 
                         # and drop a new point into the price history so the chart on the
                         # frontend has something fresh to show
@@ -307,10 +310,13 @@ def process_and_upsert_new_repositories(category_name: str, items: list, known_t
         if description and len(description) > 500:
             description = description[:497] + "..."
 
-        # search results don't give watchers or split issues vs PRs, so compute_price
-        # just guesses. phase 1 comes back within the hour and fixes it with real numbers
-        current_price = compute_price(raw_stars, forks, None, oi_total, None, pushed_at)
-        records.append((ticker, current_price, description, category_name, raw_stars))
+        # search results don't give watchers or split issues vs PRs, so estimate them for
+        # now; phase 1 comes back within the hour and overwrites with the real numbers
+        est_watchers = int(round(raw_stars * 0.03))
+        est_prs = int(round(oi_total * 0.15))
+        est_issues = max(0, oi_total - est_prs)
+        current_price = compute_price(raw_stars, forks, est_watchers, est_issues, est_prs, pushed_at)
+        records.append((ticker, current_price, description, category_name, raw_stars, forks, est_watchers, est_issues, est_prs))
 
     if not records:
         logger.info(f"No new records to insert for category {category_name}.")
@@ -319,13 +325,18 @@ def process_and_upsert_new_repositories(category_name: str, items: list, known_t
     # upsert instead of insert because the same repo can technically show up in multiple
     # category searches in the same run, so we might try to add it twice
     upsert_query = """
-        INSERT INTO repositories (ticker, current_price, description, category, raw_stars, is_active)
-        VALUES (%s, %s, %s, %s, %s, TRUE)
+        INSERT INTO repositories (ticker, current_price, description, category, raw_stars,
+                                  raw_forks, raw_watchers, raw_open_issues, raw_open_prs, is_active)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, TRUE)
         ON CONFLICT (ticker)
         DO UPDATE SET
             description = EXCLUDED.description,
             category = EXCLUDED.category,
             raw_stars = EXCLUDED.raw_stars,
+            raw_forks = EXCLUDED.raw_forks,
+            raw_watchers = EXCLUDED.raw_watchers,
+            raw_open_issues = EXCLUDED.raw_open_issues,
+            raw_open_prs = EXCLUDED.raw_open_prs,
             current_price = EXCLUDED.current_price,
             is_active = TRUE;
     """
@@ -339,7 +350,8 @@ def process_and_upsert_new_repositories(category_name: str, items: list, known_t
             history_records = []
             current_time = datetime.now()
 
-            for ticker, current_price, _, _, _ in records:
+            for rec in records:
+                ticker, current_price = rec[0], rec[1]
                 known_tickers.add(ticker) # so we don't double count it if it shows up again this run
 
                 history_records.append((ticker, current_price, current_time))
