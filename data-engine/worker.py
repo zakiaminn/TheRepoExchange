@@ -4,6 +4,7 @@ import time
 import logging
 import requests
 import random
+import re
 import psycopg2
 from psycopg2.extras import execute_batch
 from dotenv import load_dotenv
@@ -35,6 +36,94 @@ CATEGORIES = {
 }
 
 GITHUB_SEARCH_URL = "https://api.github.com/search/repositories"
+
+# ── how we price a repo ──
+# old way was just stars/100 which is kinda dumb, a repo isn't worth money just
+# because people clicked a star button. so this actually looks at whether the thing
+# is alive:
+#   - stars = popularity but cheap, there's a ton of them so each one is basically nothing
+#   - forks + watchers = people actually building on it / following it, worth more
+#   - open PRs = someone's literally contributing right now, worth a dollar each
+#   - open issues = unfinished stuff / bugs, drags the price down a dollar each
+#   - if nobody's pushed to it in forever it slowly loses value
+#
+# the weights are all in dollars and you can just change them, nothing else cares
+# about the exact numbers. compute_price() is the only place the price gets decided.
+
+W_STAR  = 0.001   # a star is like 0.1 cents, basically nothing on its own
+W_FORK  = 0.01    # a fork's worth about 10 stars, someone actually copied the thing
+W_WATCH = 0.05    # watchers are rarer than stars so they count for a bit more
+W_PR    = 1.00    # open pull request = a dollar (someone's contributing rn)
+W_ISSUE = 1.00    # open issue = minus a dollar (unfinished / a bug)
+
+ISSUE_DRAG_CAP = 0.60  # issues can only knock off max 60% of the value, not more
+BASE_LISTING   = 5.00  # every repo starts at 5 bucks so nothing's under a dollar
+PRICE_FLOOR    = 1.00  # never go below this
+
+
+def _recency_multiplier(pushed_at_iso):
+    """if a repo got pushed to recently it's alive so full price (1.0). old dead ones
+    slowly decay down to 0.7, never lower just from being old."""
+    if not pushed_at_iso:
+        return 1.0
+    try:
+        pushed = datetime.strptime(pushed_at_iso, "%Y-%m-%dT%H:%M:%SZ")
+    except (ValueError, TypeError):
+        return 1.0
+    days = (datetime.utcnow() - pushed).days
+    if days <= 30:
+        return 1.0
+    if days >= 365:
+        return 0.70
+    return 1.0 - 0.30 * (days - 30) / (365 - 30)
+
+
+def get_open_pr_count(ticker, headers):
+    """how many open PRs a repo has, in a single call. little trick: ask for 1 PR per
+    page and just read the last page number out of the Link header, so we don't have to
+    actually page through all of them. returns None if it breaks and we guess instead."""
+    try:
+        resp = requests.get(
+            f"https://api.github.com/repos/{ticker}/pulls",
+            headers=headers, params={"state": "open", "per_page": 1}, timeout=10,
+        )
+        if resp.status_code != 200:
+            return None
+        link = resp.headers.get("Link", "")
+        m = re.search(r'[?&]page=(\d+)>;\s*rel="last"', link)
+        if m:
+            return int(m.group(1))     # several pages -> last page number == PR count
+        return len(resp.json())        # 0 or 1 open PRs (no Link header)
+    except requests.exceptions.RequestException:
+        return None
+
+
+def compute_price(stars, forks, watchers, open_issues, open_prs, pushed_at):
+    """the one spot a repo's price actually gets worked out. everything's just raw
+    numbers from github. watchers and open_prs can come in as None (the search endpoint
+    doesn't give them) so we guess and the hourly refresh fixes it later. heads up: when
+    open_prs is None, open_issues is really open_issues_count (issues AND prs together)."""
+    stars = stars or 0
+    forks = forks or 0
+    open_issues = open_issues or 0
+
+    if watchers is None:
+        watchers = stars * 0.03              # most repos have way fewer watchers than stars, rough guess
+    if open_prs is None:
+        est_prs = open_issues * 0.15         # ~15% of the "open issues" are actually PRs hiding in there
+        open_prs = est_prs
+        open_issues = max(0.0, open_issues - est_prs)
+
+    gross = (BASE_LISTING
+             + stars * W_STAR
+             + forks * W_FORK
+             + watchers * W_WATCH
+             + open_prs * W_PR)
+
+    # cap the drag so a giant repo with like 9000 open issues doesn't go negative
+    debt = min(open_issues * W_ISSUE, ISSUE_DRAG_CAP * gross)
+    price = (gross - debt) * _recency_multiplier(pushed_at)
+    return round(max(PRICE_FLOOR, price), 2)
 
 def get_db_connection():
     """connect to postgres and hand back the connection."""
@@ -144,8 +233,18 @@ def update_known_assets(conn) -> set:
                         data = response.json()
 
                         raw_stars = data.get("stargazers_count", 0)
-                        # price is just stars / 100, simple as that. one star = one cent
-                        current_price = raw_stars / 100.0
+                        forks = data.get("forks_count", 0)
+                        watchers = data.get("subscribers_count", 0)
+                        oi_total = data.get("open_issues_count", 0)   # open issues + open PRs
+                        pushed_at = data.get("pushed_at")
+                        # grab the real open-PR count and pull it out of open_issues_count,
+                        # since github lumps issues and PRs together in that number
+                        open_prs = get_open_pr_count(ticker, headers)
+                        if open_prs is None:
+                            current_price = compute_price(raw_stars, forks, watchers, oi_total, None, pushed_at)
+                        else:
+                            open_issues = max(0, oi_total - open_prs)
+                            current_price = compute_price(raw_stars, forks, watchers, open_issues, open_prs, pushed_at)
                         current_time = datetime.now()
 
                         # update the live price on the repo's row
@@ -199,13 +298,18 @@ def process_and_upsert_new_repositories(category_name: str, items: list, known_t
             continue
 
         raw_stars = item.get("stargazers_count", 0)
+        forks = item.get("forks_count", 0)
+        oi_total = item.get("open_issues_count", 0)   # open issues + open PRs
+        pushed_at = item.get("pushed_at")
         description = item.get("description", "")
 
         # descriptions can get pretty long, cap it so it doesn't blow up the ui or the db column
         if description and len(description) > 500:
             description = description[:497] + "..."
 
-        current_price = raw_stars / 100.0
+        # search results don't give watchers or split issues vs PRs, so compute_price
+        # just guesses. phase 1 comes back within the hour and fixes it with real numbers
+        current_price = compute_price(raw_stars, forks, None, oi_total, None, pushed_at)
         records.append((ticker, current_price, description, category_name, raw_stars))
 
     if not records:
