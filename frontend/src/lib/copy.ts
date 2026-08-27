@@ -182,6 +182,26 @@ export const AUTH = {
   password: "Password",
   firstName: "First name",
   lastName: "Last name",
+  // ── password recovery ──
+  forgotLink: "Forgot your password?",
+  forgotKicker: "Credential recovery",
+  forgotTitle: "Reset your password",
+  forgotBody: "Enter your address. If it is on file, a reset link follows.",
+  sendReset: "Send reset link",
+  sending: "Sending",
+  resetSent: "If that address is on file, a reset link is on its way. Check your email.",
+  backToSignIn: "Back to sign in",
+  resetKicker: "Set new credential",
+  resetTitle: "Set a new password",
+  resetBody: "Choose a new password for your account.",
+  verifyingLink: "Verifying link",
+  linkInvalid: "This reset link is invalid or has expired. Request a new one.",
+  newPassword: "New password",
+  confirmPassword: "Confirm password",
+  updatePassword: "Update password",
+  updating: "Updating",
+  passwordUpdated: "Password updated. You are signed in.",
+  mismatch: "Passwords do not match.",
 } as const;
 
 export const ACCOUNT = {
