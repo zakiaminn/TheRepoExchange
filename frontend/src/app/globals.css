@@ -312,6 +312,21 @@ body::before {
 }
 .panel-2 { background: var(--paper-2); }
 
+/* skeleton loader — a hard-edged block in the paper tones with a low-contrast
+   highlight that sweeps across. no rounded blob, no throb; fits the rest of the
+   system. under reduced-motion the global reduce block freezes the sweep off to
+   the left so you just get a flat block. */
+.skeleton { position: relative; overflow: hidden; background: var(--paper-3); }
+.skeleton::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--paper) 55%, transparent), transparent);
+  animation: skeleton-sweep 1.5s var(--ease) infinite;
+}
+@keyframes skeleton-sweep { to { transform: translateX(100%); } }
+
 /* ═══ CONTROLS ═══════════════════════════════════════════════════════════ */
 
 .ctl {

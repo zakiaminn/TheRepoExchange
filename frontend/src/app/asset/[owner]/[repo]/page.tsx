@@ -7,7 +7,7 @@ import { createClient } from "@/utils/supabase/client";
 import { useTheme } from "next-themes";
 import { Toast, ToastMessage } from "@/components/Toast";
 import { ConfirmTradeModal } from "@/components/ConfirmTradeModal";
-import { SectionRule, DocRef, Panel, Notice, Pending, Delta } from "@/components/ui";
+import { SectionRule, DocRef, Panel, Notice, Skeleton, Delta } from "@/components/ui";
 import { usd, count, countCompact, change, toneClass } from "@/lib/format";
 import { SECTIONS, LABELS, STATE, ERROR, ORDER, NAV } from "@/lib/copy";
 
@@ -369,9 +369,7 @@ export default function ListingPage(props: PageProps) {
 
           <Panel registered className="p-4 sm:p-6">
             {listed === null ? (
-              <div className="flex h-[380px] items-center justify-center">
-                <Pending>{STATE.verifying}</Pending>
-              </div>
+              <Skeleton className="h-[380px] w-full" />
             ) : listed === false ? (
               <div className="flex h-[380px] flex-col items-center justify-center px-6 text-center">
                 <div className="label label-ink mb-3">{ERROR.suspended}</div>

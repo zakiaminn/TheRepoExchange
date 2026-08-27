@@ -4,8 +4,8 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { createClient } from "@/utils/supabase/client";
 import { Toast, ToastMessage } from "@/components/Toast";
-import { SectionRule, DocRef, Panel, Field, Pending, Notice } from "@/components/ui";
-import { ACCOUNT, ERROR, STATE, NAV, NOTICE } from "@/lib/copy";
+import { SectionRule, DocRef, Panel, Field, Skeleton, Notice } from "@/components/ui";
+import { ACCOUNT, ERROR, NAV, NOTICE } from "@/lib/copy";
 
 /* account settings — really just "change your name". email is shown but locked
    because it's tied to the Supabase auth identity, and changing that is a whole
@@ -61,8 +61,20 @@ export default function SettingsPage() {
 
   if (initializing) {
     return (
-      <div className="flex min-h-[60vh] items-center justify-center">
-        <Pending>{STATE.session}</Pending>
+      <div className="flex-1 pb-20">
+        <main className="mx-auto w-full max-w-2xl px-5 py-10 sm:px-8 sm:py-12">
+          <Skeleton className="h-3 w-24" />
+          <Skeleton className="mt-6 h-9 w-56" />
+          <Skeleton className="mt-3 h-4 w-72 max-w-full" />
+          <div className="panel mt-9 space-y-5 p-6 sm:p-8">
+            <Skeleton className="h-10 w-full" />
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <Skeleton className="h-10 w-full" />
+              <Skeleton className="h-10 w-full" />
+            </div>
+            <Skeleton className="h-10 w-40" />
+          </div>
+        </main>
       </div>
     );
   }
