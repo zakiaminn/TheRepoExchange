@@ -15,6 +15,42 @@ class TradeError extends Error {
     }
 }
 
+// postgres aborts one transaction to break a deadlock (sqlstate 40P01) or when a
+// serializable conflict can't be resolved (40001). neither is a real failure - the
+// losing transaction just got rolled back cleanly, so the right move is to run the
+// whole thing again on a fresh connection rather than bubble a 500 up to the user.
+const RETRYABLE_SQLSTATES = new Set(['40P01', '40001']);
+
+// runs `executor` inside begin/commit and hands it a dedicated client. on a retryable
+// abort it rolls back and tries again (a few times, no backoff - trades are quick and a
+// burst clears fast), so callers only ever see either a real result or a real error.
+// keeping this in one place means every route locks rows in the same way and nobody
+// has to remember to release the client. NOTE: to avoid deadlocks, any executor that
+// touches more than one table must lock rows in a consistent order - users before
+// portfolios - see the buy/sell routes.
+async function runInTransaction(executor, attempts = 3) {
+    for (let attempt = 1; ; attempt++) {
+        const client = await pool.connect();
+        try {
+            await client.query('BEGIN');
+            const result = await executor(client);
+            await client.query('COMMIT');
+            return result;
+        } catch (error) {
+            // rollback can itself fail if the connection is already broken; don't let
+            // that mask the original error we actually care about
+            try { await client.query('ROLLBACK'); } catch { /* connection's gone */ }
+            if (RETRYABLE_SQLSTATES.has(error.code) && attempt < attempts) {
+                console.warn(`[Ledger] retrying trade after ${error.code} (attempt ${attempt})`);
+                continue;
+            }
+            throw error;
+        } finally {
+            client.release();
+        }
+    }
+}
+
 // tickers are always "owner/repo" like "vercel/next.js". this just makes sure whatever
 // gets typed in doesn't have weird characters in it before it touches the db
 const TICKER_REGEX = /^[a-zA-Z0-9._-]+\/[a-zA-Z0-9._-]+$/;
@@ -168,67 +204,65 @@ app.post('/api/buy', tradeLimiter, verifyAuth, async (req, res) => {
         return res.status(400).json({ error: "Invalid ticker format. Expected 'owner/repo'." });
     }
 
-    // grabbing a single client from the pool so the whole trade runs on one connection.
-    // that's what lets us use begin/commit/rollback as an actual transaction
-    const client = await pool.connect();
-
     try {
-        await client.query('BEGIN');
+        // the whole trade runs inside one transaction with begin/commit/rollback, and
+        // retries itself if postgres aborts it for a deadlock (see runInTransaction)
+        const trueTicker = await runInTransaction(async (client) => {
+            // ilike so we match regardless of how the user typed the casing
+            const stockRes = await client.query('SELECT ticker, current_price FROM repositories WHERE ticker ILIKE $1', [ticker]);
+            if (stockRes.rows.length === 0) throw new TradeError("Stock not found.", 404);
+            const price = stockRes.rows[0].current_price;
 
-        // ilike so we match regardless of how the user typed the casing
-        const stockRes = await client.query('SELECT ticker, current_price FROM repositories WHERE ticker ILIKE $1', [ticker]);
-        if (stockRes.rows.length === 0) throw new TradeError("Stock not found.", 404);
-        const price = stockRes.rows[0].current_price;
+            // reject if the price moved more than 1% since the user clicked buy. this is the
+            // slippage protection - stops someone from quoting an old price and getting a
+            // way better deal than what's actually live right now
+            if (Math.abs(price - expectedPrice) / expectedPrice > 0.01) {
+                throw new TradeError(`Slippage error: Asset price shifted to ${price}. Trade rejected.`);
+            }
 
-        // reject if the price moved more than 1% since the user clicked buy. this is the
-        // slippage protection - stops someone from quoting an old price and getting a
-        // way better deal than what's actually live right now
-        if (Math.abs(price - expectedPrice) / expectedPrice > 0.01) {
-            throw new TradeError(`Slippage error: Asset price shifted to ${price}. Trade rejected.`);
-        }
+            const totalCost = Number((price * shares).toFixed(2));
+            // this ticker comes from the db so we know it's the right casing
+            const trueTicker = stockRes.rows[0].ticker;
 
-        const totalCost = Number((price * shares).toFixed(2));
-        // this ticker comes from the db so we know it's the right casing
-        const trueTicker = stockRes.rows[0].ticker;
+            // lock the row so nobody else can mess with the balance mid-trade. without this
+            // two buy requests firing at the same time could both read the same balance and
+            // both succeed even if the user can only actually afford one of them.
+            // LOCK ORDER: users first, then portfolios - the sell route locks them in the
+            // same order so a buy and a sell racing on the same holding can't deadlock.
+            const userRes = await client.query('SELECT cash_balance FROM users WHERE id = $1 FOR UPDATE', [userId]);
+            if (userRes.rows.length === 0) throw new TradeError("User not found.", 404);
+            const cash = userRes.rows[0].cash_balance;
 
-        // lock the row so nobody else can mess with the balance mid-trade. without this
-        // two buy requests firing at the same time could both read the same balance and
-        // both succeed even if the user can only actually afford one of them
-        const userRes = await client.query('SELECT cash_balance FROM users WHERE id = $1 FOR UPDATE', [userId]);
-        if (userRes.rows.length === 0) throw new TradeError("User not found.", 404);
-        const cash = userRes.rows[0].cash_balance;
+            // making sure the user can actually afford this
+            if (cash < totalCost) throw new TradeError("Insufficient funds.");
 
-        // making sure the user can actually afford this
-        if (cash < totalCost) throw new TradeError("Insufficient funds.");
+            await client.query('UPDATE users SET cash_balance = cash_balance - $1 WHERE id = $2', [totalCost, userId]);
 
-        await client.query('UPDATE users SET cash_balance = cash_balance - $1 WHERE id = $2', [totalCost, userId]);
+            // upsert - if they already own this stock, just add to it and recalc the avg price.
+            // this is just a weighted average: (old shares * old avg price + new shares * new
+            // price) / total shares, which is how you get the new blended cost basis
+            const portfolioQuery = `
+                INSERT INTO portfolios (user_id, ticker, shares, average_price)
+                VALUES ($1, $2, $3, $4)
+                ON CONFLICT (user_id, ticker)
+                DO UPDATE SET
+                    shares = portfolios.shares + $3,
+                    average_price = CAST(((portfolios.shares * portfolios.average_price) + ($3 * $4)) / (portfolios.shares + $3) AS NUMERIC(15,2));
+            `;
+            await client.query(portfolioQuery, [userId, trueTicker, shares, price]);
 
-        // upsert - if they already own this stock, just add to it and recalc the avg price.
-        // this is just a weighted average: (old shares * old avg price + new shares * new
-        // price) / total shares, which is how you get the new blended cost basis
-        const portfolioQuery = `
-            INSERT INTO portfolios (user_id, ticker, shares, average_price)
-            VALUES ($1, $2, $3, $4)
-            ON CONFLICT (user_id, ticker)
-            DO UPDATE SET
-                shares = portfolios.shares + $3,
-                average_price = CAST(((portfolios.shares * portfolios.average_price) + ($3 * $4)) / (portfolios.shares + $3) AS NUMERIC(15,2));
-        `;
-        await client.query(portfolioQuery, [userId, trueTicker, shares, price]);
+            // append-only log of every trade ever made, mostly just for a paper trail
+            await client.query(
+                'INSERT INTO transactions (user_id, ticker, action, shares, execution_price) VALUES ($1, $2, $3, $4, $5)',
+                [userId, trueTicker, 'BUY', shares, price]
+            );
 
-        // append-only log of every trade ever made, mostly just for a paper trail
-        await client.query(
-            'INSERT INTO transactions (user_id, ticker, action, shares, execution_price) VALUES ($1, $2, $3, $4, $5)',
-            [userId, trueTicker, 'BUY', shares, price]
-        );
+            return trueTicker;
+        });
 
-        await client.query('COMMIT');
         res.json({ success: true, message: `Bought ${shares} shares of ${trueTicker}.` });
 
     } catch (error) {
-        // anything went wrong up there, undo the whole transaction so we don't end up with
-        // a half-applied trade (like cash deducted but no shares added)
-        await client.query('ROLLBACK');
         if (error instanceof TradeError) {
             res.status(error.statusCode).json({ error: error.message });
         } else {
@@ -237,9 +271,6 @@ app.post('/api/buy', tradeLimiter, verifyAuth, async (req, res) => {
             console.error(`[Ledger Error] Buy transaction failed: ${error.message}`);
             res.status(500).json({ error: "An internal error occurred. Please try again." });
         }
-    } finally {
-        // always give the connection back to the pool no matter what happened
-        client.release();
     }
 });
 
@@ -261,54 +292,57 @@ app.post('/api/sell', tradeLimiter, verifyAuth, async (req, res) => {
         return res.status(400).json({ error: "Invalid ticker format. Expected 'owner/repo'." });
     }
 
-    const client = await pool.connect();
-
     try {
-        await client.query('BEGIN');
+        const trueTicker = await runInTransaction(async (client) => {
+            // ilike so we match regardless of how the user typed the casing
+            const stockRes = await client.query('SELECT ticker, current_price FROM repositories WHERE ticker ILIKE $1', [ticker]);
+            if (stockRes.rows.length === 0) throw new TradeError("Stock not found.", 404);
+            const price = stockRes.rows[0].current_price;
 
-        // ilike so we match regardless of how the user typed the casing
-        const stockRes = await client.query('SELECT ticker, current_price FROM repositories WHERE ticker ILIKE $1', [ticker]);
-        if (stockRes.rows.length === 0) throw new TradeError("Stock not found.", 404);
-        const price = stockRes.rows[0].current_price;
+            // reject if the price moved more than 1% since the user clicked sell
+            if (Math.abs(price - expectedPrice) / expectedPrice > 0.01) {
+                throw new TradeError(`Slippage error: Asset price shifted to ${price}. Trade rejected.`);
+            }
 
-        // reject if the price moved more than 1% since the user clicked sell
-        if (Math.abs(price - expectedPrice) / expectedPrice > 0.01) {
-            throw new TradeError(`Slippage error: Asset price shifted to ${price}. Trade rejected.`);
-        }
+            // this ticker comes from the db so we know it's the right casing
+            const trueTicker = stockRes.rows[0].ticker;
+            const totalValue = Number((price * shares).toFixed(2));
 
-        // this ticker comes from the db so we know it's the right casing
-        const trueTicker = stockRes.rows[0].ticker;
-        const totalValue = Number((price * shares).toFixed(2));
+            // LOCK ORDER: users first, then portfolios - identical to the buy route. this
+            // is what stops a buy and a sell racing on the same holding from grabbing the
+            // two rows in opposite orders and deadlocking. we don't read the balance here,
+            // we just take the lock up front so the ordering holds.
+            const userRes = await client.query('SELECT id FROM users WHERE id = $1 FOR UPDATE', [userId]);
+            if (userRes.rows.length === 0) throw new TradeError("User not found.", 404);
 
-        // lock the row and make sure they actually own enough shares to sell. same race
-        // condition protection as the buy route, just checking shares instead of cash
-        const portRes = await client.query('SELECT shares FROM portfolios WHERE user_id = $1 AND ticker = $2 FOR UPDATE', [userId, trueTicker]);
-        if (portRes.rows.length === 0 || portRes.rows[0].shares < shares) {
-            throw new TradeError("Insufficient shares to sell.");
-        }
+            // now the portfolio row: make sure they actually own enough shares to sell. same
+            // race-condition protection as the buy route, just checking shares instead of cash
+            const portRes = await client.query('SELECT shares FROM portfolios WHERE user_id = $1 AND ticker = $2 FOR UPDATE', [userId, trueTicker]);
+            if (portRes.rows.length === 0 || portRes.rows[0].shares < shares) {
+                throw new TradeError("Insufficient shares to sell.");
+            }
 
-        await client.query('UPDATE users SET cash_balance = cash_balance + $1 WHERE id = $2', [totalValue, userId]);
+            await client.query('UPDATE users SET cash_balance = cash_balance + $1 WHERE id = $2', [totalValue, userId]);
 
-        await client.query('UPDATE portfolios SET shares = shares - $1 WHERE user_id = $2 AND ticker = $3', [shares, userId, trueTicker]);
+            await client.query('UPDATE portfolios SET shares = shares - $1 WHERE user_id = $2 AND ticker = $3', [shares, userId, trueTicker]);
 
-        await client.query(
-            'INSERT INTO transactions (user_id, ticker, action, shares, execution_price) VALUES ($1, $2, $3, $4, $5)',
-            [userId, trueTicker, 'SELL', shares, price]
-        );
+            await client.query(
+                'INSERT INTO transactions (user_id, ticker, action, shares, execution_price) VALUES ($1, $2, $3, $4, $5)',
+                [userId, trueTicker, 'SELL', shares, price]
+            );
 
-        await client.query('COMMIT');
+            return trueTicker;
+        });
+
         res.json({ success: true, message: `Sold ${shares} shares of ${trueTicker}.` });
 
     } catch (error) {
-        await client.query('ROLLBACK');
         if (error instanceof TradeError) {
             res.status(error.statusCode).json({ error: error.message });
         } else {
             console.error(`[Ledger Error] Sell transaction failed: ${error.message}`);
             res.status(500).json({ error: "An internal error occurred. Please try again." });
         }
-    } finally {
-        client.release();
     }
 });
 
