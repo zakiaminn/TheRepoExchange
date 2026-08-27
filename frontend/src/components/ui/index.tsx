@@ -234,3 +234,31 @@ export function Pending({ children, className }: { children: ReactNode; classNam
     </div>
   );
 }
+
+/* skeleton loader block — hard-edged, brand-toned, subtle sweep. size it with className. */
+export function Skeleton({ className }: { className?: string }) {
+  return <span className={cx("skeleton block", className)} aria-hidden="true" />;
+}
+
+/* placeholder for the board while quotes load — ruled rows that echo the real table
+   so the layout doesn't jump when the data lands. */
+export function SkeletonBoard({ rows = 8 }: { rows?: number }) {
+  return (
+    <div className="panel" role="status" aria-label="Loading listings">
+      {Array.from({ length: rows }).map((_, i) => (
+        <div
+          key={i}
+          className={cx("flex items-center gap-4 px-4 py-3 sm:px-6", i > 0 && "border-t border-rule")}
+        >
+          <Skeleton className="h-3 w-40 max-w-[45%]" />
+          <span className="ml-auto flex items-center gap-4 sm:gap-6">
+            <Skeleton className="h-3 w-16" />
+            <Skeleton className="hidden h-3 w-12 sm:block" />
+            <Skeleton className="hidden h-3 w-10 md:block" />
+            <Skeleton className="h-6 w-14" />
+          </span>
+        </div>
+      ))}
+    </div>
+  );
+}

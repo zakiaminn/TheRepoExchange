@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { createClient } from "@/utils/supabase/client";
-import { SectionRule, DocRef, Panel, Empty, Pending, Delta } from "@/components/ui";
+import { SectionRule, DocRef, Panel, Empty, Skeleton, SkeletonBoard, Delta } from "@/components/ui";
 import { usd, signedUsd, count, change, toneClass, tickerParts } from "@/lib/format";
 import { SECTIONS, COLUMNS, LABELS, STATE, ERROR } from "@/lib/copy";
 
@@ -78,8 +78,17 @@ export default function PortfolioPage() {
 
   if (loading) {
     return (
-      <div className="flex min-h-[60vh] items-center justify-center">
-        <Pending>{STATE.portfolio}</Pending>
+      <div className="flex-1 pb-20">
+        <main className="mx-auto w-full max-w-[64rem] px-5 py-10 sm:px-8 sm:py-12">
+          <Skeleton className="h-3 w-24" />
+          <div className="mt-8 border-b border-rule-2 pb-10">
+            <Skeleton className="h-14 w-80 max-w-full" />
+            <Skeleton className="mt-4 h-4 w-48" />
+          </div>
+          <div className="mt-10">
+            <SkeletonBoard rows={5} />
+          </div>
+        </main>
       </div>
     );
   }

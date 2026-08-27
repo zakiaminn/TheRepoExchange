@@ -7,7 +7,7 @@ import { LandingPage } from "@/components/LandingPage";
 import { Toast, ToastMessage } from "@/components/Toast";
 import { ConfirmTradeModal } from "@/components/ConfirmTradeModal";
 import { MiniSparkline } from "@/components/MiniSparkline";
-import { SectionRule, DocRef, Empty, Pending, LiveDot, LiveClock } from "@/components/ui";
+import { SectionRule, DocRef, Empty, Skeleton, SkeletonBoard, LiveDot, LiveClock } from "@/components/ui";
 import { usd, pct, count, countCompact, change, toneClass, tickerParts } from "@/lib/format";
 import { SECTIONS, COLUMNS, LABELS, STATE, ERROR, ORDER } from "@/lib/copy";
 
@@ -166,8 +166,23 @@ export default function Terminal() {
 
   if (initializing) {
     return (
-      <div className="flex min-h-screen items-center justify-center">
-        <Pending>{STATE.session}</Pending>
+      <div className="flex-1">
+        <main className="mx-auto w-full max-w-[76rem] px-5 py-10 sm:px-8 sm:py-12">
+          <div className="mb-12 border-b border-rule-2 pb-6">
+            <Skeleton className="h-3 w-24" />
+            <div className="mt-6 flex flex-wrap items-end justify-between gap-6">
+              <div className="space-y-3">
+                <Skeleton className="h-10 w-64 max-w-full" />
+                <Skeleton className="h-4 w-52" />
+              </div>
+              <div className="space-y-2 text-right">
+                <Skeleton className="ml-auto h-3 w-28" />
+                <Skeleton className="ml-auto h-7 w-40" />
+              </div>
+            </div>
+          </div>
+          <SkeletonBoard rows={8} />
+        </main>
       </div>
     );
   }
@@ -226,9 +241,7 @@ export default function Terminal() {
 
         {/* ── the boards, one per category ────────────────────────────── */}
         {categories.length === 0 ? (
-          <div className="panel">
-            <Pending>{STATE.quotes}</Pending>
-          </div>
+          <SkeletonBoard rows={8} />
         ) : (
           <div className="space-y-14">
             {categories.map(([category, repos]) => (
