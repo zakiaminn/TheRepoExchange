@@ -140,7 +140,7 @@ export function Header() {
 
   if (pathname === "/login" || authLoading || !user) return null;
 
-  let initials = "—";
+  let initials = "-";
   let displayName = "Member";
   if (user?.user_metadata) {
     const first = user.user_metadata.first_name || "";

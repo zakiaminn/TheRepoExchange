@@ -36,7 +36,7 @@ export function TickerTape({ items }: { items: TapeItem[] }) {
           </span>
           <span className="figure text-[11px] text-ink-2">{usd(item.price)}</span>
           <span className={`figure text-[11px] ${toneClass(item.change)}`}>
-            {item.change === null ? "—" : pct(item.change)}
+            {item.change === null ? "-" : pct(item.change)}
           </span>
         </Link>
       );

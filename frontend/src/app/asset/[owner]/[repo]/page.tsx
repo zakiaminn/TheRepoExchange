@@ -325,7 +325,7 @@ export default function ListingPage(props: PageProps) {
             <div className="sm:text-right">
               <div className="label mb-2">{LABELS.mark}</div>
               {listed === false ? (
-                <div className="figure text-2xl text-ink-3">—</div>
+                <div className="figure text-2xl text-ink-3">-</div>
               ) : currentPrice !== null ? (
                 <>
                   <div className="figure text-[clamp(2rem,7vw,3.25rem)] leading-none text-ink">
@@ -337,7 +337,7 @@ export default function ListingPage(props: PageProps) {
                   </div>
                 </>
               ) : (
-                <div className="figure text-2xl text-ink-3">—</div>
+                <div className="figure text-2xl text-ink-3">-</div>
               )}
             </div>
           </div>
@@ -387,8 +387,8 @@ export default function ListingPage(props: PageProps) {
           {listed === true && (
             <dl className="mt-px grid grid-cols-2 border-x border-b border-rule sm:grid-cols-4">
               {[
-                { term: LABELS.high, value: view.high !== null ? usd(view.high) : "—" },
-                { term: LABELS.low, value: view.low !== null ? usd(view.low) : "—" },
+                { term: LABELS.high, value: view.high !== null ? usd(view.high) : "-" },
+                { term: LABELS.low, value: view.low !== null ? usd(view.low) : "-" },
                 { term: LABELS.observations, value: count(view.observations) },
                 { term: LABELS.range, value: range },
               ].map((s, i) => (
@@ -440,7 +440,7 @@ export default function ListingPage(props: PageProps) {
               <div className="flex items-baseline justify-between gap-4 border-t border-rule-2 px-4 py-3 sm:px-6">
                 <span className="label label-ink">Mark</span>
                 <span className="figure text-base text-ink">
-                  {currentPrice !== null ? usd(currentPrice) : "—"}
+                  {currentPrice !== null ? usd(currentPrice) : "-"}
                 </span>
               </div>
             </Panel>
@@ -467,19 +467,19 @@ export default function ListingPage(props: PageProps) {
               <div className="border-b border-rule px-4 py-4 sm:border-b-0 sm:border-r">
                 <div className="label mb-1.5">Avg entry</div>
                 <div className="figure text-lg text-ink">
-                  {avgPrice !== null ? usd(avgPrice) : "—"}
+                  {avgPrice !== null ? usd(avgPrice) : "-"}
                 </div>
               </div>
               <div className="border-r border-rule px-4 py-4">
                 <div className="label mb-1.5">{LABELS.unrealised}</div>
                 <div className={`figure text-lg ${toneClass(positionPnl)}`}>
-                  {positionPnl !== null && ownedShares > 0 ? usd(positionPnl) : "—"}
+                  {positionPnl !== null && ownedShares > 0 ? usd(positionPnl) : "-"}
                 </div>
               </div>
               <div className="px-4 py-4">
                 <div className="label mb-1.5">{LABELS.purchasingPower}</div>
                 <div className="figure text-lg text-ink">
-                  {balance !== null ? usd(balance) : "—"}
+                  {balance !== null ? usd(balance) : "-"}
                 </div>
               </div>
             </div>
@@ -513,7 +513,7 @@ export default function ListingPage(props: PageProps) {
           {positionValue !== null && ownedShares > 0 && (
             <p className="ref mt-4 block">
               Position marked at {usd(positionValue)} against a cost basis of{" "}
-              {avgPrice !== null ? usd(avgPrice * ownedShares) : "—"}.
+              {avgPrice !== null ? usd(avgPrice * ownedShares) : "-"}.
             </p>
           )}
         </section>
