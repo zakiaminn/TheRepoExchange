@@ -1,12 +1,15 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/utils/supabase/client";
 import { Wordmark } from "@/components/Logo";
-import { SectionRule, DocRef, Field, Notice } from "@/components/ui";
-import { AUTH, ERROR, NOTICE, MECHANICS, BRAND, HERO } from "@/lib/copy";
+import { SectionRule, DocRef, Field, Notice, LiveDot, LiveClock } from "@/components/ui";
+import { usd, pct, change, toneClass, tickerParts } from "@/lib/format";
+import { AUTH, ERROR, NOTICE, BRAND, HERO } from "@/lib/copy";
+
+type Spec = { ticker: string; mark: number; delta: number | null };
 
 /* login + signup + password-reset request, all on one page.
 
@@ -31,6 +34,53 @@ export default function LoginPage() {
 
   const router = useRouter();
   const supabase = createClient();
+
+  // a live specimen of the board for the left column. it's the public
+  // discovery feed (no auth), so an applicant sees the actual market working
+  // before they sign — the product proving itself instead of describing itself.
+  const [spec, setSpec] = useState<Spec[]>([]);
+  useEffect(() => {
+    let alive = true;
+    const load = async () => {
+      try {
+        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/discovery`);
+        if (!res.ok) return;
+        const data = await res.json();
+        // this is a curated teaser, so it dedupes defensively: the feed carries
+        // known duplicate listings for one repo under different tickers (the
+        // documented node-id defect), and a doubled row on the sign-in page is
+        // the last place the verifiability pitch can afford one. key on both the
+        // repo name and the exact mark so neither twin gets through.
+        const seenRepo = new Set<string>();
+        const seenMark = new Set<string>();
+        const rows: Spec[] = (Object.values(data).flat() as any[])
+          .filter((r) => Number.isFinite(Number(r.current_price)))
+          .filter((r) => {
+            const repo = String(r.ticker).split("/").pop()?.toLowerCase() ?? "";
+            const mark = Number(r.current_price).toFixed(2);
+            if (seenRepo.has(repo) || seenMark.has(mark)) return false;
+            seenRepo.add(repo);
+            seenMark.add(mark);
+            return true;
+          })
+          .map((r) => ({
+            ticker: r.ticker,
+            mark: Number(r.current_price),
+            delta:
+              Array.isArray(r.sparkline) && r.sparkline.length > 1
+                ? change(r.sparkline[0], r.sparkline[r.sparkline.length - 1])
+                : null,
+          }))
+          .slice(0, 8);
+        if (alive) setSpec(rows);
+      } catch {
+        // no specimen; the headline and notice still carry the column
+      }
+    };
+    load();
+    const id = window.setInterval(load, 15000);
+    return () => { alive = false; window.clearInterval(id); };
+  }, []);
 
   // Supabase's raw errors are written for developers. These are written for
   // the person reading them, in the same register as everything else — a
@@ -125,20 +175,57 @@ export default function LoginPage() {
           <Wordmark size="md" />
         </Link>
 
-        <div className="relative max-w-md">
+        <div className="relative w-full max-w-md">
           <h2 className="display text-[clamp(2rem,3.6vw,3rem)] text-ink">
             A market in <span className="swipe">open source.</span>
           </h2>
           <p className="mt-5 text-sm leading-relaxed text-ink-2">{HERO.dek}</p>
 
-          <dl className="mt-9 border-t border-rule-2">
-            {MECHANICS.slice(0, 4).map((m) => (
-              <div key={m.term} className="flex gap-5 border-b border-rule py-3">
-                <dt className="label w-32 shrink-0 pt-0.5">{m.term}</dt>
-                <dd className="text-[13px] leading-relaxed text-ink">{m.value}</dd>
+          {/* the market, proving itself — real listings and marks off the
+              public feed, marked live. no numbers are invented here. */}
+          <div className="mt-9">
+            <SectionRule
+              label="Selected listings"
+              meta={
+                <span className="flex items-center gap-2">
+                  <LiveDot />
+                  <LiveClock className="text-[11px]" />
+                </span>
+              }
+              className="mb-2"
+            />
+            {spec.length === 0 ? (
+              <div className="py-6">
+                <span className="ref">Requesting quotes</span>
               </div>
-            ))}
-          </dl>
+            ) : (
+              <table className="board w-full table-fixed">
+                <colgroup>
+                  <col />
+                  <col className="w-[6.5rem]" />
+                  <col className="w-[4.75rem]" />
+                </colgroup>
+                <tbody>
+                  {spec.map((s) => {
+                    const { repo } = tickerParts(s.ticker);
+                    return (
+                      <tr key={s.ticker}>
+                        <td>
+                          <span className="figure block truncate text-[12px] uppercase text-ink">
+                            {repo}
+                          </span>
+                        </td>
+                        <td className="num text-[12px] text-ink">{usd(s.mark)}</td>
+                        <td className={`num text-[12px] ${toneClass(s.delta)}`}>
+                          {s.delta === null ? "-" : pct(s.delta)}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            )}
+          </div>
         </div>
 
         <div className="relative">
@@ -291,13 +378,8 @@ export default function LoginPage() {
           )}
 
           {message && (
-            <div
-              className={`mt-6 border-l-2 pl-4 text-[13px] leading-relaxed ${
-                message.type === "success" ? "border-l-pos text-ink-2" : "border-l-neg text-neg"
-              }`}
-              role="status"
-            >
-              {message.text}
+            <div role="status" className="mt-6">
+              <Notice tone={message.type === "success" ? "brand" : "neg"}>{message.text}</Notice>
             </div>
           )}
 

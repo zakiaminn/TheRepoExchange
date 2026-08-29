@@ -3,8 +3,8 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { createClient } from "@/utils/supabase/client";
-import { SectionRule, DocRef, Panel, Empty, Skeleton, SkeletonBoard, Delta } from "@/components/ui";
-import { usd, signedUsd, count, change, toneClass, tickerParts } from "@/lib/format";
+import { SectionRule, DocRef, Panel, Empty, Skeleton, SkeletonBoard, Delta, LiveDot, LiveClock } from "@/components/ui";
+import { usd, signedUsd, count, change, toneClass, tickerParts, plural } from "@/lib/format";
 import { SECTIONS, COLUMNS, LABELS, STATE, ERROR } from "@/lib/copy";
 
 type Holding = {
@@ -102,31 +102,67 @@ export default function PortfolioPage() {
           className="mb-10"
         />
 
-        {/* ── net asset value ────────────────────────────────────────── */}
-        <div className="border-b border-rule-2 pb-10">
-          <div className="label mb-3">{LABELS.netWorth}</div>
-          {/* the one place the serif carries a figure. At this size
-              Newsreader's lining numerals are the most expensive-looking
-              thing on the site, and it costs nothing to use them */}
-          <div className="display text-[clamp(2.75rem,11vw,5.5rem)] leading-none text-ink">
-            {usd(netWorth)}
+        {/* ── the statement head ─────────────────────────────────────────
+            A statement reconciles to one number and shows its work. Left:
+            the net asset value, marked live against the same quotes as the
+            board. Right: the reconciliation — cash plus positions is the
+            value; cost basis against the mark is the unrealised. Every line
+            is arithmetic on figures you can check on the board. */}
+        <div className="grid gap-x-12 gap-y-9 border-b border-rule-2 pb-10 lg:grid-cols-[1.15fr_1fr] lg:items-end">
+          <div>
+            <div className="label mb-3">{LABELS.netWorth}</div>
+            <div className="display text-[clamp(2.5rem,9vw,4.75rem)] leading-none text-ink">
+              {usd(netWorth)}
+            </div>
+            <div className="mt-4 flex flex-wrap items-baseline gap-x-3 gap-y-1">
+              <span className={`figure text-base ${toneClass(unrealised)}`}>
+                {signedUsd(unrealised)}
+              </span>
+              <Delta value={unrealisedPct} className="text-base" />
+              <span className="label">{LABELS.unrealised}</span>
+            </div>
+            <p className="mt-4 flex items-center gap-2 text-[13px] text-ink-2">
+              <LiveDot />
+              Marked continuously
+              <span className="text-rule-2" aria-hidden="true">·</span>
+              <LiveClock className="text-[12px]" />
+            </p>
           </div>
-          <div className="mt-4 flex flex-wrap items-baseline gap-x-3 gap-y-1">
-            <span className={`figure text-base ${toneClass(unrealised)}`}>
-              {signedUsd(unrealised)}
-            </span>
-            <Delta value={unrealisedPct} className="text-base" />
-            <span className="label">{LABELS.unrealised}</span>
-          </div>
+
+          {/* reconciliation ledger — cash + positions rule up to the value,
+              then cost basis and the unrealised sit below the line */}
+          <dl className="border-t border-rule-2">
+            <div className="flex items-baseline justify-between border-b border-rule py-2.5">
+              <dt className="text-[13px] text-ink-2">{LABELS.cash}</dt>
+              <dd className="figure text-[13px] text-ink">{usd(cash)}</dd>
+            </div>
+            <div className="flex items-baseline justify-between border-b border-rule py-2.5">
+              <dt className="text-[13px] text-ink-2">
+                {LABELS.positionsValue}
+                <span className="ref ml-2">{plural(portfolio.length, "listing")}</span>
+              </dt>
+              <dd className="figure text-[13px] text-ink">{usd(positionsValue)}</dd>
+            </div>
+            <div className="flex items-baseline justify-between border-b-2 border-rule-2 py-2.5">
+              <dt className="label label-ink">{LABELS.netWorth}</dt>
+              <dd className="figure text-sm text-ink">{usd(netWorth)}</dd>
+            </div>
+            <div className="flex items-baseline justify-between border-b border-rule py-2.5">
+              <dt className="text-[13px] text-ink-2">Cost basis</dt>
+              <dd className="figure text-[13px] text-ink-2">{usd(costBasis)}</dd>
+            </div>
+            <div className="flex items-baseline justify-between py-2.5">
+              <dt className="text-[13px] text-ink-2">{LABELS.unrealised}</dt>
+              <dd className={`figure text-[13px] ${toneClass(unrealised)}`}>{signedUsd(unrealised)}</dd>
+            </div>
+          </dl>
         </div>
 
-        {/* ── composition ────────────────────────────────────────────── */}
+        {/* ── allocation ─────────────────────────────────────────────────
+            The one split that means anything here: deployed against cash.
+            A colour per holding would look like a pie and say nothing. */}
         <section className="mt-10">
-          <SectionRule label={SECTIONS.allocation} className="mb-5" />
-
-          {/* Two segments, one chroma. A colour per holding would look like
-              a pie chart and mean nothing — the only split that matters here
-              is deployed against undeployed. */}
+          <SectionRule label={SECTIONS.allocation} meta={`${investedShare.toFixed(1)}% deployed`} className="mb-4" />
           <div className="flex h-2 w-full overflow-hidden border border-rule">
             <div
               className="bg-brand transition-[width] duration-500"
@@ -135,23 +171,10 @@ export default function PortfolioPage() {
             />
             <div className="flex-1 bg-paper-3" aria-hidden="true" />
           </div>
-
-          <dl className="mt-px grid grid-cols-1 border-x border-b border-rule sm:grid-cols-3">
-            {[
-              { term: LABELS.cash, value: usd(cash), note: `${(100 - investedShare).toFixed(1)}% undeployed` },
-              { term: LABELS.positionsValue, value: usd(positionsValue), note: `${investedShare.toFixed(1)}% deployed` },
-              { term: "Cost basis", value: usd(costBasis), note: `${count(portfolio.length)} listings` },
-            ].map((row, i) => (
-              <div
-                key={row.term}
-                className={`px-4 py-4 ${i < 2 ? "border-b border-rule sm:border-b-0 sm:border-r" : ""}`}
-              >
-                <dt className="label mb-1.5">{row.term}</dt>
-                <dd className="figure text-lg text-ink">{row.value}</dd>
-                <dd className="ref mt-1 block">{row.note}</dd>
-              </div>
-            ))}
-          </dl>
+          <div className="mt-2 flex justify-between">
+            <span className="ref">{LABELS.positionsValue} · {usd(positionsValue)}</span>
+            <span className="ref">{LABELS.cash} · {usd(cash)}</span>
+          </div>
         </section>
 
         {/* ── the book ───────────────────────────────────────────────── */}
@@ -173,7 +196,7 @@ export default function PortfolioPage() {
               </Empty>
             ) : (
               <div className="overflow-x-auto no-bar">
-                <table className="board min-w-[44rem]">
+                <table className="board min-w-[52rem]">
                   <thead>
                     <tr>
                       <th>{COLUMNS.listing}</th>
@@ -181,6 +204,7 @@ export default function PortfolioPage() {
                       <th className="text-right">{COLUMNS.avg}</th>
                       <th className="text-right">{COLUMNS.mark}</th>
                       <th className="text-right">{COLUMNS.value}</th>
+                      <th className="hidden text-right sm:table-cell">{COLUMNS.weight}</th>
                       <th className="text-right">{COLUMNS.pnl}</th>
                     </tr>
                   </thead>
@@ -191,6 +215,7 @@ export default function PortfolioPage() {
                       const value = mark * h.shares;
                       const pnl = (mark - avg) * h.shares;
                       const pnlPct = change(avg, mark);
+                      const weight = positionsValue > 0 ? (value / positionsValue) * 100 : 0;
                       const { owner, repo } = tickerParts(h.ticker);
 
                       return (
@@ -212,6 +237,19 @@ export default function PortfolioPage() {
                           <td className="num text-[13px] text-ink-2">{usd(avg)}</td>
                           <td className="num text-[13px] text-ink">{usd(mark)}</td>
                           <td className="num text-[13px] text-ink">{usd(value)}</td>
+                          <td className="hidden pr-3 align-middle sm:table-cell">
+                            {/* weight = this position's share of the book. the
+                                bar makes concentration legible at a glance */}
+                            <div className="flex items-center justify-end gap-2">
+                              <span className="figure text-[12px] text-ink-2">{weight.toFixed(1)}%</span>
+                              <span className="inline-block h-1 w-12 bg-paper-3" aria-hidden="true">
+                                <span
+                                  className="block h-full bg-brand"
+                                  style={{ width: `${Math.min(100, weight)}%` }}
+                                />
+                              </span>
+                            </div>
+                          </td>
                           <td className="num pr-3">
                             <div className={`text-[13px] ${toneClass(pnl)}`}>{signedUsd(pnl)}</div>
                             <Delta value={pnlPct} className="text-[11px]" />

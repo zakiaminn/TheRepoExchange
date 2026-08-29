@@ -8,8 +8,8 @@ import { Toast, ToastMessage } from "@/components/Toast";
 import { ConfirmTradeModal } from "@/components/ConfirmTradeModal";
 import { MiniSparkline } from "@/components/MiniSparkline";
 import { SectionRule, DocRef, Empty, Skeleton, SkeletonBoard, LiveDot, LiveClock } from "@/components/ui";
-import { usd, pct, count, countCompact, change, toneClass, tickerParts } from "@/lib/format";
-import { SECTIONS, COLUMNS, LABELS, STATE, ERROR, ORDER } from "@/lib/copy";
+import { usd, pct, count, countCompact, change, toneClass, tickerParts, plural } from "@/lib/format";
+import { SECTIONS, COLUMNS, LABELS, STATE, ERROR, ORDER, BOARD } from "@/lib/copy";
 
 type Repository = {
   ticker: string;
@@ -203,41 +203,82 @@ export default function Terminal() {
   });
   const totalListings = categories.reduce((n, [, repos]) => n + repos.length, 0);
 
+  // the masthead figures. all three are derived, not stored, and every one is
+  // checkable by hand against the same quotes on the board below:
+  //   listedValue    — the size of the market: every listing's mark, summed.
+  //   positionsValue — your holdings marked at the live quote (falling back to
+  //                    the average paid for anything not currently on the feed).
+  const marks: Record<string, number> = {};
+  categories.forEach(([, repos]) => repos.forEach((r) => { marks[r.ticker] = Number(r.current_price); }));
+  const listedValue = Object.values(marks).reduce((s, m) => s + m, 0);
+  const positionsValue = portfolio.reduce((s, h) => s + h.shares * (marks[h.ticker] ?? h.average_price), 0);
+
+  // the index strip — four ruled cells, the market first, then you. equal
+  // weight on purpose: an index row states figures, it doesn't rank them.
+  const indexCells: { label: string; value: string; sub: string }[] = [
+    { label: LABELS.listedValue, value: usd(listedValue), sub: "aggregate mark" },
+    { label: SECTIONS.listings, value: count(totalListings), sub: "admitted" },
+    { label: LABELS.purchasingPower, value: balance !== null ? usd(balance) : "—", sub: "cash, non-renewable" },
+    { label: LABELS.positionsValue, value: usd(positionsValue), sub: portfolio.length ? `${count(portfolio.length)} held` : "none held" },
+  ];
+
+  // vertical rules between columns (2-up on mobile, 4-up from lg) plus a top
+  // rule under the mobile second row; the <dl>'s own border-y closes the band.
+  const indexCellCls = (i: number) =>
+    [
+      "px-4 py-4 sm:px-5",
+      i % 2 === 1 && "border-l border-rule",
+      "lg:border-l lg:border-rule",
+      i === 0 && "lg:border-l-0",
+      i >= 2 && "border-t border-rule lg:border-t-0",
+    ]
+      .filter(Boolean)
+      .join(" ");
+
   return (
     <div className="flex-1">
       <main className="mx-auto w-full max-w-[76rem] px-5 py-10 sm:px-8 sm:py-12">
-        {/* ── account strip ────────────────────────────────────────────
-            One ruled row: who you are to the exchange, and what you can
-            spend. Everything else about the account lives on /portfolio. */}
-        <div className="mb-12 border-b border-rule-2 pb-6">
+        {/* ── index masthead ───────────────────────────────────────────
+            A trading terminal opens on market state, not a headline. "The
+            board" shrinks to its kicker and the numbers become the masthead:
+            one ruled band that states the whole market and your account at a
+            glance — the size of the market, how many listings, what you can
+            spend, and what you hold, all marked against the same live quotes
+            on the boards below. */}
+        <div className="mb-12">
           <SectionRule
-            label={SECTIONS.board}
+            label={SECTIONS.market}
             meta={<DocRef code="TRX-MKT-0442" />}
-            className="mb-6"
+            className="mb-5"
           />
-          <div className="flex flex-wrap items-end justify-between gap-6">
-            <div>
-              <h1 className="display text-[clamp(2rem,5vw,3.25rem)] text-ink">
-                The board
-              </h1>
-              <p className="mt-2 flex items-center gap-2 text-sm text-ink-2">
-                <LiveDot />
-                {totalListings > 0
-                  ? `${count(totalListings)} listings, marked continuously`
-                  : STATE.quotes}
-                <span className="text-rule-2" aria-hidden="true">·</span>
-                <LiveClock className="text-[12px]" />
-              </p>
-            </div>
-
-            <div className="text-right">
-              <div className="label mb-1.5">{LABELS.purchasingPower}</div>
-              <div className="figure text-2xl text-ink sm:text-3xl">
-                {balance !== null ? usd(balance) : <span className="text-ink-3">{STATE.session}</span>}
-              </div>
-            </div>
+          <div className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-1.5">
+            <h1 className="display text-[clamp(1.75rem,3.4vw,2.5rem)] text-ink">
+              The board
+            </h1>
+            <p className="flex items-center gap-2 text-[13px] text-ink-2">
+              <LiveDot />
+              {totalListings > 0 ? "Marked continuously" : STATE.quotes}
+              <span className="text-rule-2" aria-hidden="true">·</span>
+              <LiveClock className="text-[12px]" />
+            </p>
           </div>
+
+          <dl className="mt-6 grid grid-cols-2 border-y border-rule-2 lg:grid-cols-4">
+            {indexCells.map((c, i) => (
+              <div key={c.label} className={indexCellCls(i)}>
+                <dt className="label mb-2">{c.label}</dt>
+                <dd className="figure text-xl leading-none text-ink sm:text-2xl">{c.value}</dd>
+                <dd className="ref mt-1.5">{c.sub}</dd>
+              </div>
+            ))}
+          </dl>
         </div>
+
+        {/* the columns legend — states what Mark and Δ measure once, up front,
+            so the Δ column never sits over a number whose window is unstated */}
+        {categories.length > 0 && (
+          <p className="ref mb-6 block">{BOARD.columnsNote}</p>
+        )}
 
         {/* ── the boards, one per category ────────────────────────────── */}
         {categories.length === 0 ? (
@@ -246,14 +287,16 @@ export default function Terminal() {
           <div className="space-y-14">
             {categories.map(([category, repos]) => (
               <section key={category}>
-                <SectionRule label={category} meta={`${count(repos.length)} listings`} className="mb-5" />
+                <SectionRule label={category} meta={plural(repos.length, "listing")} className="mb-5" />
                 <div className="overflow-x-auto no-bar">
                   <table className="board min-w-[40rem]">
                     <thead>
                       <tr>
                         <th>{COLUMNS.listing}</th>
                         <th className="text-right">{COLUMNS.mark}</th>
-                        <th className="text-right">{COLUMNS.change}</th>
+                        <th className="text-right" title="Move across each listing's last ten recorded marks">
+                          {COLUMNS.change}
+                        </th>
                         <th className="hidden text-right md:table-cell">{COLUMNS.stars}</th>
                         <th className="hidden w-[76px] sm:table-cell" />
                         <th className="w-[92px]" />

@@ -536,9 +536,40 @@ app.get('/api/discovery', discoveryLimiter, async (req, res) => {
             return acc;
         }, {});
 
+        // Dedupe same-repo listings admitted under different tickers (the known
+        // react/react vs facebook/react defect). The ticker STRING is not a
+        // reliable identity — GitHub redirects an alias to the canonical repo and
+        // returns the same data — so key on repo identity: the resolved GitHub
+        // node id when the row carries one, otherwise the metric fingerprint
+        // (identical stars + mark means the same underlying repo, whichever alias
+        // fetched it). When two tickers collide, keep the canonical one: an
+        // owner/name pair that isn't just the repo named after itself.
+        //
+        // This is the read-side half. The durable half — a github_node_id column
+        // populated by the worker — is migrations/002_repo_identity.sql; once it
+        // lands, add github_node_id to the SELECT above and identity() prefers it
+        // with no other change.
+        const selfNamed = (r) => {
+            const [o = "", n = ""] = String(r.ticker).split("/");
+            return o.toLowerCase() === n.toLowerCase();
+        };
+        const identity = (r) => r.github_node_id ?? `${r.raw_stars}:${r.current_price}`;
+        const byIdentity = new Map();
+        for (const repo of result.rows) {
+            const key = identity(repo);
+            if (!byIdentity.has(key)) {
+                byIdentity.set(key, repo);
+            } else {
+                // prefer the non-self-named alias (drops react/react for facebook/react)
+                const kept = byIdentity.get(key);
+                if (selfNamed(kept) && !selfNamed(repo)) byIdentity.set(key, repo);
+            }
+        }
+        const dedupedRows = [...byIdentity.values()];
+
         // group everything by category so the frontend can just render each key as its
         // own row of cards without doing any grouping logic on its end
-        const groupedData = result.rows.reduce((acc, repo) => {
+        const groupedData = dedupedRows.reduce((acc, repo) => {
             const categoryName = repo.category || "Uncategorized";
             if (!acc[categoryName]) {
                 acc[categoryName] = [];
