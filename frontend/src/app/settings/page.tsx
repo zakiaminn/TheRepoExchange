@@ -16,6 +16,7 @@ export default function SettingsPage() {
   const [email, setEmail] = useState("");
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
+  const [created, setCreated] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [initializing, setInitializing] = useState(true);
   const [message, setMessage] = useState<ToastMessage>(null);
@@ -32,6 +33,7 @@ export default function SettingsPage() {
       setEmail(user.email || "");
       setFirstName(user.user_metadata?.first_name || "");
       setLastName(user.user_metadata?.last_name || "");
+      setCreated(user.created_at || null);
       setInitializing(false);
     };
     check();
@@ -62,7 +64,7 @@ export default function SettingsPage() {
   if (initializing) {
     return (
       <div className="flex-1 pb-20">
-        <main className="mx-auto w-full max-w-2xl px-5 py-10 sm:px-8 sm:py-12">
+        <main className="mx-auto w-full max-w-4xl px-5 py-10 sm:px-8 sm:py-12">
           <Skeleton className="h-3 w-24" />
           <Skeleton className="mt-6 h-9 w-56" />
           <Skeleton className="mt-3 h-4 w-72 max-w-full" />
@@ -79,9 +81,19 @@ export default function SettingsPage() {
     );
   }
 
+  // admission date off the auth record, stamped in the document month style.
+  const MONTHS = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
+  const admitted = created
+    ? (() => {
+        const d = new Date(created);
+        return `${String(d.getDate()).padStart(2, "0")} ${MONTHS[d.getMonth()]} ${d.getFullYear()}`;
+      })()
+    : "—";
+  const fullName = [firstName, lastName].filter(Boolean).join(" ") || "—";
+
   return (
     <div className="flex-1 pb-20">
-      <main className="mx-auto w-full max-w-2xl px-5 py-10 sm:px-8 sm:py-12">
+      <main className="mx-auto w-full max-w-4xl px-5 py-10 sm:px-8 sm:py-12">
         <Link href="/" className="label inline-block transition-colors hover:text-brand-ink">
           ← {NAV.back}
         </Link>
@@ -93,46 +105,72 @@ export default function SettingsPage() {
         />
 
         <h1 className="display mb-2 text-4xl text-ink">{ACCOUNT.title}</h1>
-        <p className="prose-measure mb-9 text-sm leading-relaxed text-ink-2">{ACCOUNT.body}</p>
+        <p className="prose-measure mb-10 text-sm leading-relaxed text-ink-2">{ACCOUNT.body}</p>
 
-        <Panel registered className="p-6 sm:p-8">
-          <form onSubmit={save} className="space-y-5">
-            <Field label="Email address" hint={ACCOUNT.emailLocked}>
-              <input type="email" value={email} disabled className="field font-mono text-[13px]" />
-            </Field>
+        {/* the file on the left, the one amendable thing on the right. the
+            record reads as a ledger; the amendment is the box you write in. */}
+        <div className="grid gap-x-12 gap-y-10 lg:grid-cols-2 lg:items-start">
+          {/* ── the record ── */}
+          <section>
+            <SectionRule label="On file" className="mb-4" />
+            <dl className="border-t border-rule-2">
+              <div className="flex items-baseline justify-between gap-4 border-b border-rule py-3">
+                <dt className="label">Member</dt>
+                <dd className="text-[13px] text-ink">{fullName}</dd>
+              </div>
+              <div className="flex items-baseline justify-between gap-4 border-b border-rule py-3">
+                <dt className="label">Admitted</dt>
+                <dd className="figure text-[13px] text-ink">{admitted}</dd>
+              </div>
+              <div className="flex items-baseline justify-between gap-4 py-3">
+                <dt className="label">Address</dt>
+                <dd className="figure max-w-[60%] truncate text-[13px] text-ink" title={email}>{email}</dd>
+              </div>
+            </dl>
+            <p className="ref mt-3 block leading-relaxed">
+              The address is bound to your credentials and is changed through the sign-in flow, not here.
+            </p>
+          </section>
 
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <Field label="First name">
-                <input
-                  type="text"
-                  value={firstName}
-                  onChange={(e) => setFirstName(e.target.value)}
-                  required
-                  autoComplete="given-name"
-                  className="field"
-                />
-              </Field>
-              <Field label="Last name">
-                <input
-                  type="text"
-                  value={lastName}
-                  onChange={(e) => setLastName(e.target.value)}
-                  required
-                  autoComplete="family-name"
-                  className="field"
-                />
-              </Field>
-            </div>
+          {/* ── the amendment ── */}
+          <section>
+            <SectionRule label="Amendment" className="mb-4" />
+            <Panel registered className="p-6 sm:p-7">
+              <form onSubmit={save} className="space-y-5">
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                  <Field label="First name">
+                    <input
+                      type="text"
+                      value={firstName}
+                      onChange={(e) => setFirstName(e.target.value)}
+                      required
+                      autoComplete="given-name"
+                      className="field"
+                    />
+                  </Field>
+                  <Field label="Last name">
+                    <input
+                      type="text"
+                      value={lastName}
+                      onChange={(e) => setLastName(e.target.value)}
+                      required
+                      autoComplete="family-name"
+                      className="field"
+                    />
+                  </Field>
+                </div>
 
-            <div className="border-t border-rule pt-5">
-              <button type="submit" disabled={saving} className="ctl ctl-primary w-full sm:w-auto">
-                {saving ? ACCOUNT.saving : ACCOUNT.save}
-              </button>
-            </div>
-          </form>
-        </Panel>
+                <div className="border-t border-rule pt-5">
+                  <button type="submit" disabled={saving} className="ctl ctl-primary w-full">
+                    {saving ? ACCOUNT.saving : ACCOUNT.save}
+                  </button>
+                </div>
+              </form>
+            </Panel>
+          </section>
+        </div>
 
-        <Notice label={NOTICE.label} className="mt-10">
+        <Notice label={NOTICE.label} className="mt-12">
           {NOTICE.body}
         </Notice>
       </main>

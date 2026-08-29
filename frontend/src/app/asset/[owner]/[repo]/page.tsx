@@ -185,13 +185,15 @@ export default function ListingPage(props: PageProps) {
     if (!chartContainerRef.current || view.data.length === 0 || listed === false) return;
 
     const dark = resolvedTheme === "dark";
-    // pulled from the Bureau tokens; lightweight-charts needs literal values
-    const ink3 = dark ? "#85818C" : "#6E6A75";
-    const ink = dark ? "#EDEAE3" : "#16151A";
-    const rule = dark ? "#2A2A33" : "#DCD7CC";
-    const brand = dark ? "#F5A623" : "#C77A0A";
-    const wash = dark ? "rgba(245,166,35,0.16)" : "rgba(199,122,10,0.14)";
-    const fade = dark ? "rgba(245,166,35,0)" : "rgba(199,122,10,0)";
+    // pulled from the Bureau tokens; lightweight-charts needs literal values.
+    // the series carries the Sulfur brand — the bright chartreuse on dark, the
+    // text-safe olive on light so the line reads against the Chalk ground.
+    const ink3 = dark ? "#86846F" : "#78766A";
+    const ink = dark ? "#EDEDE0" : "#16160E";
+    const rule = dark ? "#29291C" : "#E5E5E1";
+    const brand = dark ? "#DCEC3A" : "#6F7A00";
+    const wash = dark ? "rgba(220,236,58,0.20)" : "rgba(220,236,58,0.22)";
+    const fade = dark ? "rgba(220,236,58,0)" : "rgba(220,236,58,0)";
 
     const chart = createChart(chartContainerRef.current, {
       layout: {
@@ -299,6 +301,15 @@ export default function ListingPage(props: PageProps) {
   const positionPnl =
     currentPrice !== null && avgPrice !== null ? (currentPrice - avgPrice) * ownedShares : null;
 
+  // the valuation panel shows the raw metric contributions, but the mark is
+  // those aged by recency and with issue-drag capped — so the five rows don't
+  // sum to it. rather than imply they do, show the difference as its own line
+  // (the net of aging + caps) so the column reconciles to the mark exactly.
+  const rawSubtotal = asset
+    ? VALUATION.reduce((s, v) => s + (v.neg ? -1 : 1) * Number(asset[v.key] ?? 0) * v.unit, 0)
+    : 0;
+  const adjustment = currentPrice !== null ? currentPrice - rawSubtotal : null;
+
   return (
     <div className="flex-1 pb-20">
       <main className="mx-auto w-full max-w-[64rem] px-5 py-8 sm:px-8 sm:py-10">
@@ -306,7 +317,10 @@ export default function ListingPage(props: PageProps) {
           ← {NAV.back}
         </Link>
 
-        {/* ── listing header ─────────────────────────────────────────── */}
+        {/* ── quote header ─────────────────────────────────────────────
+            The security's identity and its mark, full width. The mark is a
+            derived figure, not a quote off a wire — the derivation is spelled
+            out in the valuation panel below, where it can be checked by hand. */}
         <div className="mt-6 border-b border-rule-2 pb-8">
           <SectionRule
             label="Listing"
@@ -319,7 +333,15 @@ export default function ListingPage(props: PageProps) {
               <h1 className="display truncate text-[clamp(2.25rem,6vw,4rem)] uppercase text-ink">
                 {repo}
               </h1>
-              <p className="figure mt-1 text-sm text-ink-3">{owner}</p>
+              <p className="figure mt-1 flex items-center gap-2 text-sm text-ink-3">
+                <span className="truncate">{owner}</span>
+                {asset && Number(asset.raw_stars) > 0 ? (
+                  <>
+                    <span className="text-rule-2" aria-hidden="true">·</span>
+                    <span className="whitespace-nowrap">{countCompact(Number(asset.raw_stars))} stars</span>
+                  </>
+                ) : null}
+              </p>
             </div>
 
             <div className="sm:text-right">
@@ -343,180 +365,195 @@ export default function ListingPage(props: PageProps) {
           </div>
         </div>
 
-        {/* ── history ────────────────────────────────────────────────── */}
-        <section className="mt-10">
-          <div className="mb-4 flex items-center justify-between gap-4">
-            <SectionRule label={SECTIONS.history} className="min-w-0 flex-1" />
-            {/* range control: a single bordered group of segments sharing
-                hairlines, not four separate buttons floating apart */}
-            <div className="flex shrink-0 border border-rule" role="group" aria-label={LABELS.range}>
-              {RANGES.map((r) => (
-                <button
-                  key={r.key}
-                  onClick={() => setRange(r.key)}
-                  aria-pressed={range === r.key}
-                  className={`figure border-r border-rule px-2.5 py-1.5 text-[11px] last:border-r-0 transition-colors ${
-                    range === r.key
-                      ? "bg-brand text-brand-fg"
-                      : "text-ink-2 hover:bg-paper-2 hover:text-ink"
-                  }`}
-                >
-                  {r.key}
-                </button>
-              ))}
-            </div>
+        {/* ── terminal body ────────────────────────────────────────────
+            Chart and derivation on the left, the order ticket on a sticky
+            rail to the right so it stays in reach while you read. On a phone
+            it stacks in reading order — price, chart, why the mark is what it
+            is, then the ticket last, because leading with the buy button is
+            what a casino would do. */}
+        <div className="mt-10 grid items-start gap-8 lg:grid-cols-[1.7fr_1fr] lg:gap-10">
+          {/* ── left: history + valuation ── */}
+          <div className="min-w-0">
+            <section>
+              <div className="mb-4 flex items-center justify-between gap-4">
+                <SectionRule label={SECTIONS.history} className="min-w-0 flex-1" />
+                {/* range control: a single bordered group of segments sharing
+                    hairlines, not four separate buttons floating apart */}
+                <div className="flex shrink-0 border border-rule" role="group" aria-label={LABELS.range}>
+                  {RANGES.map((r) => (
+                    <button
+                      key={r.key}
+                      onClick={() => setRange(r.key)}
+                      aria-pressed={range === r.key}
+                      className={`figure border-r border-rule px-2.5 py-1.5 text-[11px] last:border-r-0 transition-colors ${
+                        range === r.key
+                          ? "bg-brand text-brand-fg"
+                          : "text-ink-2 hover:bg-paper-2 hover:text-ink"
+                      }`}
+                    >
+                      {r.key}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <Panel registered className="p-4 sm:p-6">
+                {listed === null ? (
+                  <Skeleton className="h-[380px] w-full" />
+                ) : listed === false ? (
+                  <div className="flex h-[380px] flex-col items-center justify-center px-6 text-center">
+                    <div className="label label-ink mb-3">{ERROR.suspended}</div>
+                    <p className="prose-measure text-sm leading-relaxed text-ink-2">
+                      {ERROR.notListed(`${owner}/${repo}`)}
+                    </p>
+                    {error && <p className="ref mt-4">{error}</p>}
+                  </div>
+                ) : (
+                  <div ref={chartContainerRef} className="h-[380px] w-full" />
+                )}
+              </Panel>
+
+              {/* period statistics, read straight off the visible window */}
+              {listed === true && (
+                <dl className="mt-px grid grid-cols-2 border-x border-b border-rule sm:grid-cols-4">
+                  {[
+                    { term: LABELS.high, value: view.high !== null ? usd(view.high) : "-" },
+                    { term: LABELS.low, value: view.low !== null ? usd(view.low) : "-" },
+                    { term: LABELS.observations, value: count(view.observations) },
+                    { term: LABELS.range, value: range },
+                  ].map((s, i) => (
+                    <div
+                      key={s.term}
+                      className={`px-4 py-3 ${i < 3 ? "sm:border-r sm:border-rule" : ""} ${
+                        i % 2 === 0 ? "border-r border-rule sm:border-r" : ""
+                      } ${i < 2 ? "border-b border-rule sm:border-b-0" : ""}`}
+                    >
+                      <dt className="label mb-1">{s.term}</dt>
+                      <dd className="figure text-[13px] text-ink">{s.value}</dd>
+                    </div>
+                  ))}
+                </dl>
+              )}
+            </section>
+
+            {/* ── valuation breakdown — why the mark is what it is ── */}
+            {listed === true && asset && (
+              <section className="mt-12">
+                <SectionRule label={SECTIONS.valuation} className="mb-5" />
+                <Panel>
+                  {VALUATION.map((v, i) => {
+                    const n = Number(asset[v.key] ?? 0);
+                    const contrib = n * v.unit;
+                    return (
+                      <div
+                        key={v.key}
+                        className={`flex items-baseline justify-between gap-4 px-4 py-3 sm:px-6 ${
+                          i > 0 ? "border-t border-rule" : ""
+                        }`}
+                      >
+                        <div className="flex items-baseline gap-2 min-w-0">
+                          <span className="label label-ink">{v.label}</span>
+                          <span className="figure text-[12px] text-ink-3">{countCompact(n)}</span>
+                        </div>
+                        <div className="flex items-baseline gap-3">
+                          <span className="ref hidden sm:block">
+                            × ${v.unit < 1 ? v.unit.toFixed(3) : v.unit.toFixed(2)}
+                          </span>
+                          <span className={`figure text-[13px] ${v.neg ? "text-neg" : "text-pos"}`}>
+                            {v.neg ? "−" : "+"}
+                            {usd(Math.abs(contrib))}
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                  {adjustment !== null && (
+                    <div className="flex items-baseline justify-between gap-4 border-t border-rule px-4 py-3 sm:px-6">
+                      <span className="label label-ink">Aging &amp; caps</span>
+                      <span className={`figure text-[13px] ${adjustment < 0 ? "text-neg" : "text-pos"}`}>
+                        {adjustment < 0 ? "−" : "+"}
+                        {usd(Math.abs(adjustment))}
+                      </span>
+                    </div>
+                  )}
+                  <div className="flex items-baseline justify-between gap-4 border-t border-rule-2 px-4 py-3 sm:px-6">
+                    <span className="label label-ink">Mark</span>
+                    <span className="figure text-base text-ink">
+                      {currentPrice !== null ? usd(currentPrice) : "-"}
+                    </span>
+                  </div>
+                </Panel>
+                <p className="ref mt-3 block leading-relaxed">
+                  Popularity plus contribution, minus issue drag, then aged by how recently the repo
+                  was pushed. The aging and the issue-drag cap are the adjustment line, so the column
+                  reconciles to the mark.
+                </p>
+              </section>
+            )}
           </div>
 
-          <Panel registered className="p-4 sm:p-6">
-            {listed === null ? (
-              <Skeleton className="h-[380px] w-full" />
-            ) : listed === false ? (
-              <div className="flex h-[380px] flex-col items-center justify-center px-6 text-center">
-                <div className="label label-ink mb-3">{ERROR.suspended}</div>
-                <p className="prose-measure text-sm leading-relaxed text-ink-2">
-                  {ERROR.notListed(`${owner}/${repo}`)}
-                </p>
-                {error && <p className="ref mt-4">{error}</p>}
-              </div>
-            ) : (
-              <div ref={chartContainerRef} className="h-[380px] w-full" />
-            )}
-          </Panel>
+          {/* ── right: the order ticket, sticky ── */}
+          <aside className="lg:sticky lg:top-28">
+            <SectionRule label={SECTIONS.ticket} className="mb-5" />
 
-          {/* period statistics, read straight off the visible window */}
-          {listed === true && (
-            <dl className="mt-px grid grid-cols-2 border-x border-b border-rule sm:grid-cols-4">
-              {[
-                { term: LABELS.high, value: view.high !== null ? usd(view.high) : "-" },
-                { term: LABELS.low, value: view.low !== null ? usd(view.low) : "-" },
-                { term: LABELS.observations, value: count(view.observations) },
-                { term: LABELS.range, value: range },
-              ].map((s, i) => (
-                <div
-                  key={s.term}
-                  className={`px-4 py-3 ${i < 3 ? "sm:border-r sm:border-rule" : ""} ${
-                    i % 2 === 0 ? "border-r border-rule sm:border-r" : ""
-                  } ${i < 2 ? "border-b border-rule sm:border-b-0" : ""}`}
-                >
-                  <dt className="label mb-1">{s.term}</dt>
-                  <dd className="figure text-[13px] text-ink">{s.value}</dd>
+            <Panel registered className={listed === false ? "opacity-50" : ""}>
+              {/* position stats stacked as a ledger — the rail is narrow, so
+                  they read as rows, not a four-across strip */}
+              <dl>
+                <div className="flex items-baseline justify-between gap-3 border-b border-rule px-4 py-3">
+                  <dt className="label">{LABELS.position}</dt>
+                  <dd className="figure text-[13px] text-ink">
+                    {count(ownedShares)} <span className="text-[11px] text-ink-3">{LABELS.shares}</span>
+                  </dd>
                 </div>
-              ))}
-            </dl>
-          )}
-        </section>
+                <div className="flex items-baseline justify-between gap-3 border-b border-rule px-4 py-3">
+                  <dt className="label">Avg entry</dt>
+                  <dd className="figure text-[13px] text-ink">{avgPrice !== null ? usd(avgPrice) : "-"}</dd>
+                </div>
+                <div className="flex items-baseline justify-between gap-3 border-b border-rule px-4 py-3">
+                  <dt className="label">{LABELS.unrealised}</dt>
+                  <dd className={`figure text-[13px] ${toneClass(positionPnl)}`}>
+                    {positionPnl !== null && ownedShares > 0 ? usd(positionPnl) : "-"}
+                  </dd>
+                </div>
+                <div className="flex items-baseline justify-between gap-3 px-4 py-3">
+                  <dt className="label">{LABELS.purchasingPower}</dt>
+                  <dd className="figure text-[13px] text-ink">{balance !== null ? usd(balance) : "-"}</dd>
+                </div>
+              </dl>
 
-        {/* ── valuation breakdown — why the mark is what it is ─────────── */}
-        {listed === true && asset && (
-          <section className="mt-12">
-            <SectionRule label={SECTIONS.valuation} className="mb-5" />
-            <Panel>
-              {VALUATION.map((v, i) => {
-                const n = Number(asset[v.key] ?? 0);
-                const contrib = n * v.unit;
-                return (
-                  <div
-                    key={v.key}
-                    className={`flex items-baseline justify-between gap-4 px-4 py-3 sm:px-6 ${
-                      i > 0 ? "border-t border-rule" : ""
-                    }`}
-                  >
-                    <div className="flex items-baseline gap-2 min-w-0">
-                      <span className="label label-ink">{v.label}</span>
-                      <span className="figure text-[12px] text-ink-3">{countCompact(n)}</span>
-                    </div>
-                    <div className="flex items-baseline gap-3">
-                      <span className="ref hidden sm:block">
-                        × ${v.unit < 1 ? v.unit.toFixed(3) : v.unit.toFixed(2)}
-                      </span>
-                      <span className={`figure text-[13px] ${v.neg ? "text-neg" : "text-pos"}`}>
-                        {v.neg ? "−" : "+"}
-                        {usd(Math.abs(contrib))}
-                      </span>
-                    </div>
-                  </div>
-                );
-              })}
-              <div className="flex items-baseline justify-between gap-4 border-t border-rule-2 px-4 py-3 sm:px-6">
-                <span className="label label-ink">Mark</span>
-                <span className="figure text-base text-ink">
-                  {currentPrice !== null ? usd(currentPrice) : "-"}
-                </span>
-              </div>
-            </Panel>
-            <p className="ref mt-3 block leading-relaxed">
-              Popularity plus contribution, minus issue drag, aged by how recently the repo
-              was pushed. Not a plain sum — the issue drag is capped and stale repos decay.
-            </p>
-          </section>
-        )}
-
-        {/* ── ticket ─────────────────────────────────────────────────── */}
-        <section className="mt-12">
-          <SectionRule label={SECTIONS.ticket} className="mb-5" />
-
-          <Panel className={listed === false ? "opacity-50" : ""}>
-            <div className="grid grid-cols-2 border-b border-rule sm:grid-cols-4">
-              <div className="border-b border-r border-rule px-4 py-4 sm:border-b-0">
-                <div className="label mb-1.5">{LABELS.position}</div>
-                <div className="figure text-lg text-ink">
-                  {count(ownedShares)}{" "}
-                  <span className="text-[11px] text-ink-3">{LABELS.shares}</span>
-                </div>
-              </div>
-              <div className="border-b border-rule px-4 py-4 sm:border-b-0 sm:border-r">
-                <div className="label mb-1.5">Avg entry</div>
-                <div className="figure text-lg text-ink">
-                  {avgPrice !== null ? usd(avgPrice) : "-"}
-                </div>
-              </div>
-              <div className="border-r border-rule px-4 py-4">
-                <div className="label mb-1.5">{LABELS.unrealised}</div>
-                <div className={`figure text-lg ${toneClass(positionPnl)}`}>
-                  {positionPnl !== null && ownedShares > 0 ? usd(positionPnl) : "-"}
-                </div>
-              </div>
-              <div className="px-4 py-4">
-                <div className="label mb-1.5">{LABELS.purchasingPower}</div>
-                <div className="figure text-lg text-ink">
-                  {balance !== null ? usd(balance) : "-"}
-                </div>
-              </div>
-            </div>
-
-            <div className="flex flex-col gap-4 px-4 py-4 sm:flex-row sm:items-center sm:justify-between">
-              <p className="text-[12px] leading-relaxed text-ink-3">
-                Market orders only. Size is set on the ticket.
-              </p>
-              <div className="grid grid-cols-2 gap-2 sm:w-auto sm:grid-cols-2">
+              <div className="grid grid-cols-2 gap-2 border-t border-rule p-4">
                 <button
                   onClick={() => openTicket("BUY")}
                   disabled={listed !== true || processing !== null}
-                  className="ctl ctl-primary px-8"
+                  className="ctl ctl-primary"
                 >
                   {processing === "BUY" ? ORDER.routing : ORDER.buy}
                 </button>
                 <button
                   onClick={() => openTicket("SELL")}
                   disabled={listed !== true || processing !== null || ownedShares === 0}
-                  className="ctl ctl-neg px-8"
+                  className="ctl ctl-neg"
                 >
                   {processing === "SELL" ? ORDER.routing : ORDER.sell}
                 </button>
+                <p className="col-span-2 mt-1 text-[12px] leading-relaxed text-ink-3">
+                  Market orders only. Size is set on the ticket.
+                </p>
               </div>
-            </div>
-          </Panel>
+            </Panel>
 
-          {ownedShares === 0 && listed === true && (
-            <Notice className="mt-5">{ORDER.noPosition} Buy to open one.</Notice>
-          )}
-          {positionValue !== null && ownedShares > 0 && (
-            <p className="ref mt-4 block">
-              Position marked at {usd(positionValue)} against a cost basis of{" "}
-              {avgPrice !== null ? usd(avgPrice * ownedShares) : "-"}.
-            </p>
-          )}
-        </section>
+            {ownedShares === 0 && listed === true && (
+              <Notice className="mt-5">{ORDER.noPosition} Buy to open one.</Notice>
+            )}
+            {positionValue !== null && ownedShares > 0 && (
+              <p className="ref mt-4 block leading-relaxed">
+                Position marked at {usd(positionValue)} against a cost basis of{" "}
+                {avgPrice !== null ? usd(avgPrice * ownedShares) : "-"}.
+              </p>
+            )}
+          </aside>
+        </div>
       </main>
 
       {pending && currentPrice !== null && (

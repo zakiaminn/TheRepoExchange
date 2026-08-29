@@ -23,7 +23,7 @@ export const BRAND = {
   ticker: "TRX",
   name: "The Repo Exchange",
   full: "TRX · The Repo Exchange",
-  est: "EST. MMXXV",
+  est: "Est. 2025",
   tagline: "A market in open source.",
 } as const;
 
@@ -81,9 +81,18 @@ export const CTA = {
   action: "Open an account",
 } as const;
 
+/** The board's own note on what its columns mean. The Δ basis is stated
+    plainly because the change is measured over a defined window (each listing's
+    last ten recorded marks), not a calendar period — and a change column that
+    doesn't say what it measures has no business existing. */
+export const BOARD = {
+  columnsNote: "Mark is the price now. Δ is the move across each listing's last ten recorded marks.",
+} as const;
+
 /** Section headings across the product. */
 export const SECTIONS = {
   board: "The board",
+  market: "Market",
   listings: "Listings",
   mechanics: "Mechanics",
   clauses: "Procedure",
@@ -106,6 +115,7 @@ export const COLUMNS = {
   qty: "Qty",
   avg: "Avg",
   value: "Value",
+  weight: "Weight",
   pnl: "P/L",
   action: "",
 } as const;
@@ -228,6 +238,7 @@ export const NAV = {
 
 export const LABELS = {
   purchasingPower: "Purchasing power",
+  listedValue: "Listed value",
   netWorth: "Net asset value",
   cash: "Cash",
   positionsValue: "Positions",

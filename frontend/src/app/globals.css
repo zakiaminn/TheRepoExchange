@@ -30,7 +30,7 @@
      Chalk. all three pass contrast on the ground. */
   --ink:   #16160E;
   --ink-2: #565448;
-  --ink-3: #78766A;
+  --ink-3: #6E6C60;   /* 5.05:1 on Chalk — tertiary text (labels, refs, sublabels) clears AA */
 
   /* the hairlines. --rule-2 is the heavier one for real structural breaks
      (section rules, table headers); --rule is everything else. */

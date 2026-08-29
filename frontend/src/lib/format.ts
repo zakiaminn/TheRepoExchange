@@ -41,6 +41,13 @@ export function count(value: number | string | null | undefined): string {
   return new Intl.NumberFormat("en-US").format(n);
 }
 
+/** "1 listing" / "12 listings" — a count with a noun that agrees with it. */
+export function plural(value: number, singular: string, pluralForm?: string): string {
+  const n = Number(value);
+  const word = n === 1 ? singular : pluralForm ?? `${singular}s`;
+  return `${count(n)} ${word}`;
+}
+
 /** 12.4K — compact counts, for star totals and volumes. */
 export function countCompact(value: number | string | null | undefined): string {
   const n = Number(value);
