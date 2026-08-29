@@ -7,6 +7,7 @@ import { ThemeToggle } from "@/components/ThemeToggle";
 import { MiniSparkline } from "@/components/MiniSparkline";
 import { TickerTape, type TapeItem } from "@/components/TickerTape";
 import { SectionRule, DocRef, Notice, LiveDot, LiveClock } from "@/components/ui";
+import { SecurityPaper } from "@/components/SecurityPaper";
 import { usd, pct, count, countCompact, change, toneClass, tickerParts } from "@/lib/format";
 import { BRAND, HERO, MECHANICS, CLAUSES, NOTICE, CTA, SECTIONS, COLUMNS, AUTH, NAV, FOOTER, LABELS } from "@/lib/copy";
 
@@ -104,19 +105,17 @@ export function LandingPage() {
 
       <main className="mx-auto w-full max-w-[76rem] flex-1 px-5 sm:px-8">
         {/* ── lead ───────────────────────────────────────────────────── */}
-        <section className="pb-16 pt-14 sm:pb-24 sm:pt-20">
-          <SectionRule
-            label={HERO.kicker}
-            meta={<DocRef code="TRX-MKT-0001" />}
-            className="mb-12"
-          />
+        <section className="relative overflow-hidden pb-16 pt-16 sm:pb-24 sm:pt-24">
+          {/* the engraved seal, bleeding off the top-right and fading into the
+              page behind the headline. it's the guilloche an institution presses
+              into a document to mark it as its own. */}
+          <SecurityPaper className="veil pointer-events-none absolute -right-28 -top-24 z-0 h-[28rem] w-[28rem] text-brand-ink opacity-[0.07] sm:-right-16 sm:h-[40rem] sm:w-[40rem] dark:opacity-[0.11]" />
 
-          <div className="grid gap-12 lg:grid-cols-12 lg:gap-16">
+          <div className="relative z-10 grid gap-12 lg:grid-cols-12 lg:gap-16">
             <div className="lg:col-span-8">
-              {/* the italic is doing real work — it's the one place on the
-                  page the serif is allowed to be expressive, and it lands on
-                  the two words that carry the whole premise */}
-              <h1 className="display reveal text-[clamp(2.75rem,8vw,5.75rem)] text-ink">
+              {/* the swipe underline lands on the two words that carry the whole
+                  premise. it's the one place the accent shows up mid-sentence. */}
+              <h1 className="display reveal text-[clamp(2.75rem,8vw,5.5rem)] text-ink">
                 A market in
                 <br />
                 <span className="swipe">open source.</span>
@@ -196,7 +195,7 @@ export function LandingPage() {
                       </td>
                       <td className="num text-[13px] text-ink">{usd(l.current_price)}</td>
                       <td className={`num text-[13px] ${toneClass(l.delta)}`}>
-                        {l.delta === null ? "—" : pct(l.delta)}
+                        {l.delta === null ? "-" : pct(l.delta)}
                       </td>
                       <td className="num hidden text-[13px] text-ink-2 sm:table-cell">
                         {countCompact(l.raw_stars)}
@@ -217,8 +216,8 @@ export function LandingPage() {
         </section>
 
         {/* ── procedure ──────────────────────────────────────────────── */}
+        {/* no ruled eyebrow here on purpose: the § numbering is the heading. */}
         <section className="pb-20 sm:pb-28">
-          <SectionRule label={SECTIONS.clauses} className="mb-10" />
           <div className="grid gap-10 md:grid-cols-3 md:gap-12">
             {CLAUSES.map((c) => (
               <article key={c.n}>
@@ -255,12 +254,12 @@ export function LandingPage() {
 
         {/* ── admission ──────────────────────────────────────────────── */}
         <section className="pb-20 sm:pb-28">
-          <div className="relative border border-rule-2 bg-paper-2 px-6 py-14 text-center sm:px-12 sm:py-20">
-            {/* the seal, oversized and nearly invisible, sitting behind the
-                block — a watermark, which is what an institution puts on a
-                document it wants to look official */}
-            <div className="relative">
-              <p className="label mb-5">{CTA.kicker}</p>
+          <div className="registered relative overflow-hidden border border-rule-2 bg-paper-2 px-6 py-16 text-center sm:px-12 sm:py-24">
+            {/* the seal the block always wanted: the engraved rosette, oversized
+                and nearly invisible, centred behind the copy the way an
+                institution watermarks a document it wants to look official. */}
+            <SecurityPaper className="veil pointer-events-none absolute left-1/2 top-1/2 z-0 h-[26rem] w-[26rem] -translate-x-1/2 -translate-y-1/2 text-brand-ink opacity-[0.06] sm:h-[32rem] sm:w-[32rem] dark:opacity-[0.09]" />
+            <div className="relative z-10">
               <h2 className="display mx-auto max-w-xl text-[clamp(1.85rem,4.5vw,3rem)] text-ink">
                 {CTA.headline}
               </h2>
@@ -274,7 +273,7 @@ export function LandingPage() {
 
         {/* ── notice ─────────────────────────────────────────────────── */}
         <section className="pb-20 sm:pb-24">
-          <Notice label={NOTICE.label} tone="brand">
+          <Notice tone="brand">
             {NOTICE.body}
           </Notice>
         </section>

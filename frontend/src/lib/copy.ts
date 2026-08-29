@@ -1,16 +1,17 @@
-// every word the user reads lives in this one file. that's on purpose — the
-// second you spread copy across components, the tone drifts and you end up
-// sounding like a serious exchange on one page and a peppy onboarding wizard
-// on the next.
+// every word the user reads lives in this one file. keeping copy in one place
+// is how the tone stays put: the moment it's spread across components it
+// drifts, and you end up sounding like a clearing house on one page and a
+// peppy onboarding wizard on the next.
 //
-// the voice: deadpan. TRX talks like an old clearing house that has never once
-// been told it's trading GitHub repos. the whole joke is the gap between how
-// seriously it talks and the fact that the "asset" is a JS runtime — so the
-// moment the copy winks at the joke, the joke's dead.
+// the voice: plain and exact. TRX states what is true about the market and
+// stops. it doesn't cheer, wink, or explain its own premise back to you. the
+// institutional register is real, not a costume. it reads as serious because
+// it says exactly what it means and nothing more.
 //
 // house rules:
 //   - state facts. don't cheer the user on, congratulate them, or reassure.
 //   - no exclamation marks, no emoji, none of "just/simply/oops/let's".
+//   - no em-dashes. a period or a comma does the same work.
 //   - failures are notices, not apologies. "Ledger unreachable." not
 //     "Something went wrong! Please try again."
 //   - empty states are about the record, not the person. "No positions of
@@ -31,14 +32,14 @@ export const HERO = {
   headline: "A market in open source.",
   // The dek does three jobs in two sentences: says what it is, says where the
   // prices come from, and admits it isn't real — before anyone has to ask.
-  dek: "Listings are priced from live GitHub activity. Positions are simulated, settlement is immediate, and nothing offered here is a security.",
+  dek: "Listings are priced from live GitHub activity. Positions are simulated, and nothing offered here is a security.",
   primary: "Open an account",
   secondary: "Read the mechanics",
 } as const;
 
 /** The board's own explanation of itself. Deadpan works because it's true. */
 export const MECHANICS: ReadonlyArray<{ term: string; value: string }> = [
-  { term: "Pricing basis", value: "GitHub stars, polled continuously. One star, one cent." },
+  { term: "Pricing basis", value: "Weighted from live GitHub activity. Stars, forks and watchers lift a listing; open pull requests add and open issues subtract. Polled continuously." },
   { term: "Settlement", value: "Immediate. T+0." },
   { term: "Opening capital", value: "$100,000.00, credited once, non-renewable." },
   { term: "Order types", value: "Market only. Slippage is checked at the ledger and rejected, not absorbed." },
@@ -133,7 +134,7 @@ export const ERROR = {
   ledger: "Ledger unreachable. Retrying.",
   ledgerRefused: "Connection refused by the ledger.",
   engine: "Data engine unavailable.",
-  // "Not listed" rather than "not found" — the exchange's framing, not the
+  // "Not listed" rather than "not found": the exchange's framing, not the
   // filesystem's. A repository that doesn't exist simply isn't admitted.
   notListed: (ticker: string) =>
     `${ticker} is not admitted for trading. The repository is private, renamed, or does not exist.`,
@@ -249,6 +250,6 @@ export const LABELS = {
 
 export const FOOTER = {
   colophon:
-    "Set in Newsreader, Public Sans, and IBM Plex Mono. Prices derived from the GitHub REST API. No part of this exchange is real.",
+    "Set in Bricolage Grotesque and Martian Mono. Prices derived from the GitHub REST API. No part of this exchange is real.",
   rights: (year: number) => `© ${year} ${BRAND.name}`,
 } as const;

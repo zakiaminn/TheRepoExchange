@@ -327,6 +327,14 @@ body::before {
 }
 @keyframes skeleton-sweep { to { transform: translateX(100%); } }
 
+/* radial fade for the engraved backdrop (see <SecurityPaper>). softens the
+   guilloche into the page toward its edges so it reads as a watermark pressed
+   into the paper, not a graphic pasted on top. */
+.veil {
+  -webkit-mask-image: radial-gradient(closest-side, #000 52%, transparent 100%);
+  mask-image: radial-gradient(closest-side, #000 52%, transparent 100%);
+}
+
 /* ═══ CONTROLS ═══════════════════════════════════════════════════════════ */
 
 .ctl {

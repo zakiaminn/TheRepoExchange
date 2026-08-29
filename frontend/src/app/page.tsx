@@ -290,7 +290,7 @@ export default function Terminal() {
                               {usd(repo.current_price)}
                             </td>
                             <td className={`num text-[13px] ${toneClass(delta)}`}>
-                              {delta === null ? "—" : pct(delta)}
+                              {delta === null ? "-" : pct(delta)}
                             </td>
                             <td className="num hidden text-[13px] text-ink-2 md:table-cell">
                               {countCompact(repo.raw_stars)}

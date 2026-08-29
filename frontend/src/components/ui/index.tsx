@@ -126,7 +126,7 @@ export function Delta({
   showFlat?: boolean;
 }) {
   if (value === null || value === undefined || !Number.isFinite(Number(value))) {
-    return showFlat ? <span className={cx("figure text-ink-3", className)}>—</span> : null;
+    return showFlat ? <span className={cx("figure text-ink-3", className)}>-</span> : null;
   }
   return <span className={cx("figure", toneClass(value), className)}>{pct(value)}</span>;
 }
