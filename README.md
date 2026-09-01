@@ -11,8 +11,8 @@ Disclaimer: It is entirely simulated. No real money. Just a sandbox to mess arou
 ### The Stack
 
 *   **Frontend:** Next.js + Tailwind (deployed on Vercel)
-*   **Backend Ledger:** Node.js + Express (deployed on Railway)
-*   **Data Engine:** Python (deployed on Railway)
+*   **Backend Ledger:** Node.js + Express (deployed on Render)
+*   **Data Engine:** Python (deployed on Render)
 *   **Database & Auth:** PostgreSQL + Supabase + Resend for SMTP
 
 ### Under the Hood
