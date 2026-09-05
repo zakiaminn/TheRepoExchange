@@ -7,7 +7,6 @@ import { createClient } from "@/utils/supabase/client";
 import { Wordmark } from "@/components/Logo";
 import { TickerTape, type TapeItem } from "@/components/TickerTape";
 import { LiveDot, LiveClock } from "@/components/ui";
-import { ThemeToggle } from "@/components/ThemeToggle";
 import { change } from "@/lib/format";
 import { NAV, STATE } from "@/lib/copy";
 
@@ -194,8 +193,6 @@ export function Header() {
     </form>
   );
 
-  const themeToggle = <ThemeToggle />;
-
   return (
     <header className="sticky top-0 z-40 border-b border-rule bg-[var(--paper)]/92 backdrop-blur-md">
       <div className="mx-auto flex h-14 max-w-[76rem] items-center gap-5 px-5 sm:px-8">
@@ -223,7 +220,6 @@ export function Header() {
           >
             {NAV.positions}
           </Link>
-          {themeToggle}
         </nav>
 
         <div ref={menuRef} className="relative hidden shrink-0 md:block">
@@ -293,10 +289,7 @@ export function Header() {
               <span className="figure flex h-7 w-7 items-center justify-center bg-paper-3 text-[11px] text-ink">{initials}</span>
               <span className="truncate text-[13px] text-ink-2">{displayName}</span>
             </span>
-            <span className="flex items-center gap-2">
-              {themeToggle}
-              <button onClick={signOut} className="label hover:text-brand-ink">Sign out</button>
-            </span>
+            <button onClick={signOut} className="label hover:text-brand-ink">Sign out</button>
           </div>
         </div>
       )}

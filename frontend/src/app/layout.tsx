@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import { Bricolage_Grotesque, Martian_Mono } from "next/font/google";
 import "./globals.css";
-import { ThemeProvider } from "@/components/ThemeProvider";
 import { Header } from "@/components/Header";
 
 // the fonts — and this is the actual trademark, meant to carry into every
@@ -47,16 +46,13 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      suppressHydrationWarning
       className={`${bricolage.variable} ${martian.variable} h-full`}
     >
       <body className="min-h-full flex flex-col">
-        <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
-          <div className="relative z-10 flex min-h-full flex-1 flex-col">
-            <Header />
-            {children}
-          </div>
-        </ThemeProvider>
+        <div className="relative z-10 flex min-h-full flex-1 flex-col">
+          <Header />
+          {children}
+        </div>
       </body>
     </html>
   );
