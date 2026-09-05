@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { Wordmark } from "@/components/Logo";
-import { ThemeToggle } from "@/components/ThemeToggle";
 import { MiniSparkline } from "@/components/MiniSparkline";
 import { TickerTape, type TapeItem } from "@/components/TickerTape";
 import { SectionRule, DocRef, Notice, LiveDot, LiveClock } from "@/components/ui";
@@ -91,7 +90,6 @@ export function LandingPage() {
             <Wordmark size="md" />
           </Link>
           <div className="flex items-center gap-2 sm:gap-3">
-            <ThemeToggle />
             <Link href="/login" className="hidden px-3 py-2 text-[13px] text-ink-2 transition-colors hover:text-brand-ink sm:block">
               {AUTH.signIn}
             </Link>

@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState, use } from "react";
 import { createChart, ColorType, IChartApi, ISeriesApi, AreaSeries, Time } from "lightweight-charts";
 import Link from "next/link";
 import { createClient } from "@/utils/supabase/client";
-import { useTheme } from "next-themes";
+import { usePrefersDark } from "@/lib/usePrefersDark";
 import { Toast, ToastMessage } from "@/components/Toast";
 import { ConfirmTradeModal } from "@/components/ConfirmTradeModal";
 import { SectionRule, DocRef, Panel, Notice, Skeleton, Delta } from "@/components/ui";
@@ -66,7 +66,7 @@ export default function ListingPage(props: PageProps) {
   const [pending, setPending] = useState<PendingTrade>(null);
   const [processing, setProcessing] = useState<"BUY" | "SELL" | null>(null);
 
-  const { resolvedTheme } = useTheme();
+  const isDark = usePrefersDark();
   const supabase = createClient();
 
   // unlike the home page, there's no logged-out version of this route
@@ -184,7 +184,7 @@ export default function ListingPage(props: PageProps) {
   useEffect(() => {
     if (!chartContainerRef.current || view.data.length === 0 || listed === false) return;
 
-    const dark = resolvedTheme === "dark";
+    const dark = isDark;
     // pulled from the Bureau tokens; lightweight-charts needs literal values.
     // the series carries the Sulfur brand — the bright chartreuse on dark, the
     // text-safe olive on light so the line reads against the Chalk ground.
@@ -247,7 +247,7 @@ export default function ListingPage(props: PageProps) {
       window.removeEventListener("resize", onResize);
       chart.remove(); // otherwise every theme toggle leaks an instance
     };
-  }, [view.data, resolvedTheme, listed]);
+  }, [view.data, isDark, listed]);
 
   const openTicket = (action: "BUY" | "SELL") => {
     if (currentPrice === null || !userId || listed !== true) return;

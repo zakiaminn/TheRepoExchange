@@ -1,5 +1,8 @@
 @import "tailwindcss";
-@custom-variant dark (&:where(.dark, .dark *));
+/* dark mode follows the OS, full stop. there's no in-app toggle: the `dark:`
+   utilities and every dark token below key off prefers-color-scheme, so the
+   page matches whatever the operating system is set to. */
+@custom-variant dark (@media (prefers-color-scheme: dark));
 
 /* the whole design system lives in this file. i call it "Bureau" and the plan
    is to reuse it across projects — TRX just happens to be the first one wearing
@@ -19,6 +22,10 @@
    everything else comes along for free. */
 
 :root {
+  /* tell the browser we support both, so native UI (scrollbars, form controls,
+     the caret) tracks the OS theme alongside our own tokens. */
+  color-scheme: light dark;
+
   /* backgrounds, lightest to darkest. "Chalk" isn't pure white on purpose —
      white feels a bit clinical, and the tiny bit of warmth ties it to the ink
      and the accent. three levels, that's all you get. */
@@ -86,7 +93,8 @@
   --dur-fast: 140ms;
 }
 
-.dark {
+@media (prefers-color-scheme: dark) {
+  :root {
   /* dark mode = a terminal, not a generic dark theme. the text stays warm
      (#EDEDE0, not pure white) so it still reads as the same brand as the light
      side and not some unrelated second skin. */
@@ -114,6 +122,7 @@
   --neg-wash: rgba(232, 99, 94, 0.14);
 
   --focus: #DCEC3A;
+  }
 }
 
 @theme inline {
@@ -188,7 +197,7 @@ body::before {
   opacity: 0.035;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
 }
-.dark body::before { opacity: 0.02; }
+@media (prefers-color-scheme: dark) { body::before { opacity: 0.02; } }
 
 ::selection { background: var(--brand); color: var(--brand-fg); }
 
@@ -372,11 +381,11 @@ body::before {
   border-color: var(--brand-ink);
   color: var(--paper);
 }
-.dark .ctl-primary:hover:not(:disabled) { filter: brightness(1.12); color: var(--brand-fg); }
+@media (prefers-color-scheme: dark) { .ctl-primary:hover:not(:disabled) { filter: brightness(1.12); color: var(--brand-fg); } }
 
 .ctl-pos { border-color: var(--pos); color: var(--pos); }
 .ctl-pos:hover:not(:disabled) { background: var(--pos); color: var(--paper); border-color: var(--pos); }
-.dark .ctl-pos:hover:not(:disabled) { color: var(--paper); }
+@media (prefers-color-scheme: dark) { .ctl-pos:hover:not(:disabled) { color: var(--paper); } }
 
 .ctl-neg { border-color: var(--neg); color: var(--neg); }
 .ctl-neg:hover:not(:disabled) { background: var(--neg); color: var(--paper); border-color: var(--neg); }
