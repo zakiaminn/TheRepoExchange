@@ -68,15 +68,16 @@
 
   --focus: #8A9600;
 
-  /* the fonts, and this is the actual trademark: Bricolage Grotesque for words,
-     Martian Mono for anything the machine spits out (numbers, labels, the
-     wordmark). display + sans both point at Bricolage for now — kept them as
+  /* the fonts, and this is the actual trademark: Bricolage Grotesque carries
+     everything a human reads AND the wordmark and labels; Spline Sans Mono is
+     kept strictly to the numbers the machine emits. "Bricolage reads, Spline
+     counts." display + sans both point at Bricolage for now — kept them as
      separate tokens so a future project can split them without touching a
      single component. (don't rename the next/font vars to --font-sans/mono,
      tailwind v4 eats them — see the other note about that.) */
   --font-display: var(--font-bricolage), "Helvetica Neue", Arial, sans-serif;
   --font-sans:    var(--font-bricolage), "Helvetica Neue", Arial, sans-serif;
-  --font-mono:    var(--font-martian), ui-monospace, "SF Mono", Menlo, monospace;
+  --font-mono:    var(--font-spline), ui-monospace, "SF Mono", Menlo, monospace;
 
   /* spacing. everything sits on an 8px grid; the big section gaps are the only
      exception. */
@@ -258,7 +259,7 @@ body::before {
 .figure {
   font-family: var(--font-mono);
   font-variant-numeric: tabular-nums;
-  letter-spacing: -0.035em;   /* Martian runs wide — pull it in so number columns don't sprawl */
+  letter-spacing: -0.02em;   /* Spline sits at a normal width — a light pull keeps number columns tight */
 }
 
 /* the little machine-y bits — reference codes, timestamps, session ids. kept
