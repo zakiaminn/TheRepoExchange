@@ -261,6 +261,6 @@ export const LABELS = {
 
 export const FOOTER = {
   colophon:
-    "Set in Bricolage Grotesque and Martian Mono. Prices derived from the GitHub REST API. No part of this exchange is real.",
+    "Set in Bricolage Grotesque and Spline Sans Mono. Prices derived from the GitHub REST API. No part of this exchange is real.",
   rights: (year: number) => `© ${year} ${BRAND.name}`,
 } as const;

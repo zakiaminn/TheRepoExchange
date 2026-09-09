@@ -3,8 +3,9 @@
    the one move: the X is set in the accent (Sulfur). it's the exchange letter,
    it's the strongest glyph in "TRX", and it gives us a free one-letter favicon
    (see app/icon.svg). the X uses --brand-ink, not --brand, so it stays legible
-   as text — deep olive on the light ground, bright on dark. everything else is
-   ink, set in Martian Mono like the rest of the machine voice.
+   as text — deep olive on the light ground, bright on dark. the wordmark is
+   set in Bricolage semibold now: the mono is kept strictly to the numbers, so
+   the name reads as the brand's voice, not its machine output.
 
    (the old octagon seal is retired — this replaced it.) */
 
@@ -25,7 +26,7 @@ export function Wordmark({
 
   return (
     <span className={`inline-flex items-center ${s.gap} ${className}`}>
-      <span className={`figure ${s.ticker} font-semibold text-ink leading-none tracking-[0.04em]`}>
+      <span className={`font-sans ${s.ticker} font-semibold text-ink leading-none tracking-[0.04em]`}>
         TR<span className="text-brand-ink">X</span>
       </span>
       {showName && (

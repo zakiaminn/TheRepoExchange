@@ -1,18 +1,20 @@
 import type { Metadata } from "next";
-import { Bricolage_Grotesque, Martian_Mono } from "next/font/google";
+import { Bricolage_Grotesque, Spline_Sans_Mono } from "next/font/google";
 import "./globals.css";
 import { Header } from "@/components/Header";
 
 // the fonts — and this is the actual trademark, meant to carry into every
 // project i build, not just TRX:
 //
-//   Bricolage Grotesque = the words. slightly wonky, mixed-width grotesque
-//   with real character (look at the g) that still reads fine at any size. it
-//   looks chosen, which is the whole point — not a default.
+//   Bricolage Grotesque = the words, and now the mark too. slightly wonky,
+//   mixed-width grotesque with real character (look at the g) that still reads
+//   fine at any size. it carries titles, body, every label, and the "TRX"
+//   wordmark itself.
 //
-//   Martian Mono = the machine voice AND the logo. every number, every
-//   reference code, and the "TRX" wordmark itself use it. making the mono the
-//   brand mark is the ownable bit — it reads as built-by-someone-who-ships.
+//   Spline Sans Mono = the numbers, and only the numbers. every figure, every
+//   reference code and timestamp. it replaced Martian Mono (2026-09), which had
+//   started reading as a generic/AI mono; the rule tightened to "Bricolage
+//   reads, Spline counts" with the mono kept strictly to the machine's output.
 
 const bricolage = Bricolage_Grotesque({
   subsets: ["latin"],
@@ -20,9 +22,9 @@ const bricolage = Bricolage_Grotesque({
   display: "swap",
 });
 
-const martian = Martian_Mono({
+const spline = Spline_Sans_Mono({
   subsets: ["latin"],
-  variable: "--font-martian",
+  variable: "--font-spline",
   display: "swap",
 });
 
@@ -46,7 +48,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${bricolage.variable} ${martian.variable} h-full`}
+      className={`${bricolage.variable} ${spline.variable} h-full`}
     >
       <body className="min-h-full flex flex-col">
         <div className="relative z-10 flex min-h-full flex-1 flex-col">
