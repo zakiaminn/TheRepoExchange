@@ -1,0 +1,24 @@
+name: TRX Call Settlement
+
+# Settles every open call whose deadline has passed, against the latest public star
+# count, and credits winners. The resolver lives in the ledger (POST /api/calls/settle);
+# this just pokes it on a schedule. It's idempotent, so an occasional double-run is safe.
+# Runs hourly, offset from the ingestion cron so the two don't fire at the same minute.
+
+on:
+  schedule:
+    - cron: '30 * * * *'
+  workflow_dispatch:
+
+jobs:
+  settle:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Settle due calls
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          curl -fsS -X POST https://trx-ledger.onrender.com/api/calls/settle \
+            -H "x-cron-secret: $CRON_SECRET" \
+            -H "content-type: application/json" \
+            -w $'\nHTTP %{http_code}\n'
