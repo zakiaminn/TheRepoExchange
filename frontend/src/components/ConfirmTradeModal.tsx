@@ -76,7 +76,7 @@ export function ConfirmTradeModal({
   const Row = ({ term, value }: { term: string; value: React.ReactNode }) => (
     <div className="flex items-baseline justify-between gap-4 border-b border-rule py-2.5">
       <span className="label">{term}</span>
-      <span className="figure text-[13px] text-ink">{value}</span>
+      <span className="text-[13px] text-ink">{value}</span>
     </div>
   );
 
@@ -100,7 +100,7 @@ export function ConfirmTradeModal({
 
         <div className="px-5 pb-1 pt-3">
           <Row term="Listing" value={ticker} />
-          <Row term={LABELS.mark} value={usd(price)} />
+          <Row term={LABELS.mark} value={<span className="figure">{usd(price)}</span>} />
 
           <div className="flex items-center justify-between gap-4 border-b border-rule py-2.5">
             <label htmlFor="ticket-qty" className="label">

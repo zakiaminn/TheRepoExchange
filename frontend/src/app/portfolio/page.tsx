@@ -225,10 +225,10 @@ export default function PortfolioPage() {
                               href={`/asset/${owner.toLowerCase()}/${repo.toLowerCase()}`}
                               className="group block"
                             >
-                              <span className="figure block truncate text-[13px] font-medium uppercase text-ink transition-colors group-hover:text-brand-ink">
+                              <span className="block truncate text-[13px] font-medium uppercase text-ink transition-colors group-hover:text-brand-ink">
                                 {repo}
                               </span>
-                              <span className="figure block truncate text-[11px] text-ink-3">
+                              <span className="block truncate text-[11px] text-ink-3">
                                 {owner}
                               </span>
                             </Link>
