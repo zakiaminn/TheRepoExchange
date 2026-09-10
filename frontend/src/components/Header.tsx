@@ -143,7 +143,7 @@ export function Header() {
         onFocus={() => setShowSuggestions(true)}
         placeholder={NAV.search}
         aria-label={NAV.search}
-        className="field h-9 pr-9 font-mono text-[13px]"
+        className="field h-9 pr-9 text-[13px]"
       />
       {/* the slash hint disappears the moment the field has focus or content */}
       {query.length === 0 && (
@@ -163,7 +163,7 @@ export function Header() {
                 onClick={() => goTo(s.ticker)}
                 className="flex w-full items-center justify-between gap-3 border-b border-rule px-3 py-2 text-left last:border-b-0 hover:bg-paper-2"
               >
-                <span className="figure truncate text-[13px] text-ink">{s.ticker}</span>
+                <span className="truncate text-[13px] text-ink">{s.ticker}</span>
                 <span className="label shrink-0 text-[10px]">{s.category}</span>
               </button>
             ))
@@ -209,7 +209,7 @@ export function Header() {
             aria-haspopup="menu"
             className="flex items-center gap-2.5 border border-rule py-1 pl-1 pr-3 transition-colors hover:border-rule-2"
           >
-            <span className="figure flex h-7 w-7 items-center justify-center bg-paper-3 text-[11px] font-medium text-ink">
+            <span className="flex h-7 w-7 items-center justify-center bg-paper-3 text-[11px] font-medium text-ink">
               {initials}
             </span>
             <span className="max-w-[9rem] truncate text-[13px] text-ink-2">{displayName}</span>
@@ -219,7 +219,7 @@ export function Header() {
             <div role="menu" className="absolute right-0 top-full z-50 mt-1 w-52 border border-rule-2 bg-paper">
               <div className="border-b border-rule px-3 py-2.5">
                 <div className="label mb-0.5">{NAV.account}</div>
-                <div className="figure truncate text-[11px] text-ink-2">{user?.email}</div>
+                <div className="truncate text-[11px] text-ink-2">{user?.email}</div>
               </div>
               <Link
                 href="/settings"
@@ -266,7 +266,7 @@ export function Header() {
           </div>
           <div className="mt-4 flex items-center justify-between border-t border-rule pt-4">
             <span className="flex items-center gap-2.5">
-              <span className="figure flex h-7 w-7 items-center justify-center bg-paper-3 text-[11px] text-ink">{initials}</span>
+              <span className="flex h-7 w-7 items-center justify-center bg-paper-3 text-[11px] text-ink">{initials}</span>
               <span className="truncate text-[13px] text-ink-2">{displayName}</span>
             </span>
             <button onClick={signOut} className="label hover:text-brand-ink">Sign out</button>

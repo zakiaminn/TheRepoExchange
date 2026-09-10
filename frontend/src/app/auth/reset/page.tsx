@@ -86,7 +86,7 @@ export default function ResetPage() {
                 onChange={(e) => setPassword(e.target.value)}
                 required
                 autoComplete="new-password"
-                className="field font-mono text-[13px]"
+                className="field text-[13px]"
               />
             </Field>
             <Field label={AUTH.confirmPassword}>
@@ -96,7 +96,7 @@ export default function ResetPage() {
                 onChange={(e) => setConfirm(e.target.value)}
                 required
                 autoComplete="new-password"
-                className="field font-mono text-[13px]"
+                className="field text-[13px]"
               />
             </Field>
             <button type="submit" disabled={loading} className="ctl ctl-primary w-full">

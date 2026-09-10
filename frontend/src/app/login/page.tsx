@@ -211,7 +211,7 @@ export default function LoginPage() {
                     return (
                       <tr key={s.ticker}>
                         <td>
-                          <span className="figure block truncate text-[12px] uppercase text-ink">
+                          <span className="block truncate text-[12px] uppercase text-ink">
                             {repo}
                           </span>
                         </td>
@@ -259,7 +259,7 @@ export default function LoginPage() {
                     onChange={(e) => setEmail(e.target.value)}
                     required
                     autoComplete="email"
-                    className="field font-mono text-[13px]"
+                    className="field text-[13px]"
                   />
                 </Field>
                 <button type="submit" disabled={loading} className="ctl ctl-primary w-full">
@@ -308,7 +308,7 @@ export default function LoginPage() {
                     onChange={(e) => setEmail(e.target.value)}
                     required
                     autoComplete="email"
-                    className="field font-mono text-[13px]"
+                    className="field text-[13px]"
                   />
                 </Field>
 
@@ -320,7 +320,7 @@ export default function LoginPage() {
                       onChange={(e) => setPassword(e.target.value)}
                       required
                       autoComplete={isSignUp ? "new-password" : "current-password"}
-                      className="field font-mono text-[13px]"
+                      className="field text-[13px]"
                     />
                   </Field>
                   {/* only offered on sign-in — there's nothing to recover mid-signup */}

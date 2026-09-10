@@ -124,7 +124,7 @@ export default function SettingsPage() {
               </div>
               <div className="flex items-baseline justify-between gap-4 py-3">
                 <dt className="label">Address</dt>
-                <dd className="figure max-w-[60%] truncate text-[13px] text-ink" title={email}>{email}</dd>
+                <dd className="max-w-[60%] truncate text-[13px] text-ink" title={email}>{email}</dd>
               </div>
             </dl>
             <p className="ref mt-3 block leading-relaxed">

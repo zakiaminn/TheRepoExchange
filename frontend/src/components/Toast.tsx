@@ -45,7 +45,7 @@ export function Toast({ message }: { message: ToastMessage }) {
         }`}
         style={{ background: "var(--paper)" }}
       >
-        <div className="figure text-[12px] leading-relaxed text-ink">{shown.text}</div>
+        <div className="text-[12px] leading-relaxed text-ink">{shown.text}</div>
       </div>
     </div>
   );

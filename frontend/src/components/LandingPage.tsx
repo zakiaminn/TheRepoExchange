@@ -133,13 +133,13 @@ export function LandingPage() {
               <dl className="border-t border-rule-2">
                 {[
                   { term: LABELS.session, value: <span className="inline-flex items-center gap-2"><LiveDot />Continuous <span className="text-rule-2" aria-hidden="true">·</span> <LiveClock /></span> },
-                  { term: "Listings", value: count(listings.length) },
-                  { term: "Opening capital", value: usd(100000) },
+                  { term: "Listings", value: <span className="figure">{count(listings.length)}</span> },
+                  { term: "Opening capital", value: <span className="figure">{usd(100000)}</span> },
                   { term: "Settlement", value: "T+0" },
                 ].map((row) => (
                   <div key={row.term} className="flex items-baseline justify-between gap-4 border-b border-rule py-3">
                     <dt className="label">{row.term}</dt>
-                    <dd className="figure text-[13px] text-ink">{row.value}</dd>
+                    <dd className="text-[13px] text-ink">{row.value}</dd>
                   </div>
                 ))}
               </dl>
@@ -179,10 +179,10 @@ export function LandingPage() {
                             route has no logged-out state and hard-redirects,
                             so pointing at it would flash a page and bounce */}
                         <Link href="/login" className="group block">
-                          <span className="figure block text-[13px] font-medium uppercase text-ink transition-colors group-hover:text-brand-ink">
+                          <span className="block text-[13px] font-medium uppercase text-ink transition-colors group-hover:text-brand-ink">
                             {repo}
                           </span>
-                          <span className="figure block text-[11px] text-ink-3">{owner}</span>
+                          <span className="block text-[11px] text-ink-3">{owner}</span>
                         </Link>
                       </td>
                       <td className="num text-[13px] text-ink">{usd(l.current_price)}</td>

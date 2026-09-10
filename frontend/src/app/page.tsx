@@ -321,10 +321,10 @@ export default function Terminal() {
                                 href={`/asset/${owner.toLowerCase()}/${name.toLowerCase()}`}
                                 className="group flex min-w-0 items-baseline gap-2"
                               >
-                                <span className="figure truncate text-[12px] font-medium uppercase text-ink transition-colors group-hover:text-brand-ink">
+                                <span className="truncate text-[12px] font-medium uppercase text-ink transition-colors group-hover:text-brand-ink">
                                   {name}
                                 </span>
-                                <span className="figure hidden truncate text-[11px] text-ink-3 sm:inline">
+                                <span className="hidden truncate text-[11px] text-ink-3 sm:inline">
                                   {owner}
                                 </span>
                               </Link>
@@ -399,7 +399,7 @@ export default function Terminal() {
                           <td>
                             <Link
                               href={`/asset/${owner.toLowerCase()}/${repo.toLowerCase()}`}
-                              className="figure text-[13px] text-ink transition-colors hover:text-brand-ink"
+                              className="text-[13px] text-ink transition-colors hover:text-brand-ink"
                             >
                               {h.ticker}
                             </Link>

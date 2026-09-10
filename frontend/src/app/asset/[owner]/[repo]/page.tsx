@@ -333,12 +333,12 @@ export default function ListingPage(props: PageProps) {
               <h1 className="display truncate text-[clamp(2.25rem,6vw,4rem)] uppercase text-ink">
                 {repo}
               </h1>
-              <p className="figure mt-1 flex items-center gap-2 text-sm text-ink-3">
+              <p className="mt-1 flex items-center gap-2 text-sm text-ink-3">
                 <span className="truncate">{owner}</span>
                 {asset && Number(asset.raw_stars) > 0 ? (
                   <>
                     <span className="text-rule-2" aria-hidden="true">·</span>
-                    <span className="whitespace-nowrap">{countCompact(Number(asset.raw_stars))} stars</span>
+                    <span className="whitespace-nowrap"><span className="figure">{countCompact(Number(asset.raw_stars))}</span> stars</span>
                   </>
                 ) : null}
               </p>
@@ -385,7 +385,7 @@ export default function ListingPage(props: PageProps) {
                       key={r.key}
                       onClick={() => setRange(r.key)}
                       aria-pressed={range === r.key}
-                      className={`figure border-r border-rule px-2.5 py-1.5 text-[11px] last:border-r-0 transition-colors ${
+                      className={`border-r border-rule px-2.5 py-1.5 text-[11px] last:border-r-0 transition-colors ${
                         range === r.key
                           ? "bg-brand text-brand-fg"
                           : "text-ink-2 hover:bg-paper-2 hover:text-ink"
