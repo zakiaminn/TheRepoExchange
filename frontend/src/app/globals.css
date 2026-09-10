@@ -477,16 +477,6 @@ body::before {
 .tick-pos { animation: bureau-tick-pos 900ms var(--ease); }
 .tick-neg { animation: bureau-tick-neg 900ms var(--ease); }
 
-/* the ticker tape. the content is rendered twice and slid by exactly -50%, so
-   the loop point lands perfectly and you never see the seam. */
-@keyframes bureau-tape { from { transform: translateX(0); } to { transform: translateX(-50%); } }
-.tape-track {
-  display: flex;
-  width: max-content;
-  animation: bureau-tape 70s linear infinite;
-}
-.tape:hover .tape-track { animation-play-state: paused; }
-
 }
 
 /* Everything above is decorative. All of it goes. */
@@ -497,7 +487,6 @@ body::before {
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
   }
-  .tape-track { animation: none; }
 }
 
 /* Hide scrollbars on horizontally-scrolling rails without losing the scroll. */

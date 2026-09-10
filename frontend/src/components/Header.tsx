@@ -5,18 +5,15 @@ import { useEffect, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { createClient } from "@/utils/supabase/client";
 import { Wordmark } from "@/components/Logo";
-import { TickerTape, type TapeItem } from "@/components/TickerTape";
 import { LiveDot, LiveClock } from "@/components/ui";
-import { change } from "@/lib/format";
 import { NAV, STATE } from "@/lib/copy";
 
 type TickerSuggestion = { ticker: string; category: string };
 
-/* the top bar. two rows: the masthead, and the ticker tape under it. that
-   title-then-quotes stack is how newspapers have opened their front page
-   forever, and it's most of why this feels like an exchange and not a
-   dashboard. shows up on every logged-in page; it just returns null when
-   there's no session (the landing page brings its own nav). */
+/* the top bar: the masthead, laid out like a newspaper front page, which is
+   most of why this feels like an exchange and not a dashboard. shows up on
+   every logged-in page; it just returns null when there's no session (the
+   landing page brings its own nav). */
 export function Header() {
   const [user, setUser] = useState<any>(null);
   const [authLoading, setAuthLoading] = useState(true);
@@ -26,7 +23,6 @@ export function Header() {
   const [query, setQuery] = useState("");
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [tickers, setTickers] = useState<TickerSuggestion[]>([]);
-  const [tape, setTape] = useState<TapeItem[]>([]);
 
   const supabase = createClient();
   const pathname = usePathname();
@@ -36,8 +32,8 @@ export function Header() {
   const searchRef = useRef<HTMLFormElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // one call feeds two things: the autocomplete index and the tape. Filtering
-  // client-side means typing doesn't hit the API on every keystroke.
+  // populates the autocomplete index. filtering client-side means typing
+  // doesn't hit the API on every keystroke.
   useEffect(() => {
     const load = async () => {
       try {
@@ -50,24 +46,8 @@ export function Header() {
             (repos as any[]).map((r) => ({ ticker: r.ticker, category }))
         );
         setTickers(flat);
-
-        // the tape wants the most active listings, not all of them — a strip
-        // with two hundred items on it scrolls for four minutes before it
-        // repeats, which defeats the point of a repeating strip
-        const items: TapeItem[] = Object.values(data)
-          .flat()
-          .map((r: any) => ({
-            ticker: r.ticker,
-            price: Number(r.current_price),
-            change: Array.isArray(r.sparkline) && r.sparkline.length > 1
-              ? change(r.sparkline[0], r.sparkline[r.sparkline.length - 1])
-              : null,
-          }))
-          .filter((r: TapeItem) => Number.isFinite(r.price))
-          .slice(0, 18);
-        setTape(items);
       } catch {
-        // no tape and no autocomplete; typing owner/repo directly still works
+        // no autocomplete; typing owner/repo directly still works
       }
     };
     load();
@@ -293,8 +273,6 @@ export function Header() {
           </div>
         </div>
       )}
-
-      <TickerTape items={tape} />
     </header>
   );
 }
