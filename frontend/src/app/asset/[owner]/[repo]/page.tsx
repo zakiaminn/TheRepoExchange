@@ -10,16 +10,7 @@ import { ConfirmTradeModal } from "@/components/ConfirmTradeModal";
 import { SectionRule, DocRef, Panel, Notice, Skeleton, Delta } from "@/components/ui";
 import { usd, count, countCompact, change, toneClass } from "@/lib/format";
 import { SECTIONS, LABELS, STATE, ERROR, ORDER, NAV } from "@/lib/copy";
-
-// what each metric is worth per unit — same weights as the pricing formula, shown so
-// people can see WHY a repo is priced what it is. issues are the only negative term.
-const VALUATION = [
-  { key: "raw_stars", label: "Stars", unit: 0.001, neg: false },
-  { key: "raw_forks", label: "Forks", unit: 0.01, neg: false },
-  { key: "raw_watchers", label: "Watchers", unit: 0.05, neg: false },
-  { key: "raw_open_prs", label: "Open PRs", unit: 1.0, neg: false },
-  { key: "raw_open_issues", label: "Open issues", unit: 1.0, neg: true },
-] as const;
+import { deriveValuation, type AssetMetrics } from "@/lib/pricing";
 
 interface PageProps {
   params: Promise<{ owner: string; repo: string }>;
@@ -53,7 +44,7 @@ export default function ListingPage(props: PageProps) {
 
   const [history, setHistory] = useState<ChartData[]>([]);
   const [currentPrice, setCurrentPrice] = useState<number | null>(null);
-  const [asset, setAsset] = useState<Record<string, number> | null>(null);
+  const [asset, setAsset] = useState<AssetMetrics | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [listed, setListed] = useState<boolean | null>(null); // null while unknown
   const [range, setRange] = useState<(typeof RANGES)[number]["key"]>("30D");
@@ -301,14 +292,10 @@ export default function ListingPage(props: PageProps) {
   const positionPnl =
     currentPrice !== null && avgPrice !== null ? (currentPrice - avgPrice) * ownedShares : null;
 
-  // the valuation panel shows the raw metric contributions, but the mark is
-  // those aged by recency and with issue-drag capped — so the five rows don't
-  // sum to it. rather than imply they do, show the difference as its own line
-  // (the net of aging + caps) so the column reconciles to the mark exactly.
-  const rawSubtotal = asset
-    ? VALUATION.reduce((s, v) => s + (v.neg ? -1 : 1) * Number(asset[v.key] ?? 0) * v.unit, 0)
-    : 0;
-  const adjustment = currentPrice !== null ? currentPrice - rawSubtotal : null;
+  // Rebuild the mark from the stored public metrics so the panel below is a shown
+  // derivation, not a plug: base + each metric's contribution, less capped issue
+  // drag, aged by recency, reconciling to the mark. See lib/pricing.ts.
+  const valuation = asset ? deriveValuation(asset, currentPrice) : null;
 
   return (
     <div className="flex-1 pb-20">
@@ -436,46 +423,75 @@ export default function ListingPage(props: PageProps) {
               )}
             </section>
 
-            {/* ── valuation breakdown — why the mark is what it is ── */}
-            {listed === true && asset && (
+            {/* ── valuation breakdown — the mark, rebuilt from public numbers ── */}
+            {listed === true && valuation && (
               <section className="mt-12">
                 <SectionRule label={SECTIONS.valuation} className="mb-5" />
                 <Panel>
-                  {VALUATION.map((v, i) => {
-                    const n = Number(asset[v.key] ?? 0);
-                    const contrib = n * v.unit;
-                    return (
-                      <div
-                        key={v.key}
-                        className={`flex items-baseline justify-between gap-4 px-4 py-3 sm:px-6 ${
-                          i > 0 ? "border-t border-rule" : ""
-                        }`}
-                      >
-                        <div className="flex items-baseline gap-2 min-w-0">
-                          <span className="label label-ink">{v.label}</span>
-                          <span className="figure text-[12px] text-ink-3">{countCompact(n)}</span>
-                        </div>
-                        <div className="flex items-baseline gap-3">
-                          <span className="ref hidden sm:block">
-                            × ${v.unit < 1 ? v.unit.toFixed(3) : v.unit.toFixed(2)}
-                          </span>
-                          <span className={`figure text-[13px] ${v.neg ? "text-neg" : "text-pos"}`}>
-                            {v.neg ? "−" : "+"}
-                            {usd(Math.abs(contrib))}
-                          </span>
-                        </div>
+                  {/* base listing */}
+                  <div className="flex items-baseline justify-between gap-4 px-4 py-3 sm:px-6">
+                    <span className="label label-ink">Base listing</span>
+                    <span className="figure text-[13px] text-pos">+{usd(valuation.base)}</span>
+                  </div>
+
+                  {/* each metric's contribution */}
+                  {valuation.lines.map((l) => (
+                    <div
+                      key={l.key}
+                      className="flex items-baseline justify-between gap-4 border-t border-rule px-4 py-3 sm:px-6"
+                    >
+                      <div className="flex items-baseline gap-2 min-w-0">
+                        <span className="label label-ink">{l.label}</span>
+                        <span className="figure text-[12px] text-ink-3">{countCompact(l.count)}</span>
                       </div>
-                    );
-                  })}
-                  {adjustment !== null && (
+                      <div className="flex items-baseline gap-3">
+                        <span className="ref hidden sm:block">
+                          × ${l.unit < 1 ? l.unit.toFixed(3) : l.unit.toFixed(2)}
+                        </span>
+                        <span className="figure text-[13px] text-pos">+{usd(l.contrib)}</span>
+                      </div>
+                    </div>
+                  ))}
+
+                  {/* gross subtotal */}
+                  <div className="flex items-baseline justify-between gap-4 border-t border-rule-2 px-4 py-3 sm:px-6">
+                    <span className="label label-ink">Gross</span>
+                    <span className="figure text-[13px] text-ink">{usd(valuation.gross)}</span>
+                  </div>
+
+                  {/* issue drag, capped at 60% of gross */}
+                  <div className="flex items-baseline justify-between gap-4 border-t border-rule px-4 py-3 sm:px-6">
+                    <div className="flex items-baseline gap-2 min-w-0">
+                      <span className="label label-ink">Open issues</span>
+                      <span className="figure text-[12px] text-ink-3">{countCompact(valuation.drag.count)}</span>
+                      {valuation.drag.capped && (
+                        <span className="ref hidden sm:block">drag capped at 60% of gross</span>
+                      )}
+                    </div>
+                    <div className="flex items-baseline gap-3">
+                      <span className="ref hidden sm:block">× ${valuation.drag.unit.toFixed(2)}</span>
+                      <span className="figure text-[13px] text-neg">−{usd(valuation.drag.applied)}</span>
+                    </div>
+                  </div>
+
+                  {/* recency multiplier */}
+                  {valuation.recency && (
                     <div className="flex items-baseline justify-between gap-4 border-t border-rule px-4 py-3 sm:px-6">
-                      <span className="label label-ink">Aging &amp; caps</span>
-                      <span className={`figure text-[13px] ${adjustment < 0 ? "text-neg" : "text-pos"}`}>
-                        {adjustment < 0 ? "−" : "+"}
-                        {usd(Math.abs(adjustment))}
+                      <div className="flex items-baseline gap-2 min-w-0">
+                        <span className="label label-ink">Recency</span>
+                        <span className="ref hidden sm:block">
+                          {valuation.recency.implied
+                            ? "implied — push time not yet stored"
+                            : `pushed ${valuation.recency.days} days before pricing`}
+                        </span>
+                      </div>
+                      <span className="figure text-[13px] text-ink">
+                        × {valuation.recency.factor.toFixed(4)}
                       </span>
                     </div>
                   )}
+
+                  {/* mark */}
                   <div className="flex items-baseline justify-between gap-4 border-t border-rule-2 px-4 py-3 sm:px-6">
                     <span className="label label-ink">Mark</span>
                     <span className="figure text-base text-ink">
@@ -484,9 +500,11 @@ export default function ListingPage(props: PageProps) {
                   </div>
                 </Panel>
                 <p className="ref mt-3 block leading-relaxed">
-                  Popularity plus contribution, minus issue drag, then aged by how recently the repo
-                  was pushed. The aging and the issue-drag cap are the adjustment line, so the column
-                  reconciles to the mark.
+                  {valuation.reconciles === false
+                    ? "This reconstruction does not reconcile to the mark — the mark was struck under a different formula version. See METHODOLOGY.md."
+                    : valuation.recency?.implied
+                    ? "Base, plus each metric’s contribution, less capped issue drag, aged by recency — every line rebuilt from the repository’s public numbers. The recency factor is backed out of the mark until push time is stored; once it is, this line shows the exact age. Reconciles to the mark."
+                    : "Base, plus each metric’s contribution, less capped issue drag, then aged by how recently the repo was pushed — every line rebuilt from the repository’s public numbers, reconciling exactly to the mark."}
                 </p>
               </section>
             )}

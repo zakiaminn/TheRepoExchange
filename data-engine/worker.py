@@ -3,12 +3,12 @@ import sys
 import time
 import logging
 import requests
-import random
 import re
 import psycopg2
 from psycopg2.extras import execute_batch
 from dotenv import load_dotenv
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
+from pricing import compute_price
 
 # basic logging setup so we get timestamps and log levels instead of just print statements everywhere
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
@@ -38,44 +38,10 @@ CATEGORIES = {
 GITHUB_SEARCH_URL = "https://api.github.com/search/repositories"
 
 # ── how we price a repo ──
-# old way was just stars/100 which is kinda dumb, a repo isn't worth money just
-# because people clicked a star button. so this actually looks at whether the thing
-# is alive:
-#   - stars = popularity but cheap, there's a ton of them so each one is basically nothing
-#   - forks + watchers = people actually building on it / following it, worth more
-#   - open PRs = someone's literally contributing right now, worth a dollar each
-#   - open issues = unfinished stuff / bugs, drags the price down a dollar each
-#   - if nobody's pushed to it in forever it slowly loses value
-#
-# the weights are all in dollars and you can just change them, nothing else cares
-# about the exact numbers. compute_price() is the only place the price gets decided.
-
-W_STAR  = 0.001   # a star is like 0.1 cents, basically nothing on its own
-W_FORK  = 0.01    # a fork's worth about 10 stars, someone actually copied the thing
-W_WATCH = 0.05    # watchers are rarer than stars so they count for a bit more
-W_PR    = 1.00    # open pull request = a dollar (someone's contributing rn)
-W_ISSUE = 1.00    # open issue = minus a dollar (unfinished / a bug)
-
-ISSUE_DRAG_CAP = 0.60  # issues can only knock off max 60% of the value, not more
-BASE_LISTING   = 5.00  # every repo starts at 5 bucks so nothing's under a dollar
-PRICE_FLOOR    = 1.00  # never go below this
-
-
-def _recency_multiplier(pushed_at_iso):
-    """if a repo got pushed to recently it's alive so full price (1.0). old dead ones
-    slowly decay down to 0.7, never lower just from being old."""
-    if not pushed_at_iso:
-        return 1.0
-    try:
-        pushed = datetime.strptime(pushed_at_iso, "%Y-%m-%dT%H:%M:%SZ")
-    except (ValueError, TypeError):
-        return 1.0
-    days = (datetime.utcnow() - pushed).days
-    if days <= 30:
-        return 1.0
-    if days >= 365:
-        return 0.70
-    return 1.0 - 0.30 * (days - 30) / (365 - 30)
+# The pricing formula (weights, issue-drag cap, recency curve) lives in pricing.py
+# now — one canonical copy, mirrored by ledger/pricing.js and pinned by
+# pricing/fixtures.json so the two can't drift. compute_price is imported at the top.
+# This module only fetches the raw metrics and hands them to it.
 
 
 def get_open_pr_count(ticker, headers):
@@ -97,33 +63,6 @@ def get_open_pr_count(ticker, headers):
     except requests.exceptions.RequestException:
         return None
 
-
-def compute_price(stars, forks, watchers, open_issues, open_prs, pushed_at):
-    """the one spot a repo's price actually gets worked out. everything's just raw
-    numbers from github. watchers and open_prs can come in as None (the search endpoint
-    doesn't give them) so we guess and the hourly refresh fixes it later. heads up: when
-    open_prs is None, open_issues is really open_issues_count (issues AND prs together)."""
-    stars = stars or 0
-    forks = forks or 0
-    open_issues = open_issues or 0
-
-    if watchers is None:
-        watchers = stars * 0.03              # most repos have way fewer watchers than stars, rough guess
-    if open_prs is None:
-        est_prs = open_issues * 0.15         # ~15% of the "open issues" are actually PRs hiding in there
-        open_prs = est_prs
-        open_issues = max(0.0, open_issues - est_prs)
-
-    gross = (BASE_LISTING
-             + stars * W_STAR
-             + forks * W_FORK
-             + watchers * W_WATCH
-             + open_prs * W_PR)
-
-    # cap the drag so a giant repo with like 9000 open issues doesn't go negative
-    debt = min(open_issues * W_ISSUE, ISSUE_DRAG_CAP * gross)
-    price = (gross - debt) * _recency_multiplier(pushed_at)
-    return round(max(PRICE_FLOOR, price), 2)
 
 def get_db_connection():
     """connect to postgres and hand back the connection."""
@@ -245,6 +184,9 @@ def update_known_assets(conn) -> set:
                         open_issues = max(0, oi_total - open_prs)
                         current_price = compute_price(raw_stars, forks, watchers, open_issues, open_prs, pushed_at)
                         current_time = datetime.now()
+                        # priced_at anchors the recency term to the instant this mark was
+                        # struck, so the asset page can reproduce it instead of guessing.
+                        priced_at = datetime.now(timezone.utc)
 
                         # update the live price on the repo's row
                         update_query = """
@@ -255,10 +197,12 @@ def update_known_assets(conn) -> set:
                                 raw_watchers = %s,
                                 raw_open_issues = %s,
                                 raw_open_prs = %s,
+                                pushed_at = %s,
+                                priced_at = %s,
                                 is_active = TRUE
                             WHERE ticker = %s;
                         """
-                        cursor.execute(update_query, (current_price, raw_stars, forks, watchers, open_issues, open_prs, ticker))
+                        cursor.execute(update_query, (current_price, raw_stars, forks, watchers, open_issues, open_prs, pushed_at, priced_at, ticker))
 
                         # and drop a new point into the price history so the chart on the
                         # frontend has something fresh to show
@@ -316,7 +260,8 @@ def process_and_upsert_new_repositories(category_name: str, items: list, known_t
         est_prs = int(round(oi_total * 0.15))
         est_issues = max(0, oi_total - est_prs)
         current_price = compute_price(raw_stars, forks, est_watchers, est_issues, est_prs, pushed_at)
-        records.append((ticker, current_price, description, category_name, raw_stars, forks, est_watchers, est_issues, est_prs))
+        priced_at = datetime.now(timezone.utc)
+        records.append((ticker, current_price, description, category_name, raw_stars, forks, est_watchers, est_issues, est_prs, pushed_at, priced_at))
 
     if not records:
         logger.info(f"No new records to insert for category {category_name}.")
@@ -326,8 +271,8 @@ def process_and_upsert_new_repositories(category_name: str, items: list, known_t
     # category searches in the same run, so we might try to add it twice
     upsert_query = """
         INSERT INTO repositories (ticker, current_price, description, category, raw_stars,
-                                  raw_forks, raw_watchers, raw_open_issues, raw_open_prs, is_active)
-        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, TRUE)
+                                  raw_forks, raw_watchers, raw_open_issues, raw_open_prs, pushed_at, priced_at, is_active)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, TRUE)
         ON CONFLICT (ticker)
         DO UPDATE SET
             description = EXCLUDED.description,
@@ -338,6 +283,8 @@ def process_and_upsert_new_repositories(category_name: str, items: list, known_t
             raw_open_issues = EXCLUDED.raw_open_issues,
             raw_open_prs = EXCLUDED.raw_open_prs,
             current_price = EXCLUDED.current_price,
+            pushed_at = EXCLUDED.pushed_at,
+            priced_at = EXCLUDED.priced_at,
             is_active = TRUE;
     """
 
@@ -354,19 +301,13 @@ def process_and_upsert_new_repositories(category_name: str, items: list, known_t
                 ticker, current_price = rec[0], rec[1]
                 known_tickers.add(ticker) # so we don't double count it if it shows up again this run
 
+                # seed a single REAL point at the price we just struck. no synthetic
+                # backfill: a new listing legitimately has one data point until the
+                # worker polls it again, and every price on a chart has to be one the
+                # formula actually produced from real metrics. a straight ramp of
+                # invented prices is exactly the fabricated data the product says it
+                # never shows — the chart fills in for real as the worker runs.
                 history_records.append((ticker, current_price, current_time))
-
-                # fake some history so the charts don't look empty on day one. we pick a
-                # starting price a little below the current one and draw a straight line
-                # up to today over 30 fake days. it's not real data, it's just so new
-                # listings don't show up as a single dot on the chart
-                start_price = current_price * random.uniform(0.90, 0.95)
-                price_step = (current_price - start_price) / 30.0
-
-                for i in range(30, 0, -1):
-                    historical_price = start_price + (price_step * (30 - i))
-                    historical_time = current_time - timedelta(days=i)
-                    history_records.append((ticker, historical_price, historical_time))
 
             history_query = """
                 INSERT INTO price_history (ticker, price, created_at)
