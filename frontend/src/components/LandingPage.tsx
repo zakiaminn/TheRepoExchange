@@ -4,7 +4,6 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { Wordmark } from "@/components/Logo";
 import { MiniSparkline } from "@/components/MiniSparkline";
-import { TickerTape, type TapeItem } from "@/components/TickerTape";
 import { SectionRule, DocRef, Notice, LiveDot, LiveClock } from "@/components/ui";
 import { SecurityPaper } from "@/components/SecurityPaper";
 import { usd, pct, count, countCompact, change, toneClass, tickerParts } from "@/lib/format";
@@ -34,9 +33,9 @@ const FALLBACK: Listing[] = [
    it's basically its own little site with its own nav.
 
    laid out like a newspaper front page, not a typical SaaS landing: masthead,
-   tape, a lead headline, the board, then the boring-on-purpose stuff (clauses,
+   a lead headline, the board, then the plain, boring-on-purpose stuff (clauses,
    mechanics, the notice). everything on it is literally true, disclaimer
-   included — which is the actual joke, since it's played completely straight. */
+   included. */
 export function LandingPage() {
   const [listings, setListings] = useState<Listing[]>(FALLBACK);
   const [live, setLive] = useState(false);
@@ -73,10 +72,6 @@ export function LandingPage() {
     delta: l.sparkline.length > 1 ? change(l.sparkline[0], l.sparkline[l.sparkline.length - 1]) : null,
   }));
 
-  const tape: TapeItem[] = withChange
-    .slice(0, 18)
-    .map((l) => ({ ticker: l.ticker, price: l.current_price, change: l.delta }));
-
   // the front page shows the ten most valuable listings — a board is a
   // summary of a market, not a directory of it
   const board = [...withChange].sort((a, b) => b.current_price - a.current_price).slice(0, 10);
@@ -98,7 +93,6 @@ export function LandingPage() {
             </Link>
           </div>
         </div>
-        <TickerTape items={tape} />
       </header>
 
       <main className="mx-auto w-full max-w-[76rem] flex-1 px-5 sm:px-8">
