@@ -137,7 +137,7 @@ export function Delta({
    ticking clock + the moving board, not a blinking light. square, not round,
    because nothing else here is round either. */
 export function LiveDot({ className }: { className?: string }) {
-  return <span className={cx("inline-block h-1.5 w-1.5 shrink-0 bg-brand-ink", className)} aria-hidden="true" />;
+  return <span className={cx("inline-block h-1.5 w-1.5 shrink-0 bg-brand", className)} aria-hidden="true" />;
 }
 
 /* the ticking session clock — local time, updates every second. THIS is the
