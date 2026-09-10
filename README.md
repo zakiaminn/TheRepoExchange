@@ -8,6 +8,8 @@ TRX is a quantitative trading terminal where you trade GitHub repositories inste
 
 Disclaimer: It is entirely simulated. No real money. Just a sandbox to mess around with market mechanics and real-time data.
 
+Every price is a fixed, published function of the repo's public GitHub numbers — the exact formula and a worked example are in [METHODOLOGY.md](METHODOLOGY.md), and each listing's page shows its own mark derived line by line. Nothing is quoted off a wire.
+
 ### The Stack
 
 *   **Frontend:** Next.js + Tailwind (deployed on Vercel)
@@ -27,6 +29,19 @@ The Next.js client is thirsty. It polls the backend every 5 seconds for live pri
 
 **Auth & Row Level Security**
 Wired up Supabase Auth and Resend for magic link emails. I'm leveraging PostgreSQL Row Level Security (RLS) policies pretty heavily. Users can only query their own portfolios and transaction logs directly from the client, keeping the Express backend strictly for the heavy lifting (order routing and market data).
+
+### Design
+
+The interface runs on **Bureau**, a house design system documented in
+[BUREAU.md](BUREAU.md). It's institutional deadpan: hairline rules instead of
+cards, monospace tabular figures with a real minus sign, one signature chroma
+(Signal Amber) that never competes with the bull/bear pair, and a voice that
+writes like a clearing house and never admits it's trading JavaScript
+runtimes.
+
+Bureau is written to be portable — the token layer, primitives, and figure
+formatting know nothing about TRX, and porting it to another project is three
+colour values and three font families.
 
 ### Roadmap
 

@@ -59,36 +59,11 @@ function isValidTicker(ticker) {
 }
 
 // ── how we price a repo ──
-// this MUST stay in sync with compute_price() in data-engine/worker.py. it's only used
-// as a fallback when someone views a repo the worker hasn't discovered yet, but if the
-// two drift apart a freshly-seeded repo would jump in price on the next worker pass.
-// weights are dollars, tweak freely (but change both files).
-const W_STAR = 0.001, W_FORK = 0.01, W_WATCH = 0.05, W_PR = 1.00, W_ISSUE = 1.00;
-const ISSUE_DRAG_CAP = 0.60, BASE_LISTING = 5.00, PRICE_FLOOR = 1.00;
-
-function recencyMultiplier(pushedAt) {
-    if (!pushedAt) return 1.0;
-    const pushed = new Date(pushedAt);
-    if (isNaN(pushed.getTime())) return 1.0;
-    const days = (Date.now() - pushed.getTime()) / 86400000;
-    if (days <= 30) return 1.0;
-    if (days >= 365) return 0.70;
-    return 1.0 - 0.30 * (days - 30) / (365 - 30);
-}
-
-function computePrice({ stars = 0, forks = 0, watchers = null, openIssues = 0, openPrs = null, pushedAt = null }) {
-    stars = stars || 0; forks = forks || 0; openIssues = openIssues || 0;
-    if (watchers == null) watchers = stars * 0.03;           // guess for missing data
-    if (openPrs == null) {
-        const estPrs = openIssues * 0.15;                    // ~15% of open issues are really PRs
-        openPrs = estPrs;
-        openIssues = Math.max(0, openIssues - estPrs);
-    }
-    const gross = BASE_LISTING + stars * W_STAR + forks * W_FORK + watchers * W_WATCH + openPrs * W_PR;
-    const debt = Math.min(openIssues * W_ISSUE, ISSUE_DRAG_CAP * gross); // capped so big repos don't go negative
-    const price = (gross - debt) * recencyMultiplier(pushedAt);
-    return Math.round(Math.max(PRICE_FLOOR, price) * 100) / 100;
-}
+// The formula lives in ./pricing.js now — one canonical Node copy, mirrored by
+// data-engine/pricing.py and pinned by pricing/fixtures.json so they can't drift.
+// computePrice here is only the fallback for a repo the worker hasn't discovered
+// yet; the worker reprices it identically on its next pass.
+const { computePrice } = require('./pricing');
 
 const app = express();
 // we're behind render's proxy, so trust the x-forwarded-for header for rate limiting /
@@ -409,7 +384,7 @@ app.get('/api/history/:owner/:repo', readLimiter, async (req, res) => {
             }));
             // grab the current metrics too so the asset page can show the price breakdown
             const assetRes = await pool.query(
-                `SELECT current_price, raw_stars, raw_forks, raw_watchers, raw_open_issues, raw_open_prs, description
+                `SELECT current_price, raw_stars, raw_forks, raw_watchers, raw_open_issues, raw_open_prs, pushed_at, priced_at, description
                  FROM repositories WHERE ticker ILIKE $1`,
                 [ticker]
             );
@@ -447,8 +422,8 @@ app.get('/api/history/:owner/:repo', readLimiter, async (req, res) => {
 
         await pool.query(
             `INSERT INTO repositories (ticker, current_price, description, category, raw_stars,
-                                       raw_forks, raw_watchers, raw_open_issues, raw_open_prs, is_active)
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, TRUE)
+                                       raw_forks, raw_watchers, raw_open_issues, raw_open_prs, pushed_at, priced_at, is_active)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NOW(), TRUE)
              ON CONFLICT (ticker)
              DO UPDATE SET
                 current_price = EXCLUDED.current_price,
@@ -459,8 +434,10 @@ app.get('/api/history/:owner/:repo', readLimiter, async (req, res) => {
                 raw_watchers = EXCLUDED.raw_watchers,
                 raw_open_issues = EXCLUDED.raw_open_issues,
                 raw_open_prs = EXCLUDED.raw_open_prs,
+                pushed_at = EXCLUDED.pushed_at,
+                priced_at = EXCLUDED.priced_at,
                 is_active = TRUE`,
-            [ticker, current_price, description, category, stargazers_count, forks, watchers, openIssues, openPrs]
+            [ticker, current_price, description, category, stargazers_count, forks, watchers, openIssues, openPrs, pushedAt]
         );
 
         // just seed a single history point for right now, the data engine will backfill
@@ -474,7 +451,8 @@ app.get('/api/history/:owner/:repo', readLimiter, async (req, res) => {
             history: [{ time: historyInsert.rows[0].time, value: current_price }],
             asset: {
                 current_price, raw_stars: stargazers_count, raw_forks: forks,
-                raw_watchers: watchers, raw_open_issues: openIssues, raw_open_prs: openPrs, description,
+                raw_watchers: watchers, raw_open_issues: openIssues, raw_open_prs: openPrs,
+                pushed_at: pushedAt, priced_at: new Date().toISOString(), description,
             },
         });
     } catch (error) {
