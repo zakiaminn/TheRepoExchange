@@ -104,6 +104,37 @@ export const SECTIONS = {
   summary: "Summary",
   allocation: "Allocation",
   valuation: "Valuation",
+  calls: "Calls of record",
+  newCall: "Open a call",
+} as const;
+
+// Repo calls: a prediction that a repository reaches a star target by a date.
+// Same voice as the rest of the board — states the mechanic, settles the fact,
+// never sells it.
+export const CALLS = {
+  title: "Repo calls",
+  intro:
+    "A call is a prediction that a repository reaches a star target by a date. It settles even-money against the public star count: a correct call returns twice the stake, a wrong one forfeits it.",
+  repo: "Repository",
+  repoHint: "owner/repo",
+  target: "Target stars",
+  now: "Now",
+  deadline: "Deadline",
+  stake: "Stake",
+  open: "Open call",
+  opening: "Opening",
+  resolvesIn: "Resolves in",
+  resolved: "Resolved",
+  reached: "Reached",
+  needs: "To reach",
+  payout: "Payout",
+  empty: "No calls of record.",
+  status: { open: "Open", won: "Won", lost: "Lost", void: "Void" },
+  noticeLabel: "How calls settle",
+  noticeBody:
+    "Every call resolves automatically at its deadline against the repository's public star count, the same figure the price is built from. Settlement is even-money and simulated. A repository that leaves the board before resolution voids the call, and the stake is refunded.",
+  targetBelowCurrent: "Target must be above the current star count.",
+  overStake: "Stake exceeds purchasing power.",
 } as const;
 
 /** Column headers. Short, absolute, never a sentence. */
@@ -229,6 +260,7 @@ export const ACCOUNT = {
 export const NAV = {
   board: "Board",
   positions: "Positions",
+  calls: "Calls",
   account: "Account",
   search: "Listing or owner/repo",
   back: "Back to the board",

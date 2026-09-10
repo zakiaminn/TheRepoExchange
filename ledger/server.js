@@ -64,6 +64,7 @@ function isValidTicker(ticker) {
 // computePrice here is only the fallback for a repo the worker hasn't discovered
 // yet; the worker reprices it identically on its next pass.
 const { computePrice } = require('./pricing');
+const calls = require('./calls');
 
 const app = express();
 // we're behind render's proxy, so trust the x-forwarded-for header for rate limiting /
@@ -358,6 +359,139 @@ app.get('/api/portfolio/:userId', readLimiter, verifyAuth, async (req, res) => {
     } catch (error) {
         console.error(`[Ledger Error] Portfolio query failed: ${error.message}`);
         res.status(500).json({ error: "Could not fetch portfolio data." });
+    }
+});
+
+// ── Repo Calls ───────────────────────────────────────────────────────────────
+// A call is a prediction that a repo reaches a star target by a deadline, settled
+// even-money from the same simulated wallet. The economics live in ./calls.js; every
+// outcome is judged against the public star count the worker already tracks.
+
+// open a call: validate the target against the repo's LIVE star count, debit the stake,
+// and record the position — all in one locked transaction, same posture as a buy.
+app.post('/api/calls', tradeLimiter, verifyAuth, async (req, res) => {
+    const { ticker, targetStars, stake, deadline } = req.body;
+    const userId = req.user.id;
+
+    if (!isValidTicker(ticker)) {
+        return res.status(400).json({ error: "Invalid ticker format. Expected 'owner/repo'." });
+    }
+    const deadlineMs = Date.parse(deadline);
+    if (Number.isNaN(deadlineMs)) {
+        return res.status(400).json({ error: "Invalid deadline." });
+    }
+
+    try {
+        const created = await runInTransaction(async (client) => {
+            // resolve the repo and read its live star count — the target is checked against
+            // a real current public number, never whatever the client happened to send
+            const repoRes = await client.query(
+                'SELECT ticker, raw_stars FROM repositories WHERE ticker ILIKE $1 AND is_active = TRUE',
+                [ticker]
+            );
+            if (repoRes.rows.length === 0) throw new TradeError("Repository not listed.", 404);
+            const trueTicker = repoRes.rows[0].ticker;
+            const currentStars = Number(repoRes.rows[0].raw_stars);
+
+            const v = calls.validateOpen({ stake, targetStars, currentStars, deadlineMs });
+            if (!v.ok) throw new TradeError(v.error);
+
+            // lock the wallet row and check funds before debiting (same as a buy)
+            const userRes = await client.query('SELECT cash_balance FROM users WHERE id = $1 FOR UPDATE', [userId]);
+            if (userRes.rows.length === 0) throw new TradeError("User not found.", 404);
+            if (Number(userRes.rows[0].cash_balance) < v.stake) throw new TradeError("Insufficient funds.");
+
+            await client.query('UPDATE users SET cash_balance = cash_balance - $1 WHERE id = $2', [v.stake, userId]);
+
+            const insert = await client.query(
+                `INSERT INTO calls (user_id, ticker, direction, target_stars, stake, deadline, opening_stars)
+                 VALUES ($1, $2, 'above', $3, $4, $5, $6)
+                 RETURNING id, ticker, direction, target_stars, stake, deadline, status, opening_stars, created_at`,
+                [userId, trueTicker, v.targetStars, v.stake, new Date(deadlineMs).toISOString(), currentStars]
+            );
+            return insert.rows[0];
+        });
+
+        res.json({ success: true, call: created });
+    } catch (error) {
+        if (error instanceof TradeError) {
+            res.status(error.statusCode).json({ error: error.message });
+        } else {
+            console.error(`[Ledger Error] Call open failed: ${error.message}`);
+            res.status(500).json({ error: "An internal error occurred. Please try again." });
+        }
+    }
+});
+
+// list the logged-in user's calls — open ones first (they carry the countdown), then by
+// deadline. always keyed off the verified token id, never a url param.
+app.get('/api/calls', readLimiter, verifyAuth, async (req, res) => {
+    const userId = req.user.id;
+    try {
+        const result = await pool.query(
+            `SELECT id, ticker, direction, target_stars, stake, deadline, status,
+                    opening_stars, created_at, resolved_at, resolved_stars, payout
+             FROM calls WHERE user_id = $1
+             ORDER BY (status = 'open') DESC, deadline ASC, created_at DESC`,
+            [userId]
+        );
+        res.json({ calls: result.rows });
+    } catch (error) {
+        console.error(`[Ledger Error] Calls list failed: ${error.message}`);
+        res.status(500).json({ error: "Could not fetch calls." });
+    }
+});
+
+// resolver: settle every open call whose deadline has passed, against the latest public
+// star count. Guarded by a shared secret because it moves money and is meant to be driven
+// by a scheduler, not a user. Idempotent: it only ever touches rows still 'open', and
+// SKIP LOCKED lets overlapping runs divide the work instead of double-paying.
+app.post('/api/calls/settle', async (req, res) => {
+    const secret = process.env.CRON_SECRET;
+    if (!secret || req.get('x-cron-secret') !== secret) {
+        return res.status(401).json({ error: "Unauthorized." });
+    }
+
+    try {
+        const settled = await runInTransaction(async (client) => {
+            const due = await client.query(
+                `SELECT c.id, c.user_id, c.direction, c.target_stars, c.stake,
+                        r.raw_stars, r.is_active
+                 FROM calls c
+                 LEFT JOIN repositories r ON r.ticker = c.ticker
+                 WHERE c.status = 'open' AND c.deadline <= now()
+                 FOR UPDATE OF c SKIP LOCKED`
+            );
+
+            const out = [];
+            for (const row of due.rows) {
+                // a repo we can no longer read a public star count for is voided, not
+                // guessed — the stake is refunded rather than the user penalised
+                const missing = row.is_active !== true || row.raw_stars == null;
+                const decision = missing
+                    ? calls.voidRefund({ stake: row.stake })
+                    : calls.settle({
+                        targetStars: row.target_stars, stake: row.stake,
+                        resolvedStars: Number(row.raw_stars), direction: row.direction,
+                    });
+
+                await client.query(
+                    `UPDATE calls SET status = $1, payout = $2, resolved_at = now(), resolved_stars = $3
+                     WHERE id = $4`,
+                    [decision.status, decision.payout, missing ? null : Number(row.raw_stars), row.id]
+                );
+                if (decision.payout > 0) {
+                    await client.query('UPDATE users SET cash_balance = cash_balance + $1 WHERE id = $2', [decision.payout, row.user_id]);
+                }
+                out.push({ id: row.id, status: decision.status, payout: decision.payout });
+            }
+            return out;
+        });
+
+        res.json({ settled: settled.length, results: settled });
+    } catch (error) {
+        console.error(`[Ledger Error] Call settle failed: ${error.message}`);
+        res.status(500).json({ error: "Settlement failed." });
     }
 });
 

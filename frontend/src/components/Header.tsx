@@ -200,6 +200,14 @@ export function Header() {
           >
             {NAV.positions}
           </Link>
+          <Link
+            href="/calls"
+            className={`px-3 py-2 text-[13px] transition-colors hover:text-brand-ink ${
+              pathname === "/calls" ? "text-ink" : "text-ink-2"
+            }`}
+          >
+            {NAV.calls}
+          </Link>
         </nav>
 
         <div ref={menuRef} className="relative hidden shrink-0 md:block">
@@ -259,6 +267,9 @@ export function Header() {
           <div className="mt-4 grid grid-cols-2 gap-px border border-rule bg-rule">
             <Link href="/portfolio" onClick={() => setMobileOpen(false)} className="bg-paper px-3 py-3 text-[13px] text-ink">
               {NAV.positions}
+            </Link>
+            <Link href="/calls" onClick={() => setMobileOpen(false)} className="bg-paper px-3 py-3 text-[13px] text-ink">
+              {NAV.calls}
             </Link>
             <Link href="/settings" onClick={() => setMobileOpen(false)} className="bg-paper px-3 py-3 text-[13px] text-ink">
               {NAV.account}
