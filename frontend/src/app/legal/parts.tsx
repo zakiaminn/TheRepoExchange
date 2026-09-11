@@ -62,24 +62,22 @@ export function DocHeader({
   );
 }
 
-/** A numbered clause. The number is set in the mono (Spline) as a small figure,
-    the title in Bricolage; the body is measured prose. */
+/** A clause: the title as a ruled section label (the house SectionRule
+    pattern), the body as measured prose below. No leading number. */
 export function Clause({
-  n,
   title,
   children,
 }: {
-  n: string;
   title: string;
   children: ReactNode;
 }) {
   return (
-    <section className="mt-9 border-t border-rule pt-7 first:mt-0 first:border-t-0 first:pt-0">
-      <h2 className="flex items-baseline gap-3">
-        <span className="figure text-[13px] text-ink-3">{n}</span>
-        <span className="display text-lg text-ink">{title}</span>
-      </h2>
-      <div className="prose-measure mt-3 space-y-3 text-sm leading-relaxed text-ink-2">
+    <section className="mt-11 first:mt-0">
+      <div className="flex items-center gap-4">
+        <h2 className="label label-ink shrink-0">{title}</h2>
+        <span className="rule-line" aria-hidden="true" />
+      </div>
+      <div className="prose-measure mt-4 space-y-3 text-sm leading-relaxed text-ink-2">
         {children}
       </div>
     </section>

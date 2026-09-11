@@ -21,7 +21,7 @@ export default function Terms() {
       />
 
       <div>
-        <Clause n="01" title="What TRX is">
+        <Clause title="What TRX is">
         <p>
           {SITE_NAME} (&quot;TRX&quot;, the &quot;service&quot;) is a simulation. It lets you place
           simulated buy and sell orders on listings that represent public GitHub
@@ -38,7 +38,7 @@ export default function Terms() {
         </p>
       </Clause>
 
-      <Clause n="02" title="Not financial advice">
+      <Clause title="Not financial advice">
         <p>
           Nothing on TRX is financial, investment, trading, legal, accounting, or
           tax advice, a recommendation, an offer, or a solicitation to buy or
@@ -49,7 +49,7 @@ export default function Terms() {
         </p>
       </Clause>
 
-      <Clause n="03" title="Eligibility">
+      <Clause title="Eligibility">
         <p>
           You must be at least 18 years old, or the age of majority where you
           live if that is higher, and legally able to enter into these terms. By
@@ -58,7 +58,7 @@ export default function Terms() {
         </p>
       </Clause>
 
-      <Clause n="04" title="Your account">
+      <Clause title="Your account">
         <p>
           You need an account to use most of the service. You agree to provide
           accurate registration details and to keep your login credentials
@@ -76,7 +76,7 @@ export default function Terms() {
         </p>
       </Clause>
 
-      <Clause n="05" title="Acceptable use">
+      <Clause title="Acceptable use">
         <p>You agree not to:</p>
         <List
           items={[
@@ -91,7 +91,7 @@ export default function Terms() {
         />
       </Clause>
 
-      <Clause n="06" title="The service can change">
+      <Clause title="The service can change">
         <p>
           TRX is offered as-is and evolves. We may add, change, suspend, or
           remove listings, prices, features, or the whole service at any time,
@@ -102,7 +102,7 @@ export default function Terms() {
         </p>
       </Clause>
 
-      <Clause n="07" title="Intellectual property">
+      <Clause title="Intellectual property">
         <p>
           The service, including its software, design, text, and the &quot;Bureau&quot;
           visual system, and the TRX name and mark, belong to us or our licensors
@@ -118,7 +118,7 @@ export default function Terms() {
         </p>
       </Clause>
 
-      <Clause n="08" title="Third-party data and services">
+      <Clause title="Third-party data and services">
         <p>
           Listings and prices are built from data obtained from third parties,
           including the GitHub REST API, and the service runs on third-party
@@ -133,7 +133,7 @@ export default function Terms() {
         </p>
       </Clause>
 
-      <Clause n="09" title="Disclaimer of warranties">
+      <Clause title="Disclaimer of warranties">
         <p>
           To the fullest extent permitted by law, the service is provided
           &quot;as is&quot; and &quot;as available&quot;, without warranties of
@@ -150,7 +150,7 @@ export default function Terms() {
         </p>
       </Clause>
 
-      <Clause n="10" title="Limitation of liability">
+      <Clause title="Limitation of liability">
         <p>
           To the fullest extent permitted by law, we and our operators,
           contributors, and suppliers will not be liable for any indirect,
@@ -174,7 +174,7 @@ export default function Terms() {
         </p>
       </Clause>
 
-      <Clause n="11" title="Indemnity">
+      <Clause title="Indemnity">
         <p>
           You agree to indemnify and hold harmless the operator and its
           contributors and suppliers from any claim, demand, loss, or expense
@@ -184,18 +184,19 @@ export default function Terms() {
         </p>
       </Clause>
 
-      <Clause n="12" title="Suspension and termination">
+      <Clause title="Suspension and termination">
         <p>
           You may stop using the service and close your account at any time. We
           may suspend or terminate your access at any time, with or without
           notice, including where we reasonably believe you have broken these
-          terms or where continuing to offer the service is not viable. Clauses
-          that by their nature should survive termination (including sections 01,
-          02, and 07 to 14) will survive.
+          terms or where continuing to offer the service is not viable. Any
+          clauses that by their nature should survive termination (including
+          those on what TRX is, financial advice, intellectual property,
+          disclaimers, limitation of liability, and governing law) will survive.
         </p>
       </Clause>
 
-      <Clause n="13" title="Changes to these terms">
+      <Clause title="Changes to these terms">
         <p>
           We may update these terms from time to time. When we do, we will change
           the effective date at the top of this page, and where changes are
@@ -205,7 +206,7 @@ export default function Terms() {
         </p>
       </Clause>
 
-      <Clause n="14" title="Governing law and disputes">
+      <Clause title="Governing law and disputes">
         <p>
           These terms and any dispute arising out of them or the service are
           governed by the laws of {LEGAL.governingLaw}, without regard to its
@@ -214,7 +215,7 @@ export default function Terms() {
         </p>
       </Clause>
 
-      <Clause n="15" title="General">
+      <Clause title="General">
         <p>
           These terms, together with the {" "}
           <L href="/legal/privacy">Privacy Policy</L> and the {" "}
@@ -226,7 +227,7 @@ export default function Terms() {
         </p>
       </Clause>
 
-      <Clause n="16" title="Contact">
+      <Clause title="Contact">
         <p>
           Questions about these terms can be sent to {" "}
           <a href={`mailto:${LEGAL.contactEmail}`} className="link">
