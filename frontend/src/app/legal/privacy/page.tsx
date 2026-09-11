@@ -19,7 +19,7 @@ export default function Privacy() {
       />
 
       <div>
-        <Clause n="01" title="The short version">
+        <Clause title="The short version">
         <p>
           TRX collects as little as it can. To use it you give us an email
           address and a password, and the service records the simulated activity
@@ -29,7 +29,7 @@ export default function Privacy() {
         </p>
       </Clause>
 
-      <Clause n="02" title="What we collect">
+      <Clause title="What we collect">
         <p>We collect:</p>
         <List
           items={[
@@ -44,7 +44,7 @@ export default function Privacy() {
         </p>
       </Clause>
 
-      <Clause n="03" title="Why we use it">
+      <Clause title="Why we use it">
         <p>We use the data above to:</p>
         <List
           items={[
@@ -62,7 +62,7 @@ export default function Privacy() {
         </p>
       </Clause>
 
-      <Clause n="04" title="Cookies and local storage">
+      <Clause title="Cookies and local storage">
         <p>
           We use cookies and browser storage that are necessary to run the
           service, chiefly to keep you signed in and to remember lightweight
@@ -73,7 +73,7 @@ export default function Privacy() {
         </p>
       </Clause>
 
-      <Clause n="05" title="Who processes your data">
+      <Clause title="Who processes your data">
         <p>
           We share data only with the service providers that help us run TRX,
           under contracts that require them to protect it and use it only on our
@@ -92,7 +92,7 @@ export default function Privacy() {
         </p>
       </Clause>
 
-      <Clause n="06" title="International transfers">
+      <Clause title="International transfers">
         <p>
           Our providers may process data in countries other than yours. Where
           data is transferred across borders, we rely on our providers&apos;
@@ -101,7 +101,7 @@ export default function Privacy() {
         </p>
       </Clause>
 
-      <Clause n="07" title="How long we keep it">
+      <Clause title="How long we keep it">
         <p>
           We keep account and activity data for as long as your account is open,
           and for a reasonable period afterwards to meet legal, security, and
@@ -110,7 +110,7 @@ export default function Privacy() {
         </p>
       </Clause>
 
-      <Clause n="08" title="Your rights">
+      <Clause title="Your rights">
         <p>
           Depending on where you live, you may have the right to access a copy of
           your data, to correct it, to delete it, to restrict or object to how we
@@ -124,7 +124,7 @@ export default function Privacy() {
         </p>
       </Clause>
 
-      <Clause n="09" title="Security">
+      <Clause title="Security">
         <p>
           We rely on established providers and reasonable technical and
           organisational measures to protect your data, including encryption in
@@ -134,7 +134,7 @@ export default function Privacy() {
         </p>
       </Clause>
 
-      <Clause n="10" title="Children">
+      <Clause title="Children">
         <p>
           TRX is not directed to children and is intended for users who meet the
           age requirement in the {" "}
@@ -144,7 +144,7 @@ export default function Privacy() {
         </p>
       </Clause>
 
-      <Clause n="11" title="Changes to this policy">
+      <Clause title="Changes to this policy">
         <p>
           We may update this policy from time to time. We will change the
           effective date at the top of this page and, where changes are material,
@@ -152,7 +152,7 @@ export default function Privacy() {
         </p>
       </Clause>
 
-      <Clause n="12" title="Contact">
+      <Clause title="Contact">
         <p>
           For any privacy question, or to exercise your rights, contact the
           operator at {" "}

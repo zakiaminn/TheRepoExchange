@@ -208,19 +208,14 @@ export function LandingPage() {
         </section>
 
         {/* ── procedure ──────────────────────────────────────────────── */}
-        {/* no ruled eyebrow here on purpose: the § numbering is the heading. */}
         <section className="pb-20 sm:pb-28">
           <div className="grid gap-10 md:grid-cols-3 md:gap-12">
             {CLAUSES.map((c) => (
               <article key={c.n}>
-                {/* § and the number set in mono, the way a statute numbers
-                    itself — this is the cheapest, most legible way to make
-                    three paragraphs read as a procedure rather than as
-                    three feature blurbs */}
-                <div className="mb-4 flex items-baseline gap-2 border-b border-rule pb-3">
-                  <span className="figure text-[13px] text-brand-ink">§</span>
-                  <span className="figure text-[13px] text-ink-3">{c.n}</span>
-                  <span className="label label-ink ml-1">{c.title}</span>
+                {/* each clause titled with a ruled label, like every other
+                    section heading in the product. no numbering. */}
+                <div className="mb-4 border-b border-rule pb-3">
+                  <span className="label label-ink">{c.title}</span>
                 </div>
                 <p className="text-sm leading-relaxed text-ink-2">{c.body}</p>
               </article>

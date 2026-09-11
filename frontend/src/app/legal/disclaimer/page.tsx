@@ -19,7 +19,7 @@ export default function Disclaimer() {
       />
 
       <div>
-        <Clause n="01" title="It is a simulation">
+        <Clause title="It is a simulation">
         <p>
           {SITE_NAME} is a simulated market and a game. No securities,
           commodities, derivatives, tokens, or other financial instruments are
@@ -29,7 +29,7 @@ export default function Disclaimer() {
         </p>
       </Clause>
 
-      <Clause n="02" title="It is not advice">
+      <Clause title="It is not advice">
         <p>
           Nothing on TRX is financial, investment, trading, legal, accounting, or
           tax advice, a recommendation, or a solicitation to do anything. Do not
@@ -38,7 +38,7 @@ export default function Disclaimer() {
         </p>
       </Clause>
 
-      <Clause n="03" title="Prices are derived, not valuations">
+      <Clause title="Prices are derived, not valuations">
         <p>
           Prices are computed from public GitHub activity metrics using our own
           formula. They are a game mechanic. They are not a valuation, appraisal,
@@ -47,7 +47,7 @@ export default function Disclaimer() {
         </p>
       </Clause>
 
-      <Clause n="04" title="Not affiliated with GitHub or the projects">
+      <Clause title="Not affiliated with GitHub or the projects">
         <p>
           TRX is not affiliated with, endorsed by, or sponsored by GitHub, Inc.,
           Microsoft, or any repository, project, or maintainer that appears here.
@@ -58,7 +58,7 @@ export default function Disclaimer() {
         </p>
       </Clause>
 
-      <Clause n="05" title="No warranty and use at your own risk">
+      <Clause title="No warranty and use at your own risk">
         <p>
           The service and its data are provided &quot;as is&quot; and &quot;as
           available&quot;, with no warranty of any kind. Data may be inaccurate,
@@ -69,7 +69,7 @@ export default function Disclaimer() {
         </p>
       </Clause>
 
-      <Clause n="06" title="Contact">
+      <Clause title="Contact">
         <p>
           Questions can be sent to {" "}
           <a href={`mailto:${LEGAL.contactEmail}`} className="link">
