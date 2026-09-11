@@ -18,7 +18,8 @@ export default function Privacy() {
         lastUpdated={LEGAL.lastUpdated}
       />
 
-      <Clause n="01" title="The short version">
+      <div>
+        <Clause n="01" title="The short version">
         <p>
           TRX collects as little as it can. To use it you give us an email
           address and a password, and the service records the simulated activity
@@ -161,6 +162,7 @@ export default function Privacy() {
           .
         </p>
       </Clause>
+      </div>
     </article>
   );
 }

@@ -20,7 +20,8 @@ export default function Terms() {
         lastUpdated={LEGAL.lastUpdated}
       />
 
-      <Clause n="01" title="What TRX is">
+      <div>
+        <Clause n="01" title="What TRX is">
         <p>
           {SITE_NAME} (&quot;TRX&quot;, the &quot;service&quot;) is a simulation. It lets you place
           simulated buy and sell orders on listings that represent public GitHub
@@ -234,6 +235,7 @@ export default function Terms() {
           , or reach us through {host}.
         </p>
       </Clause>
+      </div>
     </article>
   );
 }
