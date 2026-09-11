@@ -277,7 +277,8 @@ export function LandingPage() {
           <div>
             <Wordmark size="sm" />
             <p className="ref mt-3 max-w-sm leading-relaxed">{FOOTER.colophon}</p>
-            <nav className="mt-4 flex flex-wrap gap-x-4 gap-y-1.5" aria-label="Legal">
+            <nav className="mt-4 flex flex-wrap gap-x-4 gap-y-1.5" aria-label="Site">
+              <Link href="/faq" className="ref transition-colors hover:text-brand-ink">FAQ</Link>
               <Link href="/legal/terms" className="ref transition-colors hover:text-brand-ink">Terms</Link>
               <Link href="/legal/privacy" className="ref transition-colors hover:text-brand-ink">Privacy</Link>
               <Link href="/legal/disclaimer" className="ref transition-colors hover:text-brand-ink">Disclaimer</Link>
