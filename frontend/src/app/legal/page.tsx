@@ -37,7 +37,7 @@ export default function LegalIndex() {
         </p>
       </header>
 
-      <ul className="divide-y divide-rule border-y border-rule">
+      <ul className="divide-y divide-rule border-b border-rule">
         {DOCS.map((d) => (
           <li key={d.href} className="py-6">
             <h2 className="text-base">

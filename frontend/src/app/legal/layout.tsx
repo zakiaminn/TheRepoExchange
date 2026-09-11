@@ -1,6 +1,5 @@
 import Link from "next/link";
 import { SITE_NAME } from "@/lib/site";
-import { LEGAL } from "@/lib/legal";
 import { LegalNav, Note } from "./parts";
 
 // Shared shell for every /legal page: a narrow reading column, a way back to
@@ -9,7 +8,7 @@ import { LegalNav, Note } from "./parts";
 export default function LegalLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex-1">
-      <main className="mx-auto w-full max-w-[52rem] px-5 py-10 sm:px-8 sm:py-14">
+      <main className="mx-auto w-full max-w-[34rem] px-5 py-10 sm:px-8 sm:py-14">
         <Link
           href="/"
           className="label inline-block transition-colors hover:text-brand-ink"
@@ -27,7 +26,7 @@ export default function LegalLayout({ children }: { children: React.ReactNode })
         <Note className="mb-10">
           These pages are provided for information and are not legal advice.
           They govern your use of {SITE_NAME}, a simulated platform. Read them in
-          full before using the service. Last updated {LEGAL.lastUpdated}.
+          full before using the service.
         </Note>
 
         {children}

@@ -18,7 +18,8 @@ export default function Disclaimer() {
         lastUpdated={LEGAL.lastUpdated}
       />
 
-      <Clause n="01" title="It is a simulation">
+      <div>
+        <Clause n="01" title="It is a simulation">
         <p>
           {SITE_NAME} is a simulated market and a game. No securities,
           commodities, derivatives, tokens, or other financial instruments are
@@ -77,6 +78,7 @@ export default function Disclaimer() {
           .
         </p>
       </Clause>
+      </div>
     </article>
   );
 }
