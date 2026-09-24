@@ -1,43 +1,27 @@
 import { ImageResponse } from "next/og";
-import { OG, OG_SIZE, OG_CONTENT_TYPE, OG_HOST } from "@/lib/og";
-import { SITE_SHORT } from "@/lib/site";
+import { OG, OG_SIZE, OG_CONTENT_TYPE, Lockup, Footer, ogFonts } from "@/lib/og";
 
 export const alt = "Listing on The Repo Exchange";
 export const size = OG_SIZE;
 export const contentType = OG_CONTENT_TYPE;
 
-// The TRX mark rebuilt from divs — no external asset, no font. See the root
-// opengraph-image for the rationale.
-function Mark({ s }: { s: number }) {
-  const bar = { position: "absolute" as const, width: s * 0.62, height: s * 0.11, background: OG.ink };
-  return (
-    <div
-      style={{
-        width: s,
-        height: s,
-        background: OG.brand,
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        position: "relative",
-      }}
-    >
-      <div style={{ ...bar, transform: "rotate(45deg)" }} />
-      <div style={{ ...bar, transform: "rotate(-45deg)" }} />
-    </div>
-  );
-}
+// Width the repo name has to fit in: the card minus its side padding.
+const NAME_WIDTH = 1200 - 88 * 2;
 
-// A per-listing share card. Identity only (owner + repo),
-// drawn straight from the route params. Deliberately no price: it would need a
-// network call (a failure mode on a cached image) and a mark shown out of
-// context reads as a quote it isn't.
+// A per-listing share card. Identity only (owner + repo), drawn straight from
+// the route params. Deliberately no price: it would need a network call (a
+// failure mode on a cached image) and a mark shown out of context reads as a
+// quote it isn't.
 export default async function Image({
   params,
 }: {
   params: Promise<{ owner: string; repo: string }>;
 }) {
   const { owner, repo } = await params;
+
+  // Shrink long names to one line instead of clipping them. 0.58em is a safe
+  // average advance for Bricolage semibold in mixed case.
+  const nameSize = Math.round(Math.min(120, NAME_WIDTH / (repo.length * 0.58)));
 
   return new ImageResponse(
     (
@@ -48,77 +32,34 @@ export default async function Image({
           display: "flex",
           flexDirection: "column",
           justifyContent: "space-between",
-          background: OG.paper,
+          background: OG.ground,
           color: OG.ink,
-          padding: "72px 80px",
-          border: `1px solid ${OG.rule}`,
-          borderTop: `10px solid ${OG.brand}`,
+          fontFamily: "Bricolage",
+          padding: "72px 88px 64px",
         }}
       >
-        {/* masthead: mark + wordmark */}
-        <div style={{ display: "flex", alignItems: "center", gap: 18 }}>
-          <Mark s={48} />
-          <div style={{ display: "flex", fontSize: 28, fontWeight: 800, letterSpacing: -0.5 }}>
-            {SITE_SHORT}
-          </div>
-        </div>
+        <Lockup s={44} />
 
-        {/* the security's identity: owner over a large repo name */}
-        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-          <div
-            style={{
-              display: "flex",
-              fontSize: 30,
-              fontWeight: 500,
-              color: OG.ink2,
-              letterSpacing: 0.5,
-            }}
-          >
+        <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+          <div style={{ display: "flex", fontSize: 34, fontWeight: 400, color: OG.ink2 }}>
             {owner}
           </div>
           <div
             style={{
               display: "flex",
-              fontSize: 128,
-              fontWeight: 800,
-              lineHeight: 0.98,
-              letterSpacing: -3,
-              textTransform: "uppercase",
-              overflow: "hidden",
+              fontSize: nameSize,
+              fontWeight: 600,
+              lineHeight: 1,
+              letterSpacing: -nameSize * 0.02,
             }}
           >
             {repo}
           </div>
         </div>
 
-        {/* footer rule */}
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            borderTop: `1px solid ${OG.rule2}`,
-            paddingTop: 24,
-            fontSize: 20,
-            color: OG.ink3,
-          }}
-        >
-          <div style={{ display: "flex", fontWeight: 500, letterSpacing: 1 }}>{OG_HOST}</div>
-          <div
-            style={{
-              display: "flex",
-              fontSize: 14,
-              fontWeight: 500,
-              letterSpacing: 3,
-              textTransform: "uppercase",
-              color: OG.brandInk,
-            }}
-          >
-            Priced from GitHub activity
-          </div>
-        </div>
+        <Footer note="Priced from GitHub activity" />
       </div>
     ),
-    { ...size },
+    { ...size, fonts: await ogFonts() },
   );
 }
