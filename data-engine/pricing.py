@@ -3,7 +3,7 @@
 The single source of truth for the Python side. The Node ledger mirrors this in
 ledger/pricing.js, and BOTH are pinned to the shared cases in pricing/fixtures.json
 so the two implementations cannot silently drift. If you change a weight or the
-curve here, change it there, bump the version, and update METHODOLOGY.md.
+curve here, change it there and bump the version.
 
 Everything is pure: raw numbers in, a price out. No network, no database.
 """
@@ -11,7 +11,7 @@ Everything is pure: raw numbers in, a price out. No network, no database.
 import math
 from datetime import datetime
 
-# weights are in dollars; see METHODOLOGY.md for what each one means.
+# weights are in dollars.
 W_STAR = 0.001
 W_FORK = 0.01
 W_WATCH = 0.05

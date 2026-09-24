@@ -6,7 +6,6 @@
 // repository's public numbers — so the price is a shown derivation, not a figure to
 // take on faith. It re-implements the same formula on purpose; if it ever drifts, the
 // page's own reconciliation flag (`reconciles`) surfaces it on screen.
-// See METHODOLOGY.md.
 
 export const BASE_LISTING = 5.0;
 export const W_STAR = 0.001;

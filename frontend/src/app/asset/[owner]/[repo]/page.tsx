@@ -488,7 +488,7 @@ export default function ListingPage(props: PageProps) {
                 </Panel>
                 <p className="ref mt-3 block leading-relaxed">
                   {valuation.reconciles === false
-                    ? "This reconstruction does not reconcile to the mark — the mark was struck under a different formula version. See METHODOLOGY.md."
+                    ? "This reconstruction does not reconcile to the mark — the mark was struck under a different formula version."
                     : valuation.recency?.implied
                     ? "Base, plus each metric’s contribution, less capped issue drag, aged by recency — every line rebuilt from the repository’s public numbers. The recency factor is backed out of the mark until push time is stored; once it is, this line shows the exact age. Reconciles to the mark."
                     : "Base, plus each metric’s contribution, less capped issue drag, then aged by how recently the repo was pushed — every line rebuilt from the repository’s public numbers, reconciling exactly to the mark."}

@@ -2,8 +2,7 @@
 // The single source of truth for the Node side. The Python worker mirrors this in
 // data-engine/pricing.py, and BOTH are pinned to the shared cases in
 // pricing/fixtures.json so the two implementations cannot silently drift. If you
-// change a weight or the curve here, change it there, bump the version, and update
-// METHODOLOGY.md. Pure: raw numbers in, a price out — no db, no network.
+// change a weight or the curve here, change it there and bump the version. Pure: raw numbers in, a price out — no db, no network.
 
 const W_STAR = 0.001, W_FORK = 0.01, W_WATCH = 0.05, W_PR = 1.00, W_ISSUE = 1.00;
 const ISSUE_DRAG_CAP = 0.60, BASE_LISTING = 5.00, PRICE_FLOOR = 1.00;

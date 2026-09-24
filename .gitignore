@@ -30,3 +30,7 @@ copilot-instructions.md
 
 # raw screen recordings and stills; the encoded clips live in frontend/public/landing
 recordings/
+
+# notes stay local; the root README is the only public doc
+*.md
+!/README.md
