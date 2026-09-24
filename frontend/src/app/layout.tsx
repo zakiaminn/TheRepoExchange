@@ -79,7 +79,7 @@ const structuredData = {
       name: SITE_NAME,
       alternateName: SITE_SHORT,
       url: SITE_URL,
-      logo: abs("/trx-mark.svg"),
+      logo: abs("/trx-logo.png"),
       description: SITE_DESCRIPTION,
     },
     {
