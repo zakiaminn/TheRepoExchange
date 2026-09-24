@@ -124,7 +124,7 @@ export function LandingPage() {
             <Link href="/login" className="hidden px-3 py-2 text-[13px] text-ink-2 sig sm:block">
               {AUTH.signIn}
             </Link>
-            <Link href="/login" className="ctl ctl-primary ctl-sm">
+            <Link href="/login?mode=signup" className="ctl ctl-primary ctl-sm">
               {AUTH.signUp}
             </Link>
           </div>
@@ -148,7 +148,7 @@ export function LandingPage() {
               {HERO.dek}
             </p>
             <div className="reveal pointer-events-auto mt-10 flex flex-wrap items-center gap-3" style={{ "--i": 2 } as React.CSSProperties}>
-              <Link href="/login" className="ctl ctl-primary ctl-lg">
+              <Link href="/login?mode=signup" className="ctl ctl-primary ctl-lg">
                 {HERO.primary}
               </Link>
               <a href="#mechanics" className="ctl ctl-lg">
@@ -201,7 +201,7 @@ export function LandingPage() {
         <FeaturePanel
           id="trade"
           {...LANDING.trade}
-          href="/login"
+          href="/login?mode=signup"
           primary
           media={
             <Footage
@@ -375,7 +375,7 @@ export function LandingPage() {
                     {CTA.headline}
                   </h2>
                   <p className="mt-5 max-w-sm text-sm leading-relaxed text-ink-2">{CTA.body}</p>
-                  <Link href="/login" className="ctl ctl-primary ctl-lg mt-9">
+                  <Link href="/login?mode=signup" className="ctl ctl-primary ctl-lg mt-9">
                     {CTA.action}
                   </Link>
                 </div>

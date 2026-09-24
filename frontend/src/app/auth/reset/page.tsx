@@ -72,7 +72,7 @@ export default function ResetPage() {
         ) : ready === false ? (
           <Notice label="Link expired" tone="neg">
             {AUTH.linkInvalid}{" "}
-            <Link href="/login" className="link">
+            <Link href="/login?mode=forgot" className="link">
               Request a new one
             </Link>
             .
