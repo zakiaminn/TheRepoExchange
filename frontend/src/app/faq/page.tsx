@@ -123,7 +123,7 @@ export default function FAQ_() {
   return (
     <div className="flex-1">
       <main className="mx-auto w-full max-w-[52rem] px-5 py-10 sm:px-8 sm:py-14">
-        <Link href="/" className="label inline-block transition-colors hover:text-brand-ink">
+        <Link href="/" className="label inline-block sig">
           ← Back to the exchange
         </Link>
 

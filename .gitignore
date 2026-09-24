@@ -27,3 +27,6 @@ GEMINI.md
 .cursor/
 .windsurf/
 copilot-instructions.md
+
+# raw screen recordings and stills; the encoded clips live in frontend/public/landing
+recordings/

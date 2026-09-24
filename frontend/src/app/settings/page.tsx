@@ -92,7 +92,7 @@ export default function SettingsPage() {
   return (
     <div className="flex-1 pb-20">
       <main className="mx-auto w-full max-w-4xl px-5 py-10 sm:px-8 sm:py-12">
-        <Link href="/" className="label inline-block transition-colors hover:text-brand-ink">
+        <Link href="/" className="label inline-block sig">
           ← {NAV.back}
         </Link>
 

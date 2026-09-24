@@ -6,7 +6,17 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
    never again. server output is fully visible; the section is only hidden
    after mount, and only if it's actually off-screen at that moment, so there
    is no flash and nothing is lost without JS. */
-export function Reveal({ children, className }: { children: ReactNode; className?: string }) {
+export function Reveal({
+  children,
+  className,
+  stagger,
+}: {
+  children: ReactNode;
+  className?: string;
+  // children marked .stagger-item (with an --i index) arrive in turn,
+  // instead of the whole block fading in at once
+  stagger?: boolean;
+}) {
   const ref = useRef<HTMLDivElement>(null);
   const [state, setState] = useState<"idle" | "waiting" | "shown">("idle");
 
@@ -29,7 +39,7 @@ export function Reveal({ children, className }: { children: ReactNode; className
   }, []);
 
   return (
-    <div ref={ref} data-state={state} className={`reveal-scroll ${className ?? ""}`}>
+    <div ref={ref} data-state={state} className={`${stagger ? "reveal-group" : "reveal-scroll"} ${className ?? ""}`}>
       {children}
     </div>
   );

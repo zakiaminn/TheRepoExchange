@@ -11,7 +11,7 @@ export default function LegalLayout({ children }: { children: React.ReactNode })
       <main className="mx-auto w-full max-w-[34rem] px-5 py-10 sm:px-8 sm:py-14">
         <Link
           href="/"
-          className="label inline-block transition-colors hover:text-brand-ink"
+          className="label inline-block sig"
         >
           ← Back to the exchange
         </Link>

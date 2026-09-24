@@ -344,7 +344,7 @@ export default function Terminal() {
                                 className="group flex min-w-0 items-baseline gap-2"
                               >
                                 <ListingMorph ticker={repo.ticker} morph={morph}>
-                                  <span className="truncate text-[12px] font-medium uppercase text-ink transition-colors group-hover:text-brand-ink">
+                                  <span className="truncate text-[12px] font-medium uppercase text-ink sig">
                                     {name}
                                   </span>
                                 </ListingMorph>
@@ -378,7 +378,7 @@ export default function Terminal() {
                                     price: Number(repo.current_price),
                                   })
                                 }
-                                className="bg-brand px-2.5 py-1.5 text-[10px] font-semibold uppercase tracking-[0.1em] text-brand-fg press hover:brightness-95"
+                                className="press rounded-full bg-brand px-3.5 py-1.5 text-[12px] font-medium leading-none text-brand-fg hover:brightness-95"
                                 aria-label={`Buy ${repo.ticker}`}
                               >
                                 {ORDER.buy}
@@ -423,7 +423,7 @@ export default function Terminal() {
                           <td>
                             <Link
                               href={`/asset/${owner.toLowerCase()}/${repo.toLowerCase()}`}
-                              className="text-[13px] text-ink transition-colors hover:text-brand-ink"
+                              className="text-[13px] text-ink sig"
                             >
                               {h.ticker}
                             </Link>

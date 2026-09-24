@@ -1,14 +1,17 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { ArrowRight } from "lucide-react";
 import { Wordmark } from "@/components/Logo";
 import { MiniSparkline } from "@/components/MiniSparkline";
 import { SectionRule, Notice } from "@/components/ui";
 import { SecurityPaper } from "@/components/SecurityPaper";
 import { Reveal } from "@/components/Reveal";
+import { PriceField, type FieldSeries } from "@/components/PriceField";
+import { Footage, FootagePause } from "@/components/Footage";
 import { usd, pct, count, countCompact, change, toneClass, tickerParts } from "@/lib/format";
-import { BRAND, HERO, MECHANICS, CLAUSES, NOTICE, CTA, SECTIONS, COLUMNS, AUTH, FOOTER } from "@/lib/copy";
+import { BRAND, HERO, MECHANICS, CLAUSES, NOTICE, CTA, SECTIONS, COLUMNS, AUTH, FOOTER, LANDING, STATE } from "@/lib/copy";
 
 type Listing = {
   ticker: string;
@@ -31,22 +34,27 @@ const FALLBACK: Listing[] = [
 ];
 
 /* the logged-out home page. page.tsx shows this when there's no session, so
-   it's basically its own little site with its own nav.
+   it's its own little site with its own nav.
 
-   laid out like a newspaper front page, not a typical SaaS landing: masthead,
-   a lead headline, the board, then the plain, boring-on-purpose stuff (clauses,
-   mechanics, the notice). everything on it is literally true, disclaimer
-   included. */
+   it runs in panels, one idea each, alternating dark and light: the market
+   as a field of price lines, an index of what you can do, a panel per thing
+   (with a screen recording of it), then the plain facts: the listings, how
+   it works, the mechanics, the notice. everything on it is literally true. */
 export function LandingPage() {
   const [listings, setListings] = useState<Listing[]>(FALLBACK);
   const [live, setLive] = useState(false);
+  const [failed, setFailed] = useState(false);
+  // the bar floats clear over the dark hero and turns solid once you're past it
+  const [overHero, setOverHero] = useState(true);
+  const heroRef = useRef<HTMLElement>(null);
 
-  // discovery is public, so the front page can show the actual board
+  // discovery is public, so the front page shows the actual market. it polls
+  // so the hero's lines can flash when a price moves.
   useEffect(() => {
     const load = async () => {
       try {
         const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/discovery`);
-        if (!res.ok) return;
+        if (!res.ok) throw new Error(String(res.status));
         const data = await res.json();
         const flat: Listing[] = Object.entries(data).flatMap(([category, repos]: [string, any]) =>
           (repos as any[]).map((r) => ({
@@ -63,9 +71,22 @@ export function LandingPage() {
         }
       } catch {
         // fallback stays; the page is still honest, just not current
+        setFailed(true);
       }
     };
     load();
+    const id = window.setInterval(load, 15000);
+    return () => window.clearInterval(id);
+  }, []);
+
+  useEffect(() => {
+    const hero = heroRef.current;
+    if (!hero) return;
+    const io = new IntersectionObserver(([e]) => setOverHero(e.isIntersecting), {
+      rootMargin: "-56px 0px 0px 0px",
+    });
+    io.observe(hero);
+    return () => io.disconnect();
   }, []);
 
   const withChange = listings.map((l) => ({
@@ -73,20 +94,34 @@ export function LandingPage() {
     delta: l.sparkline.length > 1 ? change(l.sparkline[0], l.sparkline[l.sparkline.length - 1]) : null,
   }));
 
-  // the front page shows the ten most valuable listings — a board is a
-  // summary of a market, not a directory of it
+  // the front page shows the ten most valuable listings: a summary of the
+  // market, not a directory of it
   const board = [...withChange].sort((a, b) => b.current_price - a.current_price).slice(0, 10);
+
+  // the hero waits for real prices; the sample listings only stand in if the
+  // fetch fails, so it never draws six lines and then swaps to a hundred
+  const field: FieldSeries[] = useMemo(
+    () =>
+      live || failed
+        ? listings.map((l) => ({ ticker: l.ticker, price: l.current_price, points: l.sparkline }))
+        : [],
+    [listings, live, failed]
+  );
 
   return (
     <div className="flex min-h-screen flex-col">
       {/* ── masthead ─────────────────────────────────────────────────── */}
-      <header className="sticky top-0 z-40 border-b border-rule bg-[var(--paper)]/92 backdrop-blur-md">
+      <header
+        className={`fixed inset-x-0 top-0 z-40 border-b transition-[background-color,border-color] duration-200 ${
+          overHero ? "night border-transparent bg-transparent" : "border-rule bg-[var(--paper)]/92 backdrop-blur-md"
+        }`}
+      >
         <div className="mx-auto flex h-14 max-w-[76rem] items-center justify-between gap-4 px-5 sm:px-8">
           <Link href="/" aria-label={BRAND.full}>
             <Wordmark size="md" />
           </Link>
           <div className="flex items-center gap-2 sm:gap-3">
-            <Link href="/login" className="hidden px-3 py-2 text-[13px] text-ink-2 transition-colors hover:text-brand-ink sm:block">
+            <Link href="/login" className="hidden px-3 py-2 text-[13px] text-ink-2 sig sm:block">
               {AUTH.signIn}
             </Link>
             <Link href="/login" className="ctl ctl-primary ctl-sm">
@@ -96,61 +131,146 @@ export function LandingPage() {
         </div>
       </header>
 
-      <main className="mx-auto w-full max-w-[76rem] flex-1 px-5 sm:px-8">
-        {/* ── lead ───────────────────────────────────────────────────── */}
-        <section className="relative overflow-hidden pb-16 pt-16 sm:pb-24 sm:pt-24">
-          {/* the engraved seal, bleeding off the top-right and fading into the
-              page behind the headline. it's the guilloche an institution presses
-              into a document to mark it as its own. */}
-          <SecurityPaper engrave className="veil pointer-events-none absolute -right-28 -top-24 z-0 h-[28rem] w-[28rem] text-brand-ink opacity-[0.07] sm:-right-16 sm:h-[40rem] sm:w-[40rem] dark:opacity-[0.11]" />
+      {/* ── hero ─────────────────────────────────────────────────────── */}
+      <section ref={heroRef} className="night relative overflow-hidden">
+        <PriceField series={field} />
 
-          <div className="relative z-10 grid gap-12 lg:grid-cols-12 lg:gap-16">
-            <div className="lg:col-span-8">
-              {/* the swipe underline lands on the two words that carry the whole
-                  premise. it's the one place the accent shows up mid-sentence. */}
-              <h1 className="display reveal text-[clamp(2.75rem,8vw,5.5rem)] text-ink">
-                A market in
-                <br />
-                <span className="swipe swipe-in">open source.</span>
-              </h1>
-
-              <p className="reveal prose-measure mt-8 text-base leading-relaxed text-ink-2 sm:text-lg" style={{ "--i": 1 } as React.CSSProperties}>
-                {HERO.dek}
-              </p>
-
-              <div className="reveal mt-10 flex flex-wrap items-center gap-3" style={{ "--i": 2 } as React.CSSProperties}>
-                <Link href="/login" className="ctl ctl-primary">
-                  {HERO.primary}
-                </Link>
-                <a href="#mechanics" className="ctl">
-                  {HERO.secondary}
-                </a>
-              </div>
+        {/* the copy layer lets the pointer through to the lines behind it,
+            except on the things you can actually click */}
+        <div className="pointer-events-none relative z-10 mx-auto flex min-h-[min(100svh,60rem)] max-w-[76rem] flex-col px-5 pt-14 sm:px-8">
+          <div className="flex flex-1 flex-col justify-center py-16 sm:py-24 lg:max-w-[42rem]">
+            <h1 className="display reveal text-[clamp(2.75rem,8vw,5.75rem)] text-ink">
+              A market in
+              <br />
+              <span className="swipe swipe-in">open source.</span>
+            </h1>
+            <p className="reveal prose-measure mt-8 text-base leading-relaxed text-ink-2 sm:text-lg" style={{ "--i": 1 } as React.CSSProperties}>
+              {HERO.dek}
+            </p>
+            <div className="reveal pointer-events-auto mt-10 flex flex-wrap items-center gap-3" style={{ "--i": 2 } as React.CSSProperties}>
+              <Link href="/login" className="ctl ctl-primary ctl-lg">
+                {HERO.primary}
+              </Link>
+              <a href="#mechanics" className="ctl ctl-lg">
+                {HERO.secondary}
+              </a>
             </div>
-
-            {/* right rail — the session block. Real figures, stated flatly,
-                the way a masthead states its edition and price. */}
-            <aside className="reveal lg:col-span-4 lg:pl-8" style={{ "--i": 3 } as React.CSSProperties}>
-              <dl className="border-t border-rule-2">
-                {[
-                  { term: "Hours", value: "Continuous, no close" },
-                  { term: "Listings", value: <span className="figure">{count(listings.length)}</span> },
-                  { term: "Opening capital", value: <span className="figure">{usd(100000)}</span> },
-                  { term: "Settlement", value: "T+0" },
-                ].map((row) => (
-                  <div key={row.term} className="flex items-baseline justify-between gap-4 border-b border-rule py-3">
-                    <dt className="label">{row.term}</dt>
-                    <dd className="text-[13px] text-ink">{row.value}</dd>
-                  </div>
-                ))}
-              </dl>
-              <p className="ref mt-3 block leading-relaxed">
-                {live ? "Prices are live from the data engine." : "Prices unavailable. Showing sample listings."}
-              </p>
-            </aside>
           </div>
+
+          {/* the facts, stated flatly along the bottom of the panel */}
+          <dl className="reveal grid grid-cols-2 border-t border-rule-2 sm:grid-cols-4" style={{ "--i": 3 } as React.CSSProperties}>
+            {[
+              { term: "Listings", value: <span className="figure">{count(listings.length)}</span> },
+              { term: "Opening capital", value: <span className="figure">{usd(100000)}</span> },
+              { term: "Settlement", value: "Immediate" },
+              { term: "Hours", value: "Continuous" },
+            ].map((row, i) => (
+              <div key={row.term} className={`py-4 ${i % 2 === 1 ? "pl-4 sm:pl-5" : ""} ${i === 2 ? "sm:pl-5" : ""} ${i >= 2 ? "border-t border-rule sm:border-t-0" : ""} ${i > 0 ? "sm:border-l sm:border-rule" : ""}`}>
+                <dt className="label mb-1.5">{row.term}</dt>
+                <dd className="text-[15px] text-ink">{row.value}</dd>
+              </div>
+            ))}
+          </dl>
+          <p className="pb-5 text-[11px] leading-relaxed text-ink-3">
+            {live ? LANDING.fieldNote : failed ? "Prices unavailable. Showing sample listings." : STATE.quotes}
+          </p>
+        </div>
+      </section>
+
+      <main className="flex-1">
+        {/* ── index ──────────────────────────────────────────────────── */}
+        <section className="mx-auto max-w-[76rem] px-5 py-24 sm:px-8 sm:py-36">
+          <Reveal stagger>
+            <nav aria-label="Sections">
+              <ul className="flex flex-col items-center">
+                {LANDING.index.map((it, i) => (
+                  <li key={it.word} className="stagger-item" style={{ "--i": i } as React.CSSProperties}>
+                    <a
+                      href={it.href}
+                      className="display block text-[clamp(3.5rem,11vw,8.5rem)] leading-[1.04] text-ink sig"
+                    >
+                      {it.word}
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            </nav>
+          </Reveal>
         </section>
 
+        <FeaturePanel
+          id="trade"
+          {...LANDING.trade}
+          href="/login"
+          primary
+          media={
+            <Footage
+              label="Buying from the listings table"
+              aspect="1400 / 940"
+              clip={{ mp4: "/landing/trade.mp4", webm: "/landing/trade.webm", poster: "/landing/trade.jpg" }}
+            />
+          }
+        />
+
+        {/* ── on a phone ─────────────────────────────────────────────── */}
+        <section className="mx-auto grid max-w-[76rem] items-center gap-14 px-5 py-24 sm:px-8 sm:py-32 lg:grid-cols-12 lg:gap-16">
+          <Reveal className="lg:col-span-6 lg:col-start-2">
+            <span className="label">{LANDING.phone.kicker}</span>
+            <h2 className="display mt-4 text-[clamp(2.25rem,5vw,3.75rem)] text-ink">{LANDING.phone.title}</h2>
+            <p className="prose-measure mt-6 text-base leading-relaxed text-ink-2">{LANDING.phone.body}</p>
+          </Reveal>
+          <Reveal className="lg:col-span-4">
+            <Footage
+              phone
+              label="Buying on a phone"
+              aspect="600 / 1180"
+              clip={{ mp4: "/landing/phone.mp4", webm: "/landing/phone.webm", poster: "/landing/phone.jpg" }}
+            />
+          </Reveal>
+        </section>
+
+        <FeaturePanel
+          id="call"
+          {...LANDING.call}
+          href="/faq"
+          flip
+          media={
+            <Footage
+              label="The calls page"
+              aspect="1240 / 774"
+              clip={{ mp4: "/landing/call.mp4", webm: "/landing/call.webm", poster: "/landing/call.jpg" }}
+            />
+          }
+        />
+
+        <div className="mx-auto w-full max-w-[76rem] px-5 sm:px-8">
+          {/* ── statement ────────────────────────────────────────────── */}
+          <section className="py-24 sm:py-36">
+            <Reveal>
+              <h2 className="display max-w-[16ch] text-[clamp(2.5rem,6.5vw,5rem)] text-ink">
+                {LANDING.statement.title}
+              </h2>
+              <p className="prose-measure mt-8 text-base leading-relaxed text-ink-2 sm:text-lg">
+                {LANDING.statement.body}
+              </p>
+            </Reveal>
+          </section>
+        </div>
+
+        <FeaturePanel
+          id="verify"
+          {...LANDING.verify}
+          href="#mechanics"
+          media={
+            <Footage
+              label="A listing's price history"
+              aspect="1240 / 774"
+              clip={{ mp4: "/landing/verify.mp4", webm: "/landing/verify.webm", poster: "/landing/verify.jpg" }}
+            />
+          }
+        />
+
+        <div className="mx-auto w-full max-w-[76rem] px-5 pt-24 sm:px-8 sm:pt-32">
         {/* ── the board ──────────────────────────────────────────────── */}
         <section className="pb-20 sm:pb-28">
           <SectionRule
@@ -159,7 +279,7 @@ export function LandingPage() {
             className="mb-6"
           />
 
-          <div className="overflow-x-auto no-bar">
+          <Reveal stagger className="overflow-x-auto no-bar">
             <table className="board min-w-[36rem]">
               <thead>
                 <tr>
@@ -174,13 +294,13 @@ export function LandingPage() {
                 {board.map((l, i) => {
                   const { owner, repo } = tickerParts(l.ticker);
                   return (
-                    <tr key={l.ticker} className="reveal" style={{ "--i": i } as React.CSSProperties}>
+                    <tr key={l.ticker} className="stagger-item" style={{ "--i": i } as React.CSSProperties}>
                       <td>
                         {/* links to /login rather than the asset page: that
                             route has no logged-out state and hard-redirects,
                             so pointing at it would flash a page and bounce */}
                         <Link href="/login" className="group block">
-                          <span className="block text-[13px] font-medium uppercase text-ink transition-colors group-hover:text-brand-ink">
+                          <span className="block text-[13px] font-medium uppercase text-ink sig">
                             {repo}
                           </span>
                           <span className="block text-[11px] text-ink-3">{owner}</span>
@@ -205,7 +325,7 @@ export function LandingPage() {
                 })}
               </tbody>
             </table>
-          </div>
+          </Reveal>
         </section>
 
         {/* ── procedure ──────────────────────────────────────────────── */}
@@ -245,19 +365,30 @@ export function LandingPage() {
         {/* ── sign-up ────────────────────────────────────────────────── */}
         <section className="pb-20 sm:pb-28">
           <Reveal>
-            <div className="relative overflow-hidden border border-rule-2 bg-paper-2 px-6 py-16 text-center sm:px-12 sm:py-24">
-              {/* the seal the block always wanted: the engraved rosette, oversized
-                  and nearly invisible, centred behind the copy the way an
-                  institution watermarks a document it wants to look official. */}
-              <SecurityPaper className="veil pointer-events-none absolute left-1/2 top-1/2 z-0 h-[26rem] w-[26rem] -translate-x-1/2 -translate-y-1/2 text-brand-ink opacity-[0.06] sm:h-[32rem] sm:w-[32rem] dark:opacity-[0.09]" />
-              <div className="relative z-10">
-                <h2 className="display mx-auto max-w-xl text-[clamp(1.85rem,4.5vw,3rem)] text-ink">
-                  {CTA.headline}
-                </h2>
-                <p className="mx-auto mt-5 max-w-md text-sm leading-relaxed text-ink-2">{CTA.body}</p>
-                <Link href="/login" className="ctl ctl-primary mt-9">
-                  {CTA.action}
-                </Link>
+            <div className="relative overflow-hidden border border-rule-2 bg-paper-2">
+              {/* the engraved rosette, oversized and nearly invisible, behind
+                  the copy side of the block */}
+              <SecurityPaper className="veil pointer-events-none absolute -left-24 top-1/2 z-0 h-[30rem] w-[30rem] -translate-y-1/2 text-brand-ink opacity-[0.06] sm:h-[36rem] sm:w-[36rem] dark:opacity-[0.09]" />
+              <div className="relative z-10 grid items-center gap-10 px-6 py-14 sm:px-12 sm:py-20 lg:grid-cols-12 lg:gap-14">
+                <div className="lg:col-span-5">
+                  <h2 className="display max-w-md text-[clamp(1.85rem,4.5vw,3rem)] text-ink">
+                    {CTA.headline}
+                  </h2>
+                  <p className="mt-5 max-w-sm text-sm leading-relaxed text-ink-2">{CTA.body}</p>
+                  <Link href="/login" className="ctl ctl-primary ctl-lg mt-9">
+                    {CTA.action}
+                  </Link>
+                </div>
+                {/* the name morph, zoomed in on the path the name travels and
+                    slowed to 40% through the flight so it can be followed */}
+                <figure className="lg:col-span-7">
+                  <Footage
+                    label="A listing name carrying into its page"
+                    aspect="800 / 500"
+                    clip={{ mp4: "/landing/morph.mp4", webm: "/landing/morph.webm", poster: "/landing/morph.jpg" }}
+                  />
+                  <figcaption className="mt-3 text-[12px] leading-relaxed text-ink-3">{LANDING.morph}</figcaption>
+                </figure>
               </div>
             </div>
           </Reveal>
@@ -271,6 +402,7 @@ export function LandingPage() {
             </Notice>
           </Reveal>
         </section>
+        </div>
       </main>
 
       {/* ── colophon ─────────────────────────────────────────────────── */}
@@ -280,10 +412,10 @@ export function LandingPage() {
             <Wordmark size="sm" />
             <p className="ref mt-3 max-w-sm leading-relaxed">{FOOTER.colophon}</p>
             <nav className="mt-4 flex flex-wrap gap-x-4 gap-y-1.5" aria-label="Site">
-              <Link href="/faq" className="ref transition-colors hover:text-brand-ink">FAQ</Link>
-              <Link href="/legal/terms" className="ref transition-colors hover:text-brand-ink">Terms</Link>
-              <Link href="/legal/privacy" className="ref transition-colors hover:text-brand-ink">Privacy</Link>
-              <Link href="/legal/disclaimer" className="ref transition-colors hover:text-brand-ink">Disclaimer</Link>
+              <Link href="/faq" className="ref sig">FAQ</Link>
+              <Link href="/legal/terms" className="ref sig">Terms</Link>
+              <Link href="/legal/privacy" className="ref sig">Privacy</Link>
+              <Link href="/legal/disclaimer" className="ref sig">Disclaimer</Link>
             </nav>
           </div>
           <div className="flex flex-col gap-1.5 sm:items-end">
@@ -291,6 +423,58 @@ export function LandingPage() {
           </div>
         </div>
       </footer>
+
+      <FootagePause />
     </div>
+  );
+}
+
+/* one dark panel: the copy on one side, the recording of that thing on the
+   other. `flip` swaps the sides on wide screens so consecutive panels don't
+   all lean the same way. */
+function FeaturePanel({
+  id,
+  kicker,
+  title,
+  body,
+  link,
+  href,
+  media,
+  flip,
+  primary,
+}: {
+  id: string;
+  kicker: string;
+  title: string;
+  body: string;
+  link: string;
+  href: string;
+  media: React.ReactNode;
+  flip?: boolean;
+  primary?: boolean;
+}) {
+  const cls = `ctl ${primary ? "ctl-primary" : ""} mt-9`;
+  const label = (
+    <>
+      {link}
+      <ArrowRight size={14} strokeWidth={1.75} aria-hidden="true" />
+    </>
+  );
+  return (
+    <section id={id} className="night scroll-mt-14">
+      <div className="mx-auto grid max-w-[76rem] items-center gap-12 px-5 py-20 sm:px-8 sm:py-28 lg:grid-cols-12 lg:gap-16">
+        <Reveal className={`lg:col-span-5 ${flip ? "lg:order-2" : ""}`}>
+          <span className="label">{kicker}</span>
+          <h2 className="display mt-4 text-[clamp(2.25rem,5vw,3.75rem)] text-ink">{title}</h2>
+          <p className="prose-measure mt-6 text-base leading-relaxed text-ink-2">{body}</p>
+          {href.startsWith("#") ? (
+            <a href={href} className={cls}>{label}</a>
+          ) : (
+            <Link href={href} className={cls}>{label}</Link>
+          )}
+        </Reveal>
+        <Reveal className="lg:col-span-7">{media}</Reveal>
+      </div>
+    </section>
   );
 }

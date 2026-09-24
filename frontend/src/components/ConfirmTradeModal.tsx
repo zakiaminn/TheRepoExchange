@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { Drawer } from "vaul";
+import { Minus, Plus } from "lucide-react";
 import { usd, count } from "@/lib/format";
 import { ORDER, LABELS, SECTIONS } from "@/lib/copy";
 
@@ -108,6 +109,10 @@ export function ConfirmTradeModal({
       onOpenChange={(o) => { if (!o) onCancel(); }}
       direction={wide ? "right" : "bottom"}
       dismissible={!processing}
+      // vaul's own keyboard handling shoved the sheet up the screen on iOS
+      // and left a gap above the keypad; the browser's default keeps the
+      // focused field in view without moving the sheet
+      repositionInputs={false}
     >
       <Drawer.Portal>
         <Drawer.Overlay className="fixed inset-0 z-50 bg-[var(--scrim)]" />
@@ -115,7 +120,11 @@ export function ConfirmTradeModal({
           aria-describedby={undefined}
           onOpenAutoFocus={(e) => {
             e.preventDefault();
-            qtyRef.current?.select();
+            // with a mouse, the quantity is ready to type into. on a touch
+            // screen focusing it would throw up the keyboard over the ticket
+            // before you've decided anything, so it waits for a tap (and the
+            // − / + buttons cover most changes without one)
+            if (window.matchMedia("(pointer: fine)").matches) qtyRef.current?.select();
           }}
           className={
             wide
@@ -139,18 +148,38 @@ export function ConfirmTradeModal({
               <label htmlFor="ticket-qty" className="label">
                 {LABELS.quantity}
               </label>
-              <input
-                id="ticket-qty"
-                ref={qtyRef}
-                type="number"
-                inputMode="numeric"
-                min={1}
-                step={1}
-                value={Number.isFinite(quantity) ? quantity : ""}
-                onChange={(e) => onQuantityChange(Math.max(0, parseInt(e.target.value, 10) || 0))}
-                disabled={processing}
-                className="field field-figure h-9 w-28 select-text text-[16px] sm:text-[13px]"
-              />
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => onQuantityChange(Math.max(1, quantity - 1))}
+                  disabled={processing || quantity <= 1}
+                  aria-label="One fewer share"
+                  className="ctl ctl-sm ctl-icon text-ink-2"
+                >
+                  <Minus size={13} strokeWidth={1.75} aria-hidden="true" />
+                </button>
+                <input
+                  id="ticket-qty"
+                  ref={qtyRef}
+                  type="number"
+                  inputMode="numeric"
+                  min={1}
+                  step={1}
+                  value={Number.isFinite(quantity) ? quantity : ""}
+                  onChange={(e) => onQuantityChange(Math.max(0, parseInt(e.target.value, 10) || 0))}
+                  disabled={processing}
+                  className="field field-figure h-9 w-20 select-text text-[16px] sm:text-[13px]"
+                />
+                <button
+                  type="button"
+                  onClick={() => onQuantityChange((Number.isFinite(quantity) ? quantity : 0) + 1)}
+                  disabled={processing}
+                  aria-label="One more share"
+                  className="ctl ctl-sm ctl-icon text-ink-2"
+                >
+                  <Plus size={13} strokeWidth={1.75} aria-hidden="true" />
+                </button>
+              </div>
             </div>
 
             <div className="mt-1 border-t border-rule-2 pt-4">

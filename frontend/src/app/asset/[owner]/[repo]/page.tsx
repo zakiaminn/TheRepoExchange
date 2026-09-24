@@ -301,7 +301,7 @@ export default function ListingPage(props: PageProps) {
   return (
     <div className="flex-1 pb-20">
       <main className="mx-auto w-full max-w-[64rem] px-5 py-8 sm:px-8 sm:py-10">
-        <Link href="/" className="label inline-block transition-colors hover:text-brand-ink">
+        <Link href="/" className="label inline-block sig">
           ← {NAV.back}
         </Link>
 

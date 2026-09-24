@@ -62,6 +62,44 @@ export const NOTICE = {
   body: "TRX is a simulation. No securities are offered, sold, or held. Positions give no ownership of, or claim on, any repository or its maintainers. Cash balances are fictional and can't be transferred. Prices come from public activity metrics and are not a valuation of anything.",
 } as const;
 
+/** The landing page's sections, top to bottom. */
+export const LANDING = {
+  fieldNote: "Each line is one listing. Its height is its price; its shape is its last ten prices.",
+  index: [
+    { word: "Trade", href: "#trade" },
+    { word: "Call", href: "#call" },
+    { word: "Verify", href: "#verify" },
+  ],
+  trade: {
+    kicker: "Trade",
+    title: "Buy and sell in two clicks.",
+    body: "Pick a listing, set a size, confirm. The order fills at the published price, or it's rejected if the price moved too far in between. Every account starts with $100,000 of simulated capital.",
+    link: "Open an account",
+  },
+  phone: {
+    kicker: "On a phone",
+    title: "Works the same in one hand.",
+    body: "On a phone the order ticket is a sheet you can drag away. Search, buy and check a position without reaching for the top of the screen.",
+  },
+  call: {
+    kicker: "Call",
+    title: "Call a repository's stars.",
+    body: "Predict that a repository reaches a star count by a date. It settles automatically against the public count: a correct call returns twice the stake.",
+    link: "How calls settle",
+  },
+  verify: {
+    kicker: "Verify",
+    title: "Every price shows its working.",
+    body: "A price is a published formula over six public GitHub numbers. Each listing page rebuilds it line by line, so you can check it against GitHub in another tab.",
+    link: "Read the mechanics",
+  },
+  morph: "Slowed down: the name you click carries into the page it opens.",
+  statement: {
+    title: "Priced from public numbers, not a hidden model.",
+    body: "Stars, forks, watchers, open pull requests, open issues and the date of the last push. That's the whole input. Anyone can reproduce any listed price from the repository's own page.",
+  },
+} as const;
+
 export const CTA = {
   headline: "Start with $100,000 of simulated capital.",
   body: "Sign up with an email address. The capital is credited as soon as you confirm it.",

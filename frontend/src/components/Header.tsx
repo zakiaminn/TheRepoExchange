@@ -221,7 +221,7 @@ export function Header() {
         <nav className="hidden shrink-0 items-center gap-1 md:flex">
           <Link
             href="/portfolio"
-            className={`px-3 py-2 text-[13px] transition-colors hover:text-brand-ink ${
+            className={`px-3 py-2 text-[13px] sig ${
               pathname === "/portfolio" ? "text-ink" : "text-ink-2"
             }`}
           >
@@ -229,7 +229,7 @@ export function Header() {
           </Link>
           <Link
             href="/calls"
-            className={`px-3 py-2 text-[13px] transition-colors hover:text-brand-ink ${
+            className={`px-3 py-2 text-[13px] sig ${
               pathname === "/calls" ? "text-ink" : "text-ink-2"
             }`}
           >
@@ -242,9 +242,9 @@ export function Header() {
             onClick={() => setMenuOpen(!menuOpen)}
             aria-expanded={menuOpen}
             aria-haspopup="menu"
-            className="press flex items-center gap-2.5 border border-rule py-1 pl-1 pr-3 transition-[border-color,transform] hover:border-rule-2"
+            className="ctl ctl-sm gap-2 pl-1 pr-3.5"
           >
-            <span className="flex h-7 w-7 items-center justify-center bg-paper-3 text-[11px] font-medium text-ink">
+            <span className="flex h-7 w-7 items-center justify-center rounded-full bg-paper text-[11px] font-medium text-ink">
               {initials}
             </span>
             <span className="max-w-[9rem] truncate text-[13px] text-ink-2">{displayName}</span>
@@ -278,7 +278,7 @@ export function Header() {
           onClick={() => setMobileOpen(!mobileOpen)}
           aria-label={NAV.menu}
           aria-expanded={mobileOpen}
-          className="press ml-auto flex h-9 w-9 items-center justify-center border border-rule text-ink-2 md:hidden"
+          className="ctl ctl-sm ctl-icon ml-auto text-ink-2 md:hidden"
         >
           <span className="flex flex-col gap-[3px]" aria-hidden="true">
             <span className="block h-px w-4 bg-current" />
@@ -291,23 +291,23 @@ export function Header() {
       {mobileOpen && (
         <div className="drop border-t border-rule bg-paper px-5 py-4 md:hidden">
           {search}
-          <div className="mt-4 grid grid-cols-2 gap-px border border-rule bg-rule">
-            <Link href="/portfolio" onClick={() => setMobileOpen(false)} className="bg-paper px-3 py-3 text-[13px] text-ink">
+          <div className="mt-4 grid grid-cols-2 gap-2">
+            <Link href="/portfolio" onClick={() => setMobileOpen(false)} className="ctl">
               {NAV.positions}
             </Link>
-            <Link href="/calls" onClick={() => setMobileOpen(false)} className="bg-paper px-3 py-3 text-[13px] text-ink">
+            <Link href="/calls" onClick={() => setMobileOpen(false)} className="ctl">
               {NAV.calls}
             </Link>
-            <Link href="/settings" onClick={() => setMobileOpen(false)} className="bg-paper px-3 py-3 text-[13px] text-ink">
+            <Link href="/settings" onClick={() => setMobileOpen(false)} className="ctl">
               {NAV.account}
             </Link>
           </div>
           <div className="mt-4 flex items-center justify-between border-t border-rule pt-4">
             <span className="flex items-center gap-2.5">
-              <span className="flex h-7 w-7 items-center justify-center bg-paper-3 text-[11px] text-ink">{initials}</span>
+              <span className="flex h-7 w-7 items-center justify-center rounded-full bg-paper-3 text-[11px] text-ink">{initials}</span>
               <span className="truncate text-[13px] text-ink-2">{displayName}</span>
             </span>
-            <button onClick={signOut} className="label hover:text-brand-ink">Sign out</button>
+            <button onClick={signOut} className="ctl ctl-sm">Sign out</button>
           </div>
         </div>
       )}

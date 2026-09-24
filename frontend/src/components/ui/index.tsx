@@ -238,37 +238,39 @@ export function Segmented<K extends string>({
     const btn = row?.querySelector<HTMLElement>(`[data-key="${value}"]`);
     if (!row || !btn) return;
     const right = row.offsetWidth - btn.offsetLeft - btn.offsetWidth;
-    setClip(`inset(0 ${right}px 0 ${btn.offsetLeft}px)`);
+    setClip(`inset(0 ${right}px 0 ${btn.offsetLeft}px round 999px)`);
   }, [value, options]);
 
-  const seg = "border-r border-rule px-2.5 py-1.5 text-[11px] last:border-r-0";
+  const seg = "rounded-full px-3 py-1.5 text-[12px] font-medium leading-none";
 
+  // the track is a soft pill; the highlight is a second copy of the row in
+  // the active colours, clipped to a pill around the chosen segment
   return (
-    <div className="relative flex shrink-0 border border-rule" role="group" aria-label={label}>
-      <div ref={rowRef} className="flex">
+    <div className="w-fit shrink-0 rounded-full bg-[color-mix(in_srgb,var(--ink)_7%,transparent)] p-[3px]" role="group" aria-label={label}>
+      <div ref={rowRef} className="relative flex">
         {options.map((k) => (
           <button
             key={k}
             data-key={k}
             onClick={() => onChange(k)}
             aria-pressed={value === k}
-            className={cx(seg, "text-ink-2 transition-colors hover:bg-paper-2 hover:text-ink")}
+            className={cx(seg, "text-ink-2 transition-colors hover:text-ink")}
           >
             {k}
           </button>
         ))}
-      </div>
-      <div
-        aria-hidden="true"
-        data-ready={ready || undefined}
-        className="segmented-active pointer-events-none absolute inset-0 flex bg-brand"
-        style={{ clipPath: clip ?? "inset(0 100% 0 0)" }}
-      >
-        {options.map((k) => (
-          <span key={k} className={cx(seg, "border-transparent text-brand-fg")}>
-            {k}
-          </span>
-        ))}
+        <div
+          aria-hidden="true"
+          data-ready={ready || undefined}
+          className="segmented-active pointer-events-none absolute inset-0 flex rounded-full bg-brand"
+          style={{ clipPath: clip ?? "inset(0 100% 0 0)" }}
+        >
+          {options.map((k) => (
+            <span key={k} className={cx(seg, "text-brand-fg")}>
+              {k}
+            </span>
+          ))}
+        </div>
       </div>
     </div>
   );

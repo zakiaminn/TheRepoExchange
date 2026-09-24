@@ -219,7 +219,7 @@ export default function PortfolioPage() {
                               className="group block"
                             >
                               <ListingMorph ticker={h.ticker}>
-                                <span className="block truncate text-[13px] font-medium uppercase text-ink transition-colors group-hover:text-brand-ink">
+                                <span className="block truncate text-[13px] font-medium uppercase text-ink sig">
                                   {repo}
                                 </span>
                               </ListingMorph>

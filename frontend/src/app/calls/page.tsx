@@ -333,7 +333,7 @@ export default function CallsPage() {
                       <div key={c.id} className={`flex items-baseline justify-between gap-4 px-4 py-4 sm:px-6 ${i > 0 ? "border-t border-rule" : ""}`}>
                         <div className="min-w-0">
                           <Link href={`/asset/${owner.toLowerCase()}/${name.toLowerCase()}`} className="group block min-w-0">
-                            <span className="block truncate text-[13px] font-medium uppercase text-ink transition-colors group-hover:text-brand-ink">{name}</span>
+                            <span className="block truncate text-[13px] font-medium uppercase text-ink sig">{name}</span>
                             <span className="block truncate text-[11px] text-ink-3">{owner}</span>
                           </Link>
                           <p className="ref mt-1.5">

@@ -332,27 +332,114 @@ body::before {
   mask-image: radial-gradient(closest-side, #000 52%, transparent 100%);
 }
 
+/* night. a dark surface that works in either theme: the landing hero and
+   its feature panels. it re-points the colour tokens for everything inside
+   it, so labels, controls, the wordmark and the rest of the system work on it
+   unchanged. in dark mode the page is already near-black, so night lifts
+   slightly instead, to still read as its own surface. */
+.night {
+  --paper:   #0B0B08;
+  --paper-2: #15150F;
+  --paper-3: #1F1F17;
+  --ink:   #EDEDE0;
+  --ink-2: #A3A18D;
+  --ink-3: #8A8873;
+  --rule:   #26261B;
+  --rule-2: #3A3A2B;
+  --brand-ink: #DCEC3A;
+  --brand-fg:  #14140A;
+  --brand-wash: #23260F;
+  --focus: #DCEC3A;
+  color-scheme: dark;
+  background: var(--paper);
+  color: var(--ink);
+}
+@media (prefers-color-scheme: dark) {
+  .night { --paper: #13130E; --paper-2: #1B1B14; --paper-3: #24241B; }
+}
+
+/* the hero's field of price lines (see <PriceField>). on wide screens it
+   fades out toward the headline on the left; on narrow ones the headline sits
+   above it, so it fades in from the top instead. */
+.price-field {
+  position: absolute;
+  inset: 0;
+  /* narrow: a band between the buttons and the facts row */
+  -webkit-mask-image: linear-gradient(to bottom, transparent 42%, #000 66%, #000 72%, transparent 86%);
+  mask-image: linear-gradient(to bottom, transparent 42%, #000 66%, #000 72%, transparent 86%);
+}
+@media (min-width: 1024px) {
+  /* wide: clear of the headline on the left and of the facts row along the
+     bottom, two gradients intersected */
+  .price-field {
+    -webkit-mask-image: linear-gradient(to right, transparent 18%, #000 58%), linear-gradient(to bottom, #000 74%, transparent 88%);
+    -webkit-mask-composite: source-in;
+    mask-image: linear-gradient(to right, transparent 18%, #000 58%), linear-gradient(to bottom, #000 74%, transparent 88%);
+    mask-composite: intersect;
+  }
+}
+.price-field-label {
+  position: absolute;
+  top: 0;
+  left: 0;
+  display: flex;
+  gap: 0.6rem;
+  align-items: baseline;
+  padding: 0.3rem 0.55rem;
+  border: 1px solid var(--rule-2);
+  background: var(--paper);
+  font-size: 0.75rem;
+  color: var(--ink);
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 120ms var(--ease);
+  will-change: transform;
+}
+.price-field-label[data-shown] { opacity: 1; }
+.price-field-label .figure { color: var(--brand-ink); }
+
+/* a group whose children arrive one after another when it scrolls into view
+   (see <Reveal stagger>): the big index words on the landing page */
+.reveal-group .stagger-item {
+  transition: opacity 640ms var(--ease), transform 640ms var(--ease);
+  transition-delay: calc(var(--i, 0) * 50ms);
+}
+.reveal-group[data-state="waiting"] .stagger-item { opacity: 0; transform: translateY(18px); }
+
 /* ═══ CONTROLS ═══════════════════════════════════════════════════════════ */
 
+/* round means pressable. every button is a pill (or a circle when it's only
+   an icon); everything else on the page stays square and hairline, so you
+   can tell what does something before you read it.
+
+   no outlines. the kind of button is carried by its fill alone: Sulfur for
+   the one thing to do, a soft tint of the ink for everything else. the tint
+   is mixed from --ink, so it reads on paper and on the night panels without
+   a second set of rules. labels are sentence case at a normal size, the
+   way you'd say them. */
 .ctl {
+  --ctl-fill: color-mix(in srgb, var(--ink) 7%, transparent);
+  --ctl-fill-hover: color-mix(in srgb, var(--ink) 12%, transparent);
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 0.5rem;
-  height: 2.5rem;
-  padding: 0 1.125rem;
-  border: 1px solid var(--rule-2);
-  background: transparent;
+  height: 2.75rem;
+  padding: 0 1.25rem;
+  border: 0;
+  border-radius: 999px;
+  background: var(--ctl-fill);
   color: var(--ink);
   font-family: var(--font-sans);
-  font-size: 0.6875rem;
-  font-weight: 600;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
+  font-size: 0.875rem;
+  font-weight: 500;
+  letter-spacing: 0.005em;
+  line-height: 1;
+  white-space: nowrap;
   cursor: pointer;
-  transition: background var(--dur-fast) var(--ease),
-              color var(--dur-fast) var(--ease),
-              border-color var(--dur-fast) var(--ease),
+  transition: background-color 300ms var(--ease),
+              color 300ms var(--ease),
               transform var(--dur-fast) var(--ease);
 }
 .ctl:disabled { opacity: 0.4; cursor: not-allowed; }
@@ -362,43 +449,49 @@ body::before {
    tailwind's hover: utilities already do this; these hand-written ones have to
    opt in. every :hover in this file sits behind the same query. */
 @media (hover: hover) and (pointer: fine) {
-  .ctl:hover:not(:disabled) { background: var(--paper-2); border-color: var(--ink-3); }
+  .ctl:hover:not(:disabled) { background: var(--ctl-fill-hover); }
 }
 
 /* the primary button. the bright fill shows up maybe three times on a page,
-   and that's the point — if it's everywhere it stops meaning "do this one". */
+   and that's the point: if it's everywhere it stops meaning "do this one". */
 .ctl-primary {
-  background: var(--brand);
-  border-color: var(--brand);
+  --ctl-fill: var(--brand);
+  /* lighter on hover, not darker: mixing toward the ink turned it olive */
+  --ctl-fill-hover: color-mix(in srgb, var(--brand) 80%, #ffffff);
   color: var(--brand-fg);
 }
-@media (hover: hover) and (pointer: fine) {
-  .ctl-primary:hover:not(:disabled) {
-    background: var(--brand-ink);
-    border-color: var(--brand-ink);
-    color: var(--paper);
-  }
-}
-@media (hover: hover) and (pointer: fine) and (prefers-color-scheme: dark) {
-  .ctl-primary:hover:not(:disabled) { filter: brightness(1.12); color: var(--brand-fg); }
-}
 
-.ctl-pos { border-color: var(--pos); color: var(--pos); }
-.ctl-neg { border-color: var(--neg); color: var(--neg); }
+/* buy/sell in market colours: a wash of the colour at rest, the full colour
+   under the pointer */
+.ctl-pos {
+  --ctl-fill: color-mix(in srgb, var(--pos) 12%, transparent);
+  --ctl-fill-hover: var(--pos);
+  color: var(--pos);
+}
+.ctl-neg {
+  --ctl-fill: color-mix(in srgb, var(--neg) 12%, transparent);
+  --ctl-fill-hover: var(--neg);
+  color: var(--neg);
+}
 @media (hover: hover) and (pointer: fine) {
-  .ctl-pos:hover:not(:disabled) { background: var(--pos); color: var(--paper); border-color: var(--pos); }
-  .ctl-neg:hover:not(:disabled) { background: var(--neg); color: var(--paper); border-color: var(--neg); }
+  .ctl-pos:hover:not(:disabled),
+  .ctl-neg:hover:not(:disabled) { color: var(--paper); }
 }
 
 /* the press. the button gives a little under your finger, so you know the
    click landed before the network answers. 0.98 and the fast duration: it
    should register, not perform. .press is the same thing for pressables that
-   aren't a .ctl (the board's Buy chip, the account button). */
+   aren't a .ctl (the listings' Buy chip, the account button). */
 .ctl:active:not(:disabled),
 .press:active:not(:disabled) { transform: scale(0.98); }
-.press { transition: transform var(--dur-fast) var(--ease), filter var(--dur-fast) var(--ease); }
+.press { transition: transform var(--dur-fast) var(--ease), filter var(--dur-fast) var(--ease), background-color 300ms var(--ease); }
 
-.ctl-sm { height: 1.75rem; padding: 0 0.75rem; font-size: 0.625rem; letter-spacing: 0.1em; }
+.ctl-sm { height: 2.25rem; padding: 0 1rem; font-size: 0.8125rem; }
+/* the page's main call to action, where there's room for it */
+.ctl-lg { height: 3.5rem; padding: 0 1.75rem; font-size: 0.9375rem; }
+/* an icon on its own: a circle the height of the button */
+.ctl-icon { width: 2.75rem; padding: 0; }
+.ctl-sm.ctl-icon { width: 2.25rem; }
 
 /* inputs get a bottom border, not a full box — a form here should feel like
    filling in a paper record, not stacking web widgets. */
@@ -437,7 +530,27 @@ body::before {
   transition: color var(--dur-fast) var(--ease), text-decoration-color var(--dur-fast) var(--ease);
 }
 @media (hover: hover) and (pointer: fine) {
-  .link:hover { color: var(--brand-ink); text-decoration-color: var(--brand); }
+  .link:hover { text-decoration-color: var(--brand); text-decoration-thickness: 2px; }
+}
+
+/* the hover signal for text links: a thick Sulfur underline fades in under
+   the words, the same stroke as the swipe under the landing headline. text
+   keeps its own colour; bright Sulfur as text on the light page is about
+   1.3:1, which nobody can read, and the text-safe olive read as green. one
+   colour on hover, in both themes. text-decoration (not a background) so it
+   hugs the words even on padded or truncated links. */
+.sig {
+  text-decoration-line: underline;
+  text-decoration-color: transparent;
+  text-decoration-thickness: max(2px, 0.14em);
+  text-underline-offset: 0.14em;
+  text-decoration-skip-ink: none;
+  transition: text-decoration-color 200ms var(--ease);
+}
+.sig:focus-visible { text-decoration-color: var(--brand); }
+@media (hover: hover) and (pointer: fine) {
+  .sig:hover,
+  .group:hover .sig { text-decoration-color: var(--brand); }
 }
 
 /* ═══ TABLE — "the board" ═══
@@ -595,6 +708,7 @@ body::before {
   .engrave path { animation: none; stroke-dashoffset: 0; }
   .swipe-in { animation: none; }
   .reveal-scroll[data-state="waiting"] { transform: none; }
+  .reveal-group[data-state="waiting"] .stagger-item { transform: none; }
   @starting-style { .drop { transform: none; } }
   .segmented-active[data-ready] { transition: none; }
   /* names jump straight to their new place; the page still cross-fades */
