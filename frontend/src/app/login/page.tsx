@@ -115,7 +115,7 @@ export default function LoginPage() {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
         router.push("/");
-        router.refresh(); // so the masthead picks up the session immediately
+        router.refresh(); // re-render anything that read the session on the server
       }
     } catch (error: any) {
       setMessage({ text: readable(error.message), type: "error" });

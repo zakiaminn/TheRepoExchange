@@ -55,13 +55,20 @@ export function Header() {
     load();
   }, []);
 
+  // follow the session rather than asking for it once. this used to be a
+  // single getUser() on mount, and the header lives in the root layout, so it
+  // mounts once per page load: sign in on /login (where it had already
+  // recorded "no user") and the bar stayed gone until a reload, and any
+  // failed or thrown lookup hid it for the rest of the visit. the listener
+  // fires INITIAL_SESSION straight away from the stored session, then again
+  // on sign-in, sign-out, token refresh and name changes. it's only deciding
+  // whether to draw the bar; every page still verifies the user itself.
   useEffect(() => {
-    const getUser = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      setUser(user);
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null);
       setAuthLoading(false);
-    };
-    getUser();
+    });
+    return () => subscription.unsubscribe();
   }, [supabase.auth]);
 
   // dismiss the account menu and the suggestion list on any outside click
@@ -206,7 +213,7 @@ export function Header() {
     <header className="sticky top-0 z-40 border-b border-rule bg-[var(--paper)]/92 backdrop-blur-md [view-transition-name:site-header]">
       <div className="mx-auto flex h-14 max-w-[76rem] items-center gap-5 px-5 sm:px-8">
         <Link href="/" className="shrink-0" aria-label="TRX, The Repo Exchange">
-          <Wordmark size="md" showName={false} />
+          <Wordmark size="md" showName="wide" />
         </Link>
 
         <div className="ml-auto hidden max-w-sm flex-1 md:block">{search}</div>

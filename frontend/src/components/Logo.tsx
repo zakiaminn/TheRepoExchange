@@ -16,9 +16,13 @@ export function Wordmark({
   className = "",
 }: {
   size?: "sm" | "md" | "lg";
-  showName?: boolean;
+  // "wide" holds the name back until lg, for bars that have to fit search,
+  // nav and the account button beside it
+  showName?: boolean | "wide";
   className?: string;
 }) {
+  const nameCls = showName === "wide" ? "hidden lg:block" : "hidden sm:block";
+
   const s = {
     sm: { ticker: "text-base", gap: "gap-2.5" },
     md: { ticker: "text-xl", gap: "gap-3" },
@@ -32,8 +36,8 @@ export function Wordmark({
       </span>
       {showName && (
         <>
-          <span className="hidden sm:block h-4 w-px bg-rule-2" aria-hidden="true" />
-          <span className="label hidden sm:block">The Repo Exchange</span>
+          <span className={`${nameCls} h-4 w-px bg-rule-2`} aria-hidden="true" />
+          <span className={`label ${nameCls}`}>The Repo Exchange</span>
         </>
       )}
     </span>
