@@ -204,6 +204,7 @@ export const ERROR = {
   unconfirmed: "Email not confirmed. Check your inbox, then sign in.",
   registered: "An account already exists for this email.",
   rateLimit: "Too many attempts. Try again shortly.",
+  emailSend: "The email couldn't be sent. Try again in a few minutes.",
   password: "Password must be at least six characters.",
   unexpected: "Request failed.",
 } as const;

@@ -97,6 +97,10 @@ export default function LoginView({ initialMode, error }: { initialMode: Mode; e
     if (m.includes("email not confirmed")) return ERROR.unconfirmed;
     if (m.includes("already registered") || m.includes("already been registered")) return ERROR.registered;
     if (m.includes("rate limit") || m.includes("too many requests")) return ERROR.rateLimit;
+    // supabase makes you wait about a minute between emails to one address
+    if (m.includes("for security purposes") || m.includes("request this after")) return ERROR.rateLimit;
+    // the email provider (SMTP) refused or failed. not the person's fault
+    if (m.includes("error sending")) return ERROR.emailSend;
     if (m.includes("password") && m.includes("characters")) return ERROR.password;
     return ERROR.auth;
   };
@@ -145,7 +149,10 @@ export default function LoginView({ initialMode, error }: { initialMode: Mode; e
       if (error) throw error;
       setMessage({ text: AUTH.resetSent, type: "success" });
     } catch (error: any) {
-      setMessage({ text: readable(error.message), type: "error" });
+      // keep supabase's own wording in the console; the notice is rewritten
+      console.error("[reset request]", error?.status, error?.message);
+      const text = readable(error.message);
+      setMessage({ text: text === ERROR.auth ? ERROR.emailSend : text, type: "error" });
     } finally {
       setLoading(false);
     }
