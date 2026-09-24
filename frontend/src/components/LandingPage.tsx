@@ -4,10 +4,11 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { Wordmark } from "@/components/Logo";
 import { MiniSparkline } from "@/components/MiniSparkline";
-import { SectionRule, DocRef, Notice, LiveDot, LiveClock } from "@/components/ui";
+import { SectionRule, Notice } from "@/components/ui";
 import { SecurityPaper } from "@/components/SecurityPaper";
+import { Reveal } from "@/components/Reveal";
 import { usd, pct, count, countCompact, change, toneClass, tickerParts } from "@/lib/format";
-import { BRAND, HERO, MECHANICS, CLAUSES, NOTICE, CTA, SECTIONS, COLUMNS, AUTH, NAV, FOOTER, LABELS } from "@/lib/copy";
+import { BRAND, HERO, MECHANICS, CLAUSES, NOTICE, CTA, SECTIONS, COLUMNS, AUTH, FOOTER } from "@/lib/copy";
 
 type Listing = {
   ticker: string;
@@ -101,7 +102,7 @@ export function LandingPage() {
           {/* the engraved seal, bleeding off the top-right and fading into the
               page behind the headline. it's the guilloche an institution presses
               into a document to mark it as its own. */}
-          <SecurityPaper className="veil pointer-events-none absolute -right-28 -top-24 z-0 h-[28rem] w-[28rem] text-brand-ink opacity-[0.07] sm:-right-16 sm:h-[40rem] sm:w-[40rem] dark:opacity-[0.11]" />
+          <SecurityPaper engrave className="veil pointer-events-none absolute -right-28 -top-24 z-0 h-[28rem] w-[28rem] text-brand-ink opacity-[0.07] sm:-right-16 sm:h-[40rem] sm:w-[40rem] dark:opacity-[0.11]" />
 
           <div className="relative z-10 grid gap-12 lg:grid-cols-12 lg:gap-16">
             <div className="lg:col-span-8">
@@ -110,7 +111,7 @@ export function LandingPage() {
               <h1 className="display reveal text-[clamp(2.75rem,8vw,5.5rem)] text-ink">
                 A market in
                 <br />
-                <span className="swipe">open source.</span>
+                <span className="swipe swipe-in">open source.</span>
               </h1>
 
               <p className="reveal prose-measure mt-8 text-base leading-relaxed text-ink-2 sm:text-lg" style={{ "--i": 1 } as React.CSSProperties}>
@@ -132,7 +133,7 @@ export function LandingPage() {
             <aside className="reveal lg:col-span-4 lg:pl-8" style={{ "--i": 3 } as React.CSSProperties}>
               <dl className="border-t border-rule-2">
                 {[
-                  { term: LABELS.session, value: <span className="inline-flex items-center gap-2"><LiveDot />Continuous <span className="text-rule-2" aria-hidden="true">·</span> <LiveClock /></span> },
+                  { term: "Hours", value: "Continuous, no close" },
                   { term: "Listings", value: <span className="figure">{count(listings.length)}</span> },
                   { term: "Opening capital", value: <span className="figure">{usd(100000)}</span> },
                   { term: "Settlement", value: "T+0" },
@@ -144,7 +145,7 @@ export function LandingPage() {
                 ))}
               </dl>
               <p className="ref mt-3 block leading-relaxed">
-                {live ? "Quotes live from the data engine." : "Quotes unavailable. Showing last known board."}
+                {live ? "Prices are live from the data engine." : "Prices unavailable. Showing sample listings."}
               </p>
             </aside>
           </div>
@@ -209,60 +210,66 @@ export function LandingPage() {
 
         {/* ── procedure ──────────────────────────────────────────────── */}
         <section className="pb-20 sm:pb-28">
-          <div className="grid gap-10 md:grid-cols-3 md:gap-12">
-            {CLAUSES.map((c) => (
-              <article key={c.n}>
-                {/* each clause titled with a ruled label, like every other
-                    section heading in the product. no numbering. */}
-                <div className="mb-4 border-b border-rule pb-3">
-                  <span className="label label-ink">{c.title}</span>
-                </div>
-                <p className="text-sm leading-relaxed text-ink-2">{c.body}</p>
-              </article>
-            ))}
-          </div>
+          <Reveal>
+            <div className="grid gap-10 md:grid-cols-3 md:gap-12">
+              {CLAUSES.map((c) => (
+                <article key={c.title}>
+                  <div className="mb-4 border-b border-rule pb-3">
+                    <span className="label label-ink">{c.title}</span>
+                  </div>
+                  <p className="text-sm leading-relaxed text-ink-2">{c.body}</p>
+                </article>
+              ))}
+            </div>
+          </Reveal>
         </section>
 
         {/* ── mechanics ──────────────────────────────────────────────── */}
         <section id="mechanics" className="scroll-mt-24 pb-20 sm:pb-28">
-          <SectionRule label={SECTIONS.mechanics} className="mb-6" />
-          <dl className="border-t border-rule-2">
-            {MECHANICS.map((m) => (
-              <div
-                key={m.term}
-                className="grid grid-cols-1 gap-1 border-b border-rule py-4 sm:grid-cols-12 sm:gap-6 sm:py-3.5"
-              >
-                <dt className="label sm:col-span-3 sm:pt-0.5">{m.term}</dt>
-                <dd className="text-sm leading-relaxed text-ink sm:col-span-9">{m.value}</dd>
-              </div>
-            ))}
-          </dl>
+          <Reveal>
+            <SectionRule label={SECTIONS.mechanics} className="mb-6" />
+            <dl className="border-t border-rule-2">
+              {MECHANICS.map((m) => (
+                <div
+                  key={m.term}
+                  className="grid grid-cols-1 gap-1 border-b border-rule py-4 sm:grid-cols-12 sm:gap-6 sm:py-3.5"
+                >
+                  <dt className="label sm:col-span-3 sm:pt-0.5">{m.term}</dt>
+                  <dd className="text-sm leading-relaxed text-ink sm:col-span-9">{m.value}</dd>
+                </div>
+              ))}
+            </dl>
+          </Reveal>
         </section>
 
-        {/* ── admission ──────────────────────────────────────────────── */}
+        {/* ── sign-up ────────────────────────────────────────────────── */}
         <section className="pb-20 sm:pb-28">
-          <div className="registered relative overflow-hidden border border-rule-2 bg-paper-2 px-6 py-16 text-center sm:px-12 sm:py-24">
-            {/* the seal the block always wanted: the engraved rosette, oversized
-                and nearly invisible, centred behind the copy the way an
-                institution watermarks a document it wants to look official. */}
-            <SecurityPaper className="veil pointer-events-none absolute left-1/2 top-1/2 z-0 h-[26rem] w-[26rem] -translate-x-1/2 -translate-y-1/2 text-brand-ink opacity-[0.06] sm:h-[32rem] sm:w-[32rem] dark:opacity-[0.09]" />
-            <div className="relative z-10">
-              <h2 className="display mx-auto max-w-xl text-[clamp(1.85rem,4.5vw,3rem)] text-ink">
-                {CTA.headline}
-              </h2>
-              <p className="mx-auto mt-5 max-w-md text-sm leading-relaxed text-ink-2">{CTA.body}</p>
-              <Link href="/login" className="ctl ctl-primary mt-9">
-                {CTA.action}
-              </Link>
+          <Reveal>
+            <div className="relative overflow-hidden border border-rule-2 bg-paper-2 px-6 py-16 text-center sm:px-12 sm:py-24">
+              {/* the seal the block always wanted: the engraved rosette, oversized
+                  and nearly invisible, centred behind the copy the way an
+                  institution watermarks a document it wants to look official. */}
+              <SecurityPaper className="veil pointer-events-none absolute left-1/2 top-1/2 z-0 h-[26rem] w-[26rem] -translate-x-1/2 -translate-y-1/2 text-brand-ink opacity-[0.06] sm:h-[32rem] sm:w-[32rem] dark:opacity-[0.09]" />
+              <div className="relative z-10">
+                <h2 className="display mx-auto max-w-xl text-[clamp(1.85rem,4.5vw,3rem)] text-ink">
+                  {CTA.headline}
+                </h2>
+                <p className="mx-auto mt-5 max-w-md text-sm leading-relaxed text-ink-2">{CTA.body}</p>
+                <Link href="/login" className="ctl ctl-primary mt-9">
+                  {CTA.action}
+                </Link>
+              </div>
             </div>
-          </div>
+          </Reveal>
         </section>
 
         {/* ── notice ─────────────────────────────────────────────────── */}
         <section className="pb-20 sm:pb-24">
-          <Notice tone="brand">
-            {NOTICE.body}
-          </Notice>
+          <Reveal>
+            <Notice tone="brand">
+              {NOTICE.body}
+            </Notice>
+          </Reveal>
         </section>
       </main>
 
@@ -280,9 +287,7 @@ export function LandingPage() {
             </nav>
           </div>
           <div className="flex flex-col gap-1.5 sm:items-end">
-            <DocRef code="TRX-MKT-0001" />
             <span className="ref">{FOOTER.rights(new Date().getFullYear())}</span>
-            <span className="ref">{BRAND.est}</span>
           </div>
         </div>
       </footer>

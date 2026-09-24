@@ -115,3 +115,9 @@ export function stamp(d: Date): string {
   }
   return `${p(d.getDate())} ${months[d.getMonth()]} ${d.getFullYear()} · ${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}${tz ? " " + tz : ""}`;
 }
+
+/** 14:32:07, local time. used for "Updated" readings. */
+export function clockTime(d: Date): string {
+  const p = (n: number) => String(n).padStart(2, "0");
+  return `${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
+}

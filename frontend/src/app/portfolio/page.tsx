@@ -3,7 +3,8 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { createClient } from "@/utils/supabase/client";
-import { SectionRule, DocRef, Panel, Empty, Skeleton, SkeletonBoard, Delta, LiveDot, LiveClock } from "@/components/ui";
+import { SectionRule, Panel, Empty, Skeleton, SkeletonBoard, Delta } from "@/components/ui";
+import { ListingMorph } from "@/components/ListingMorph";
 import { usd, signedUsd, count, change, toneClass, tickerParts, plural } from "@/lib/format";
 import { SECTIONS, COLUMNS, LABELS, STATE, ERROR } from "@/lib/copy";
 
@@ -96,11 +97,7 @@ export default function PortfolioPage() {
   return (
     <div className="flex-1 pb-20">
       <main className="mx-auto w-full max-w-[64rem] px-5 py-10 sm:px-8 sm:py-12">
-        <SectionRule
-          label={SECTIONS.summary}
-          meta={<DocRef code="TRX-ACC-0001" />}
-          className="mb-10"
-        />
+        <SectionRule label={SECTIONS.summary} className="mb-10" />
 
         {/* ── the statement head ─────────────────────────────────────────
             A statement reconciles to one number and shows its work. Left:
@@ -121,12 +118,6 @@ export default function PortfolioPage() {
               <Delta value={unrealisedPct} className="text-base" />
               <span className="label">{LABELS.unrealised}</span>
             </div>
-            <p className="mt-4 flex items-center gap-2 text-[13px] text-ink-2">
-              <LiveDot />
-              Marked continuously
-              <span className="text-rule-2" aria-hidden="true">·</span>
-              <LiveClock className="text-[12px]" />
-            </p>
           </div>
 
           {/* reconciliation ledger — cash + positions rule up to the value,
@@ -163,13 +154,14 @@ export default function PortfolioPage() {
             A colour per holding would look like a pie and say nothing. */}
         <section className="mt-10">
           <SectionRule label={SECTIONS.allocation} meta={`${investedShare.toFixed(1)}% deployed`} className="mb-4" />
-          <div className="flex h-2 w-full overflow-hidden border border-rule">
+          {/* the fill is a full-width bar scaled from the left, not a width. a
+              width change re-lays out the row on every frame; a scale doesn't */}
+          <div className="h-2 w-full overflow-hidden border border-rule bg-paper-3">
             <div
-              className="bg-brand transition-[width] duration-500"
-              style={{ width: `${Math.min(100, Math.max(0, investedShare))}%` }}
+              className="h-full w-full origin-left bg-brand transition-transform duration-[240ms] ease-[var(--ease)]"
+              style={{ transform: `scaleX(${Math.min(100, Math.max(0, investedShare)) / 100})` }}
               aria-hidden="true"
             />
-            <div className="flex-1 bg-paper-3" aria-hidden="true" />
           </div>
           <div className="mt-2 flex justify-between">
             <span className="ref">{LABELS.positionsValue} · {usd(positionsValue)}</span>
@@ -181,7 +173,7 @@ export default function PortfolioPage() {
         <section className="mt-12">
           <SectionRule
             label={SECTIONS.holdings}
-            meta={`${count(portfolio.length)} of record`}
+            meta={`${count(portfolio.length)} held`}
             className="mb-5"
           />
 
@@ -223,11 +215,14 @@ export default function PortfolioPage() {
                           <td className="max-w-0">
                             <Link
                               href={`/asset/${owner.toLowerCase()}/${repo.toLowerCase()}`}
+                              prefetch
                               className="group block"
                             >
-                              <span className="block truncate text-[13px] font-medium uppercase text-ink transition-colors group-hover:text-brand-ink">
-                                {repo}
-                              </span>
+                              <ListingMorph ticker={h.ticker}>
+                                <span className="block truncate text-[13px] font-medium uppercase text-ink transition-colors group-hover:text-brand-ink">
+                                  {repo}
+                                </span>
+                              </ListingMorph>
                               <span className="block truncate text-[11px] text-ink-3">
                                 {owner}
                               </span>

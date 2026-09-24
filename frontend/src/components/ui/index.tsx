@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState, type ReactNode } from "react";
-import { stamp, pct, toneClass } from "@/lib/format";
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
+import { pct, toneClass } from "@/lib/format";
 
 /* the reusable bits — the half of the system that doesn't know or care that
    it's TRX. it's all structure, so it should drop into the next project as-is. */
@@ -35,48 +35,20 @@ export function SectionRule({
   );
 }
 
-/* the only box we have. one hairline, no rounded corners, no shadow. pass
-   `registered` to get the corner crop marks — but only on the one or two
-   panels that matter, they stop meaning anything if everything has them. */
+/* the only box we have. one hairline, no rounded corners, no shadow. */
 export function Panel({
-  registered,
   tint,
   className,
   children,
 }: {
-  registered?: boolean;
   tint?: boolean;
   className?: string;
   children: ReactNode;
 }) {
   return (
-    <div className={cx("panel", tint && "panel-2", registered && "registered", className)}>
+    <div className={cx("panel", tint && "panel-2", className)}>
       {children}
     </div>
-  );
-}
-
-/* the little "TRX-MKT-0442 · 21 AUG..." reference line. a live monospace stamp
-   that makes it feel like real infrastructure labelling its own output. costs
-   nothing, does more for the vibe than any amount of styling.
-
-   hydration-safe on purpose: the server renders just the code, and the
-   clock is appended only after mount.                                     */
-export function DocRef({ code, className }: { code: string; className?: string }) {
-  const [now, setNow] = useState<string | null>(null);
-
-  useEffect(() => {
-    const tick = () => setNow(stamp(new Date()));
-    tick();
-    const id = window.setInterval(tick, 1000);
-    return () => window.clearInterval(id);
-  }, []);
-
-  return (
-    <span className={cx("ref whitespace-nowrap", className)}>
-      {code}
-      {now ? ` · ${now}` : ""}
-    </span>
   );
 }
 
@@ -129,36 +101,6 @@ export function Delta({
     return showFlat ? <span className={cx("figure text-ink-3", className)}>-</span> : null;
   }
   return <span className={cx("figure", toneClass(value), className)}>{pct(value)}</span>;
-}
-
-/* a small STATIC marker — a filled square in the accent. this replaced the old
-   pulsing "live" dot: a throbbing dot is a livestream cliché and it's decorative
-   motion, which the rest of the system bans. the real "we're live" signal is the
-   ticking clock + the moving board, not a blinking light. square, not round,
-   because nothing else here is round either. */
-export function LiveDot({ className }: { className?: string }) {
-  return <span className={cx("inline-block h-1.5 w-1.5 shrink-0 bg-brand", className)} aria-hidden="true" />;
-}
-
-/* the ticking session clock — local time, updates every second. THIS is the
-   honest liveness cue: the exchange is open because the clock is running. */
-export function LiveClock({ className }: { className?: string }) {
-  const [now, setNow] = useState<string | null>(null);
-  useEffect(() => {
-    const p = (n: number) => String(n).padStart(2, "0");
-    const tick = () => {
-      const d = new Date();
-      setNow(`${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`);
-    };
-    tick();
-    const id = window.setInterval(tick, 1000);
-    return () => window.clearInterval(id);
-  }, []);
-  return (
-    <span className={cx("ref tabular-nums", className)} suppressHydrationWarning>
-      {now ?? ""}
-    </span>
-  );
 }
 
 /* label on top, input under it, hint after. no floating labels, no
@@ -216,7 +158,7 @@ export function Notice({
 }
 
 /* every empty state. centred, quiet, and worded as a fact about the record
-   ("No positions of record.") not a nudge at the user. */
+   ("No positions yet.") not a nudge at the user. */
 export function Empty({ children, className }: { children: ReactNode; className?: string }) {
   return (
     <div className={cx("px-6 py-14 text-center text-sm text-ink-3", className)}>{children}</div>
@@ -230,7 +172,7 @@ export function Pending({ children, className }: { children: ReactNode; classNam
   return (
     <div className={cx("flex items-center justify-center gap-2 px-6 py-14 text-sm text-ink-3", className)}>
       <span className="label">{children}</span>
-      <span className="inline-block h-3 w-[7px] bg-brand-ink animate-pulse" aria-hidden="true" />
+      <span className="inline-block h-3 w-[7px] bg-brand-ink caret" aria-hidden="true" />
     </div>
   );
 }
@@ -259,6 +201,75 @@ export function SkeletonBoard({ rows = 8 }: { rows?: number }) {
           </span>
         </div>
       ))}
+    </div>
+  );
+}
+
+/* a row of mutually exclusive options sharing hairlines (the chart range).
+   the selected state is a second copy of the row in the active colours,
+   clipped down to the chosen segment. changing the value slides the clip, so
+   the colour moves across as one piece instead of one segment fading out
+   while another fades in. */
+export function Segmented<K extends string>({
+  options,
+  value,
+  onChange,
+  label,
+}: {
+  options: readonly K[];
+  value: K;
+  onChange: (k: K) => void;
+  label: string;
+}) {
+  const rowRef = useRef<HTMLDivElement>(null);
+  const [clip, setClip] = useState<string | null>(null);
+  // the first measurement places the highlight without animating it; the
+  // transition only switches on a frame later, for real changes
+  const [ready, setReady] = useState(false);
+  useEffect(() => {
+    if (!clip || ready) return;
+    const id = requestAnimationFrame(() => setReady(true));
+    return () => cancelAnimationFrame(id);
+  }, [clip, ready]);
+
+  // measure the chosen segment against the row and turn it into an inset
+  useLayoutEffect(() => {
+    const row = rowRef.current;
+    const btn = row?.querySelector<HTMLElement>(`[data-key="${value}"]`);
+    if (!row || !btn) return;
+    const right = row.offsetWidth - btn.offsetLeft - btn.offsetWidth;
+    setClip(`inset(0 ${right}px 0 ${btn.offsetLeft}px)`);
+  }, [value, options]);
+
+  const seg = "border-r border-rule px-2.5 py-1.5 text-[11px] last:border-r-0";
+
+  return (
+    <div className="relative flex shrink-0 border border-rule" role="group" aria-label={label}>
+      <div ref={rowRef} className="flex">
+        {options.map((k) => (
+          <button
+            key={k}
+            data-key={k}
+            onClick={() => onChange(k)}
+            aria-pressed={value === k}
+            className={cx(seg, "text-ink-2 transition-colors hover:bg-paper-2 hover:text-ink")}
+          >
+            {k}
+          </button>
+        ))}
+      </div>
+      <div
+        aria-hidden="true"
+        data-ready={ready || undefined}
+        className="segmented-active pointer-events-none absolute inset-0 flex bg-brand"
+        style={{ clipPath: clip ?? "inset(0 100% 0 0)" }}
+      >
+        {options.map((k) => (
+          <span key={k} className={cx(seg, "border-transparent text-brand-fg")}>
+            {k}
+          </span>
+        ))}
+      </div>
     </div>
   );
 }

@@ -5,9 +5,9 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/utils/supabase/client";
 import { Wordmark } from "@/components/Logo";
-import { SectionRule, DocRef, Field, Notice, LiveDot, LiveClock } from "@/components/ui";
+import { SectionRule, Field, Notice } from "@/components/ui";
 import { usd, pct, change, toneClass, tickerParts } from "@/lib/format";
-import { AUTH, ERROR, NOTICE, BRAND, HERO } from "@/lib/copy";
+import { AUTH, ERROR, NOTICE, HERO, STATE } from "@/lib/copy";
 
 type Spec = { ticker: string; mark: number; delta: number | null };
 
@@ -186,17 +186,11 @@ export default function LoginPage() {
           <div className="mt-9">
             <SectionRule
               label="Selected listings"
-              meta={
-                <span className="flex items-center gap-2">
-                  <LiveDot />
-                  <LiveClock className="text-[11px]" />
-                </span>
-              }
               className="mb-2"
             />
             {spec.length === 0 ? (
               <div className="py-6">
-                <span className="ref">Requesting quotes</span>
+                <span className="ref">{STATE.quotes}</span>
               </div>
             ) : (
               <table className="board w-full table-fixed">
@@ -232,7 +226,6 @@ export default function LoginPage() {
           <Notice label={NOTICE.label} tone="brand">
             {NOTICE.body}
           </Notice>
-          <DocRef code="TRX-ADM-0001" className="mt-5 block" />
         </div>
       </aside>
 
@@ -383,7 +376,7 @@ export default function LoginPage() {
             </div>
           )}
 
-          <p className="ref mt-10 block leading-relaxed lg:hidden">{BRAND.est} · {NOTICE.body}</p>
+          <p className="ref mt-10 block leading-relaxed lg:hidden">{NOTICE.body}</p>
         </div>
       </div>
     </div>

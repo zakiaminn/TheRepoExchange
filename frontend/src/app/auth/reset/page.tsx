@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/utils/supabase/client";
 import { Wordmark } from "@/components/Logo";
-import { SectionRule, DocRef, Field, Pending, Notice } from "@/components/ui";
+import { SectionRule, Field, Pending, Notice } from "@/components/ui";
 import { AUTH, ERROR } from "@/lib/copy";
 
 /* the "set a new password" step. you land here from the reset email link:
@@ -62,7 +62,7 @@ export default function ResetPage() {
           <Wordmark size="md" />
         </Link>
 
-        <SectionRule label={AUTH.resetKicker} meta={<DocRef code="TRX-ADM-0002" />} className="mb-7" />
+        <SectionRule label={AUTH.resetKicker} className="mb-7" />
 
         <h1 className="display mb-2 text-3xl text-ink">{AUTH.resetTitle}</h1>
         <p className="mb-8 text-sm leading-relaxed text-ink-2">{AUTH.resetBody}</p>

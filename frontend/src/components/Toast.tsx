@@ -4,34 +4,53 @@ import { useEffect, useState } from "react";
 
 export type ToastMessage = { text: string; type: "success" | "error" } | null;
 
+// how long a notice stays up, and how long its fade-out takes. the fade has to
+// match the exit transition on .toast in globals.css.
+const DWELL = 4500;
+const EXIT = 160;
+
 /* the little pop-up message. styled like a notice pinned to the corner, not a
    confetti moment: hairline box, coloured bar on the left, mono text, no icon,
    no rounded pill.
 
-   it's dumb on purpose — whoever uses it owns the message + the timer that
-   clears it. the only thing it handles itself is fading out, so it doesn't
-   just vanish mid-word. */
+   whoever uses it just sets the message. the toast owns its own clock: it
+   stays up for DWELL, fades out, and a new message replaces the old one and
+   restarts the clock. it used to be the caller's job to clear it, and two
+   trades inside the window meant the first timer killed the second notice. */
 export function Toast({ message }: { message: ToastMessage }) {
-  const [shown, setShown] = useState<ToastMessage>(null);
+  const [shown, setShown] = useState<{ msg: NonNullable<ToastMessage>; id: number } | null>(null);
   const [leaving, setLeaving] = useState(false);
+  const [prev, setPrev] = useState<ToastMessage>(null);
+
+  // react to the prop during render rather than in an effect. a new message
+  // goes up straight away; a cleared one fades whatever is showing instead of
+  // dropping it mid-word.
+  if (message !== prev) {
+    setPrev(message);
+    if (message) {
+      setShown({ msg: message, id: (shown?.id ?? 0) + 1 });
+      setLeaving(false);
+    } else if (shown) {
+      setLeaving(true);
+    }
+  }
+
+  // the dwell restarts whenever a new message goes up
+  useEffect(() => {
+    if (!shown || leaving) return;
+    const t = window.setTimeout(() => setLeaving(true), DWELL);
+    return () => window.clearTimeout(t);
+  }, [shown, leaving]);
 
   useEffect(() => {
-    if (message) {
-      setShown(message);
-      setLeaving(false);
-      return;
-    }
-    // hold the last message on screen through its fade instead of dropping it
-    if (shown) {
-      setLeaving(true);
-      const t = window.setTimeout(() => setShown(null), 200);
-      return () => window.clearTimeout(t);
-    }
-  }, [message]); // eslint-disable-line react-hooks/exhaustive-deps
+    if (!leaving) return;
+    const t = window.setTimeout(() => setShown(null), EXIT);
+    return () => window.clearTimeout(t);
+  }, [leaving]);
 
   if (!shown) return null;
 
-  const tone = shown.type === "success" ? "border-l-pos" : "border-l-neg";
+  const tone = shown.msg.type === "success" ? "border-l-pos" : "border-l-neg";
 
   return (
     <div
@@ -39,13 +58,15 @@ export function Toast({ message }: { message: ToastMessage }) {
       aria-live="polite"
       className="pointer-events-none fixed inset-x-4 bottom-5 z-50 flex justify-center sm:inset-x-auto sm:right-6 sm:justify-end"
     >
+      {/* keyed on the message so a replacement mounts fresh and gets its own
+          entrance, rather than swapping text inside a box that's already up */}
       <div
-        className={`panel border-l-2 ${tone} max-w-md px-4 py-3 transition-all duration-200 ${
-          leaving ? "translate-y-1 opacity-0" : "translate-y-0 opacity-100"
-        }`}
+        key={shown.id}
+        data-leaving={leaving || undefined}
+        className={`toast panel border-l-2 ${tone} max-w-md px-4 py-3`}
         style={{ background: "var(--paper)" }}
       >
-        <div className="text-[12px] leading-relaxed text-ink">{shown.text}</div>
+        <div className="text-[12px] leading-relaxed text-ink">{shown.msg.text}</div>
       </div>
     </div>
   );

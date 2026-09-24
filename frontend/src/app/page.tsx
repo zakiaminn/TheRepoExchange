@@ -7,8 +7,9 @@ import { LandingPage } from "@/components/LandingPage";
 import { Toast, ToastMessage } from "@/components/Toast";
 import { ConfirmTradeModal } from "@/components/ConfirmTradeModal";
 import { MiniSparkline } from "@/components/MiniSparkline";
-import { SectionRule, DocRef, Empty, Skeleton, SkeletonBoard, LiveDot, LiveClock } from "@/components/ui";
-import { usd, pct, count, countCompact, change, toneClass, tickerParts, plural } from "@/lib/format";
+import { SectionRule, Empty, Skeleton, SkeletonBoard } from "@/components/ui";
+import { ListingMorph } from "@/components/ListingMorph";
+import { usd, pct, count, countCompact, change, toneClass, tickerParts, plural, clockTime } from "@/lib/format";
 import { SECTIONS, COLUMNS, LABELS, STATE, ERROR, ORDER, BOARD } from "@/lib/copy";
 
 type Repository = {
@@ -49,6 +50,12 @@ export default function Terminal() {
   // actually moved and flash only those
   const lastMarks = useRef<Record<string, number>>({});
   const [flash, setFlash] = useState<Record<string, "pos" | "neg">>({});
+
+  // when the last poll actually returned prices, and whether the latest one
+  // failed. this replaces the old live dot: instead of a light that says
+  // "live", the page states when its numbers were read.
+  const [updatedAt, setUpdatedAt] = useState<Date | null>(null);
+  const [feedDown, setFeedDown] = useState(false);
 
   const supabase = createClient();
 
@@ -100,9 +107,14 @@ export default function Terminal() {
     const fetchDiscovery = async () => {
       try {
         const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/discovery`);
-        if (!res.ok) return;
+        if (!res.ok) {
+          setFeedDown(true);
+          return;
+        }
         const data = await res.json();
         setDiscovery(data);
+        setUpdatedAt(new Date());
+        setFeedDown(false);
 
         // work out which marks moved on this poll and flash just those.
         // The number itself changes instantly — only the surface animates,
@@ -119,6 +131,7 @@ export default function Terminal() {
           window.setTimeout(() => setFlash({}), 900);
         }
       } catch {
+        setFeedDown(true);
         console.error(ERROR.engine);
       }
     };
@@ -160,7 +173,6 @@ export default function Terminal() {
     } finally {
       setProcessing(false);
       setPending(null);
-      setTimeout(() => setMessage(null), 4500);
     }
   };
 
@@ -201,6 +213,7 @@ export default function Terminal() {
     });
     return [cat, unique] as [string, Repository[]];
   });
+  const morphed = new Set<string>();
   const totalListings = categories.reduce((n, [, repos]) => n + repos.length, 0);
 
   // the masthead figures. all three are derived, not stored, and every one is
@@ -216,9 +229,9 @@ export default function Terminal() {
   // the index strip — four ruled cells, the market first, then you. equal
   // weight on purpose: an index row states figures, it doesn't rank them.
   const indexCells: { label: string; value: string; sub: string }[] = [
-    { label: LABELS.listedValue, value: usd(listedValue), sub: "aggregate mark" },
-    { label: SECTIONS.listings, value: count(totalListings), sub: "admitted" },
-    { label: LABELS.purchasingPower, value: balance !== null ? usd(balance) : "—", sub: "cash, non-renewable" },
+    { label: LABELS.listedValue, value: usd(listedValue), sub: "all prices, summed" },
+    { label: SECTIONS.listings, value: count(totalListings), sub: "tracked" },
+    { label: LABELS.purchasingPower, value: balance !== null ? usd(balance) : "—", sub: "cash" },
     { label: LABELS.positionsValue, value: usd(positionsValue), sub: portfolio.length ? `${count(portfolio.length)} held` : "none held" },
   ];
 
@@ -238,28 +251,29 @@ export default function Terminal() {
   return (
     <div className="flex-1">
       <main className="mx-auto w-full max-w-[76rem] px-5 py-10 sm:px-8 sm:py-12">
-        {/* ── index masthead ───────────────────────────────────────────
-            A trading terminal opens on market state, not a headline. "The
-            board" shrinks to its kicker and the numbers become the masthead:
-            one ruled band that states the whole market and your account at a
-            glance — the size of the market, how many listings, what you can
-            spend, and what you hold, all marked against the same live quotes
-            on the boards below. */}
+        {/* ── overview ─────────────────────────────────────────────────
+            the page opens on the state of the market and your account: size
+            of the market, how many listings, what you can spend, what you
+            hold. every figure is priced off the same poll as the tables below. */}
         <div className="mb-12">
-          <SectionRule
-            label={SECTIONS.market}
-            meta={<DocRef code="TRX-MKT-0442" />}
-            className="mb-5"
-          />
+          <SectionRule label={SECTIONS.market} className="mb-5" />
           <div className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-1.5">
             <h1 className="display text-[clamp(1.75rem,3.4vw,2.5rem)] text-ink">
-              The board
+              {SECTIONS.board}
             </h1>
-            <p className="flex items-center gap-2 text-[13px] text-ink-2">
-              <LiveDot />
-              {totalListings > 0 ? "Marked continuously" : STATE.quotes}
-              <span className="text-rule-2" aria-hidden="true">·</span>
-              <LiveClock className="text-[12px]" />
+            <p className="text-[13px] text-ink-2" aria-live="off">
+              {updatedAt === null ? (
+                STATE.quotes
+              ) : (
+                <>
+                  {feedDown ? "Price feed unavailable. Last updated " : "Prices updated "}
+                  {/* keyed on the time so each successful poll re-runs the
+                      flash on the reading itself */}
+                  <time key={updatedAt.getTime()} dateTime={updatedAt.toISOString()} className="figure tick-read text-ink">
+                    {clockTime(updatedAt)}
+                  </time>
+                </>
+              )}
             </p>
           </div>
 
@@ -285,6 +299,8 @@ export default function Terminal() {
           <SkeletonBoard rows={8} />
         ) : (
           <div className="space-y-14">
+            {/* a listing can sit in more than one category; only its first
+                row carries the shared name, since a name must be unique */}
             {categories.map(([category, repos]) => (
               <section key={category}>
                 <SectionRule label={category} meta={plural(repos.length, "listing")} className="mb-5" />
@@ -310,6 +326,8 @@ export default function Terminal() {
                             ? change(repo.sparkline[0], repo.sparkline[repo.sparkline.length - 1])
                             : null;
                         const tick = flash[repo.ticker];
+                        const morph = !morphed.has(repo.ticker);
+                        morphed.add(repo.ticker);
 
                         return (
                           <tr key={repo.ticker}>
@@ -317,13 +335,19 @@ export default function Terminal() {
                               {/* one line per listing — name + owner inline. denser
                                   than the old two-row cell; the description lives on
                                   the asset page now */}
+                              {/* full prefetch so the listing page can render in the
+                                  same frame as the click, which is what lets its
+                                  name morph out of this row */}
                               <Link
                                 href={`/asset/${owner.toLowerCase()}/${name.toLowerCase()}`}
+                                prefetch
                                 className="group flex min-w-0 items-baseline gap-2"
                               >
-                                <span className="truncate text-[12px] font-medium uppercase text-ink transition-colors group-hover:text-brand-ink">
-                                  {name}
-                                </span>
+                                <ListingMorph ticker={repo.ticker} morph={morph}>
+                                  <span className="truncate text-[12px] font-medium uppercase text-ink transition-colors group-hover:text-brand-ink">
+                                    {name}
+                                  </span>
+                                </ListingMorph>
                                 <span className="hidden truncate text-[11px] text-ink-3 sm:inline">
                                   {owner}
                                 </span>
@@ -354,7 +378,7 @@ export default function Terminal() {
                                     price: Number(repo.current_price),
                                   })
                                 }
-                                className="bg-brand px-2.5 py-1.5 text-[10px] font-semibold uppercase tracking-[0.1em] text-brand-fg transition hover:brightness-95"
+                                className="bg-brand px-2.5 py-1.5 text-[10px] font-semibold uppercase tracking-[0.1em] text-brand-fg press hover:brightness-95"
                                 aria-label={`Buy ${repo.ticker}`}
                               >
                                 {ORDER.buy}
@@ -375,7 +399,7 @@ export default function Terminal() {
         <section className="mt-16">
           <SectionRule
             label={SECTIONS.positions}
-            meta={<Link href="/portfolio" className="link">Full statement</Link>}
+            meta={<Link href="/portfolio" className="link">All positions</Link>}
             className="mb-5"
           />
           <div className="panel">
@@ -417,19 +441,14 @@ export default function Terminal() {
         </section>
       </main>
 
-      {pending && (
-        <ConfirmTradeModal
-          action="BUY"
-          ticker={pending.ticker}
-          quantity={pending.quantity}
-          onQuantityChange={(q) => setPending({ ...pending, quantity: q })}
-          price={pending.price}
-          balance={balance}
-          processing={processing}
-          onConfirm={confirmTrade}
-          onCancel={() => setPending(null)}
-        />
-      )}
+      <ConfirmTradeModal
+        trade={pending && { action: "BUY", ...pending }}
+        onQuantityChange={(q) => setPending((p) => p && { ...p, quantity: q })}
+        balance={balance}
+        processing={processing}
+        onConfirm={confirmTrade}
+        onCancel={() => setPending(null)}
+      />
 
       <Toast message={message} />
     </div>

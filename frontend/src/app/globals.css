@@ -12,8 +12,9 @@
      rounded corners, nothing floating on the page.
    - every number is mono + tabular so columns actually line up, and negatives
      use a real minus sign (−) instead of a hyphen. yes it matters.
-   - motion is almost nothing on purpose: a 4px fade-in and a little flash when
-     a value changes. that's the whole budget.
+   - motion is almost nothing on purpose: a 4px fade-in, a little flash when
+     a value changes, and things answering you (a press, a toast, a menu
+     opening). nothing moves just to look alive.
    - labels are tiny uppercase (11px) and they never get to be bigger.
    - ONE accent colour. green/red are for market data only and never sneak into
      the UI.
@@ -68,6 +69,10 @@
 
   --focus: #8A9600;
 
+  /* the dimmed layer behind a drawer. near-black in both themes: tinting it
+     with --ink turned the page light grey in dark mode instead of dimming it. */
+  --scrim: rgba(12, 12, 8, 0.42);
+
   /* the fonts, and this is the actual trademark: Bricolage Grotesque carries
      everything a human reads AND the wordmark and labels; Spline Sans Mono is
      kept strictly to the numbers the machine emits. "Bricolage reads, Spline
@@ -90,6 +95,12 @@
   /* one easing curve for the whole app. it slows down hard at the end and
      never overshoots — nothing here should feel bouncy. */
   --ease: cubic-bezier(0.22, 1, 0.36, 1);
+  /* for things that travel across the screen (a highlight sliding between
+     segments), which should accelerate away and settle, not just settle */
+  --ease-move: cubic-bezier(0.77, 0, 0.175, 1);
+  /* Vaul's drawer curve, borrowed for anything that should feel like the
+     ticket: a heavier object arriving */
+  --ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);
   --dur:  240ms;
   --dur-fast: 140ms;
 }
@@ -123,6 +134,7 @@
   --neg-wash: rgba(232, 99, 94, 0.14);
 
   --focus: #DCEC3A;
+  --scrim: rgba(0, 0, 0, 0.62);
   }
 }
 
@@ -276,7 +288,7 @@ body::before {
 
 /* ═══ SIGNATURE DEVICES ══════════════════════════════════════════════════ */
 
-/* 1. the section rule — a full-width hairline with a little label sitting on
+/* the section rule — a full-width hairline with a little label sitting on
    it. stolen from legal docs and technical drawings, where every section opens
    with a ruled title. this one device is what makes the pages recognisable at
    a glance. see <SectionRule>. */
@@ -287,33 +299,7 @@ body::before {
   min-width: 1.5rem;
 }
 
-/* 2. registration marks — little print-style crop marks in the corners of an
-   important panel, in the accent at low opacity so they read as a nice detail
-   rather than decoration. only put them on the two or three panels that
-   matter; slap them on everything and they stop meaning anything. */
-.registered { position: relative; }
-.registered::before,
-.registered::after {
-  content: "";
-  position: absolute;
-  width: 9px;
-  height: 9px;
-  border-color: var(--brand);
-  opacity: 0.55;
-  pointer-events: none;
-}
-.registered::before {
-  top: -1px; left: -1px;
-  border-top: 1.5px solid;
-  border-left: 1.5px solid;
-}
-.registered::after {
-  bottom: -1px; right: -1px;
-  border-bottom: 1.5px solid;
-  border-right: 1.5px solid;
-}
-
-/* 3. panel — the only box in the whole system. one hairline, no rounded
+/* panel — the only box in the whole system. one hairline, no rounded
    corners, no shadow. depth comes from the surface colour behind it, never a
    drop shadow. */
 .panel {
@@ -324,8 +310,9 @@ body::before {
 
 /* skeleton loader — a hard-edged block in the paper tones with a low-contrast
    highlight that sweeps across. no rounded blob, no throb; fits the rest of the
-   system. under reduced-motion the global reduce block freezes the sweep off to
-   the left so you just get a flat block. */
+   system. the sweep is linear: it's constant motion, and an ease-out makes it
+   lurch then crawl. under reduced-motion the sweep is switched off and you
+   just get a flat block. */
 .skeleton { position: relative; overflow: hidden; background: var(--paper-3); }
 .skeleton::after {
   content: "";
@@ -333,7 +320,7 @@ body::before {
   inset: 0;
   transform: translateX(-100%);
   background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--paper) 55%, transparent), transparent);
-  animation: skeleton-sweep 1.5s var(--ease) infinite;
+  animation: skeleton-sweep 1.5s linear infinite;
 }
 @keyframes skeleton-sweep { to { transform: translateX(100%); } }
 
@@ -365,10 +352,18 @@ body::before {
   cursor: pointer;
   transition: background var(--dur-fast) var(--ease),
               color var(--dur-fast) var(--ease),
-              border-color var(--dur-fast) var(--ease);
+              border-color var(--dur-fast) var(--ease),
+              transform var(--dur-fast) var(--ease);
 }
-.ctl:hover:not(:disabled) { background: var(--paper-2); border-color: var(--ink-3); }
 .ctl:disabled { opacity: 0.4; cursor: not-allowed; }
+
+/* hover only where there's a real pointer. on a phone a tap fires :hover and
+   it sticks until you tap somewhere else, so the button looks half-pressed.
+   tailwind's hover: utilities already do this; these hand-written ones have to
+   opt in. every :hover in this file sits behind the same query. */
+@media (hover: hover) and (pointer: fine) {
+  .ctl:hover:not(:disabled) { background: var(--paper-2); border-color: var(--ink-3); }
+}
 
 /* the primary button. the bright fill shows up maybe three times on a page,
    and that's the point — if it's everywhere it stops meaning "do this one". */
@@ -377,19 +372,31 @@ body::before {
   border-color: var(--brand);
   color: var(--brand-fg);
 }
-.ctl-primary:hover:not(:disabled) {
-  background: var(--brand-ink);
-  border-color: var(--brand-ink);
-  color: var(--paper);
+@media (hover: hover) and (pointer: fine) {
+  .ctl-primary:hover:not(:disabled) {
+    background: var(--brand-ink);
+    border-color: var(--brand-ink);
+    color: var(--paper);
+  }
 }
-@media (prefers-color-scheme: dark) { .ctl-primary:hover:not(:disabled) { filter: brightness(1.12); color: var(--brand-fg); } }
+@media (hover: hover) and (pointer: fine) and (prefers-color-scheme: dark) {
+  .ctl-primary:hover:not(:disabled) { filter: brightness(1.12); color: var(--brand-fg); }
+}
 
 .ctl-pos { border-color: var(--pos); color: var(--pos); }
-.ctl-pos:hover:not(:disabled) { background: var(--pos); color: var(--paper); border-color: var(--pos); }
-@media (prefers-color-scheme: dark) { .ctl-pos:hover:not(:disabled) { color: var(--paper); } }
-
 .ctl-neg { border-color: var(--neg); color: var(--neg); }
-.ctl-neg:hover:not(:disabled) { background: var(--neg); color: var(--paper); border-color: var(--neg); }
+@media (hover: hover) and (pointer: fine) {
+  .ctl-pos:hover:not(:disabled) { background: var(--pos); color: var(--paper); border-color: var(--pos); }
+  .ctl-neg:hover:not(:disabled) { background: var(--neg); color: var(--paper); border-color: var(--neg); }
+}
+
+/* the press. the button gives a little under your finger, so you know the
+   click landed before the network answers. 0.98 and the fast duration: it
+   should register, not perform. .press is the same thing for pressables that
+   aren't a .ctl (the board's Buy chip, the account button). */
+.ctl:active:not(:disabled),
+.press:active:not(:disabled) { transform: scale(0.98); }
+.press { transition: transform var(--dur-fast) var(--ease), filter var(--dur-fast) var(--ease); }
 
 .ctl-sm { height: 1.75rem; padding: 0 0.75rem; font-size: 0.625rem; letter-spacing: 0.1em; }
 
@@ -407,7 +414,9 @@ body::before {
   transition: border-color var(--dur-fast) var(--ease), background var(--dur-fast) var(--ease);
 }
 .field::placeholder { color: var(--ink-3); }
-.field:hover:not(:disabled) { border-color: var(--rule-2); }
+@media (hover: hover) and (pointer: fine) {
+  .field:hover:not(:disabled) { border-color: var(--rule-2); }
+}
 .field:focus { outline: none; border-color: var(--brand); background: var(--paper); }
 .field:disabled { color: var(--ink-3); background: var(--paper-3); cursor: not-allowed; }
 .field-figure { font-family: var(--font-mono); font-variant-numeric: tabular-nums; text-align: right; }
@@ -427,7 +436,9 @@ body::before {
   text-decoration-thickness: 1px;
   transition: color var(--dur-fast) var(--ease), text-decoration-color var(--dur-fast) var(--ease);
 }
-.link:hover { color: var(--brand-ink); text-decoration-color: var(--brand); }
+@media (hover: hover) and (pointer: fine) {
+  .link:hover { color: var(--brand-ink); text-decoration-color: var(--brand); }
+}
 
 /* ═══ TABLE — "the board" ═══
    how we show more than a couple of anything. rows separated by hairlines and
@@ -453,7 +464,9 @@ body::before {
 }
 .board tbody tr:last-child td { border-bottom: none; }
 .board tbody tr { transition: background var(--dur-fast) var(--ease); }
-.board tbody tr:hover { background: var(--paper-2); }
+@media (hover: hover) and (pointer: fine) {
+  .board tbody tr:hover { background: var(--paper-2); }
+}
 .board .num { text-align: right; font-family: var(--font-mono); font-variant-numeric: tabular-nums; letter-spacing: -0.02em; }
 
 /* ═══ MOTION ═════════════════════════════════════════════════════════════ */
@@ -477,16 +490,120 @@ body::before {
 .tick-pos { animation: bureau-tick-pos 900ms var(--ease); }
 .tick-neg { animation: bureau-tick-neg 900ms var(--ease); }
 
+/* the "Prices updated 14:32:07" reading. each successful poll remounts the
+   time and it washes in the accent and settles, the same move as a price
+   tick. that's the whole liveness cue: a reading with a time on it, which
+   changes when the data does and stops when the data stops. */
+@keyframes bureau-read { from { background: var(--brand-wash); } to { background: transparent; } }
+.tick-read { animation: bureau-read 1200ms var(--ease); }
+
+/* the toast. comes up 6px from the corner it lives in and goes back the same
+   way, so it reads as one object arriving and leaving. transitions rather than
+   keyframes so a toast that's told to leave mid-entrance just turns around.
+   the exit is faster than the entrance: arriving is news, leaving isn't.
+   <Toast> waits 160ms for the exit before unmounting, keep them in step. */
+.toast {
+  transition: opacity var(--dur) var(--ease), transform var(--dur) var(--ease);
+}
+.toast[data-leaving] {
+  opacity: 0;
+  transform: translateY(4px);
+  transition-duration: 160ms;
+}
+@starting-style {
+  .toast { opacity: 0; transform: translateY(6px); }
 }
 
-/* Everything above is decorative. All of it goes. */
+/* dropdowns (the account menu). grows out of the button that opened it, hence
+   the top-right origin; a menu scaling from its own centre looks like it came
+   from nowhere. opens only. it closes instantly, because by then you've
+   already picked something and the menu is in the way. */
+.menu {
+  transform-origin: top right;
+  transition: opacity 150ms var(--ease), transform 150ms var(--ease);
+}
+@starting-style { .menu { opacity: 0; transform: scale(0.97); } }
+
+/* the mobile menu panel. drops 4px from under the bar that opened it. */
+.drop { transition: opacity 180ms var(--ease), transform 180ms var(--ease); }
+@starting-style { .drop { opacity: 0; transform: translateY(-4px); } }
+
+/* the segmented control's highlight (see <Segmented>). it moves across the
+   row, so it uses the travelling curve. */
+.segmented-active[data-ready] { transition: clip-path 220ms var(--ease-move); }
+
+/* the underline under "open source." on the landing headline draws itself in
+   once, left to right, just after the headline lands. the one place the
+   accent gets an entrance, on the one page that's a first impression. */
+@keyframes swipe-in { from { background-size: 0% 0.24em; } }
+.swipe-in { animation: swipe-in 640ms var(--ease) 360ms both; }
+
+/* the seal behind the landing headline engraves itself once: every ring is a
+   single path, so a dash offset from 1 to 0 draws it the way a burin would.
+   rings start a beat apart, outermost first. it runs at 7% opacity; you
+   notice the page settling more than you notice the drawing. */
+@keyframes engrave { to { stroke-dashoffset: 0; } }
+.engrave path {
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  animation: engrave 2400ms var(--ease-move) forwards;
+}
+.engrave path:nth-child(2) { animation-delay: 90ms; }
+.engrave path:nth-child(3) { animation-delay: 180ms; }
+.engrave path:nth-child(4) { animation-delay: 270ms; }
+.engrave path:nth-child(5) { animation-delay: 360ms; }
+
+/* sections below the fold on the landing page (see <Reveal>). they're only
+   hidden once JS has confirmed they're off-screen, so nothing is ever hidden
+   for someone without JS, and nothing already in view blinks out. */
+.reveal-scroll { transition: opacity 560ms var(--ease), transform 560ms var(--ease); }
+.reveal-scroll[data-state="waiting"] { opacity: 0; transform: translateY(10px); }
+
+/* the waiting caret. a terminal caret blinks: hard on, hard off, no fade. a
+   soft opacity pulse is the "breathing" thing the LiveDot note bans. */
+@keyframes bureau-caret { 50% { opacity: 0; } }
+.caret { animation: bureau-caret 1s steps(1) infinite; }
+
+}
+
+/* navigation. the page underneath cross-fades quickly, and a listing's name
+   travels from the row you clicked into the title of its page (see
+   <ListingMorph>). the blur mid-flight hides the scaling of small text into
+   large text, which otherwise shimmers. */
+::view-transition-group(root) { animation-duration: 180ms; }
+::view-transition-group(.listing-morph) {
+  animation-duration: 460ms;
+  animation-timing-function: var(--ease-drawer);
+}
+::view-transition-image-pair(.listing-morph) { animation-name: listing-blur; }
+@keyframes listing-blur { 35% { filter: blur(2px); } }
+
+/* reduced motion means less movement, not no feedback. anything that travels
+   (the reveal's lift, the toast's slide, the press, the sweep, the blink, smooth
+   scroll) is removed. fades and colour changes stay, because some of them carry
+   information: the price flash is how you know a quote moved, and killing it
+   would hide the data, not just the decoration. */
+@keyframes bureau-fade { from { opacity: 0; } }
 @media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after {
-    animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
-    scroll-behavior: auto !important;
-  }
+  html { scroll-behavior: auto; }
+  .reveal { animation-name: bureau-fade; animation-delay: 0ms; }
+  .toast, .toast[data-leaving] { transform: none; }
+  @starting-style { .toast, .menu { transform: none; } }
+  .ctl:active:not(:disabled),
+  .press:active:not(:disabled) { transform: none; }
+  .skeleton::after, .caret { animation: none; }
+  .engrave path { animation: none; stroke-dashoffset: 0; }
+  .swipe-in { animation: none; }
+  .reveal-scroll[data-state="waiting"] { transform: none; }
+  @starting-style { .drop { transform: none; } }
+  .segmented-active[data-ready] { transition: none; }
+  /* names jump straight to their new place; the page still cross-fades */
+  ::view-transition-group(*) { animation: none; }
+  ::view-transition-image-pair(.listing-morph) { animation-name: none; }
+  /* the drawer fades in place instead of sliding. dragging it still works,
+     because that motion is the user's own hand, not the interface's. */
+  [data-vaul-drawer][data-state=open] { animation-name: bureau-fade !important; }
+  [data-vaul-drawer][data-state=closed] { animation-name: bureau-fade !important; animation-direction: reverse !important; }
 }
 
 /* Hide scrollbars on horizontally-scrolling rails without losing the scroll. */

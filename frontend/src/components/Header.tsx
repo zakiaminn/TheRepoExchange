@@ -5,7 +5,6 @@ import { useEffect, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { createClient } from "@/utils/supabase/client";
 import { Wordmark } from "@/components/Logo";
-import { LiveDot, LiveClock } from "@/components/ui";
 import { NAV, STATE } from "@/lib/copy";
 
 type TickerSuggestion = { ticker: string; category: string };
@@ -22,6 +21,9 @@ export function Header() {
 
   const [query, setQuery] = useState("");
   const [showSuggestions, setShowSuggestions] = useState(false);
+  // which suggestion the arrow keys are on; -1 means none, and Enter falls
+  // back to the first match
+  const [active, setActive] = useState(-1);
   const [tickers, setTickers] = useState<TickerSuggestion[]>([]);
 
   const supabase = createClient();
@@ -108,7 +110,7 @@ export function Header() {
 
   const onSearch = (e: React.FormEvent) => {
     e.preventDefault();
-    if (suggestions.length > 0) return goTo(suggestions[0].ticker);
+    if (suggestions.length > 0) return goTo(suggestions[Math.max(0, active)].ticker);
     if (/^[a-zA-Z0-9_.-]+\/[a-zA-Z0-9_.-]+$/.test(query.trim())) goTo(query.trim());
   };
 
@@ -120,7 +122,7 @@ export function Header() {
   if (pathname === "/login" || authLoading || !user) return null;
 
   let initials = "-";
-  let displayName = "Member";
+  let displayName = "Account";
   if (user?.user_metadata) {
     const first = user.user_metadata.first_name || "";
     const last = user.user_metadata.last_name || "";
@@ -139,8 +141,24 @@ export function Header() {
         ref={inputRef}
         type="text"
         value={query}
-        onChange={(e) => setQuery(e.target.value)}
+        onChange={(e) => {
+          setQuery(e.target.value);
+          setActive(-1);
+          setShowSuggestions(true);
+        }}
         onFocus={() => setShowSuggestions(true)}
+        onKeyDown={(e) => {
+          if (!suggestions.length) return;
+          if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+            e.preventDefault();
+            const step = e.key === "ArrowDown" ? 1 : -1;
+            setActive((i) => (i + step + suggestions.length) % suggestions.length);
+          }
+        }}
+        role="combobox"
+        aria-expanded={showSuggestions && suggestions.length > 0}
+        aria-controls="search-suggestions"
+        aria-activedescendant={active >= 0 ? `suggestion-${active}` : undefined}
         placeholder={NAV.search}
         aria-label={NAV.search}
         className="field h-9 pr-9 text-[13px]"
@@ -152,16 +170,25 @@ export function Header() {
         </span>
       )}
       {showSuggestions && query.trim().length > 0 && (
-        <div className="absolute left-0 right-0 top-full z-50 mt-1 max-h-72 overflow-y-auto border border-rule-2 bg-paper">
+        <div id="search-suggestions" role="listbox" className="absolute left-0 right-0 top-full z-50 mt-1 max-h-72 overflow-y-auto border border-rule-2 bg-paper">
           {suggestions.length === 0 ? (
             <div className="px-3 py-2.5 text-xs text-ink-3">{STATE.noSuggestions}</div>
           ) : (
-            suggestions.map((s) => (
+            // no motion on the highlight: arrowing through a list is something
+            // you do fast and often, so it has to keep up with the keys
+            suggestions.map((s, i) => (
               <button
                 key={s.ticker}
+                id={`suggestion-${i}`}
+                role="option"
+                aria-selected={i === active}
                 type="button"
+                tabIndex={-1}
                 onClick={() => goTo(s.ticker)}
-                className="flex w-full items-center justify-between gap-3 border-b border-rule px-3 py-2 text-left last:border-b-0 hover:bg-paper-2"
+                onMouseMove={() => setActive(i)}
+                className={`flex w-full items-center justify-between gap-3 border-b border-rule px-3 py-2 text-left last:border-b-0 ${
+                  i === active ? "bg-paper-2" : ""
+                }`}
               >
                 <span className="truncate text-[13px] text-ink">{s.ticker}</span>
                 <span className="label shrink-0 text-[10px]">{s.category}</span>
@@ -174,20 +201,13 @@ export function Header() {
   );
 
   return (
-    <header className="sticky top-0 z-40 border-b border-rule bg-[var(--paper)]/92 backdrop-blur-md">
+    // named so a navigation leaves the bar in place instead of fading it out
+    // and back in with the rest of the page
+    <header className="sticky top-0 z-40 border-b border-rule bg-[var(--paper)]/92 backdrop-blur-md [view-transition-name:site-header]">
       <div className="mx-auto flex h-14 max-w-[76rem] items-center gap-5 px-5 sm:px-8">
         <Link href="/" className="shrink-0" aria-label="TRX, The Repo Exchange">
           <Wordmark size="md" showName={false} />
         </Link>
-
-        <span className="hidden h-5 w-px shrink-0 bg-rule-2 lg:block" aria-hidden="true" />
-
-        <span className="hidden shrink-0 items-center gap-2 lg:flex">
-          <LiveDot />
-          <span className="label">{NAV.board}</span>
-          <span className="text-rule-2" aria-hidden="true">·</span>
-          <LiveClock className="text-[11px]" />
-        </span>
 
         <div className="ml-auto hidden max-w-sm flex-1 md:block">{search}</div>
 
@@ -215,7 +235,7 @@ export function Header() {
             onClick={() => setMenuOpen(!menuOpen)}
             aria-expanded={menuOpen}
             aria-haspopup="menu"
-            className="flex items-center gap-2.5 border border-rule py-1 pl-1 pr-3 transition-colors hover:border-rule-2"
+            className="press flex items-center gap-2.5 border border-rule py-1 pl-1 pr-3 transition-[border-color,transform] hover:border-rule-2"
           >
             <span className="flex h-7 w-7 items-center justify-center bg-paper-3 text-[11px] font-medium text-ink">
               {initials}
@@ -224,7 +244,7 @@ export function Header() {
           </button>
 
           {menuOpen && (
-            <div role="menu" className="absolute right-0 top-full z-50 mt-1 w-52 border border-rule-2 bg-paper">
+            <div role="menu" className="menu absolute right-0 top-full z-50 mt-1 w-52 border border-rule-2 bg-paper">
               <div className="border-b border-rule px-3 py-2.5">
                 <div className="label mb-0.5">{NAV.account}</div>
                 <div className="truncate text-[11px] text-ink-2">{user?.email}</div>
@@ -251,7 +271,7 @@ export function Header() {
           onClick={() => setMobileOpen(!mobileOpen)}
           aria-label={NAV.menu}
           aria-expanded={mobileOpen}
-          className="ml-auto flex h-9 w-9 items-center justify-center border border-rule text-ink-2 md:hidden"
+          className="press ml-auto flex h-9 w-9 items-center justify-center border border-rule text-ink-2 md:hidden"
         >
           <span className="flex flex-col gap-[3px]" aria-hidden="true">
             <span className="block h-px w-4 bg-current" />
@@ -262,7 +282,7 @@ export function Header() {
       </div>
 
       {mobileOpen && (
-        <div className="border-t border-rule bg-paper px-5 py-4 md:hidden">
+        <div className="drop border-t border-rule bg-paper px-5 py-4 md:hidden">
           {search}
           <div className="mt-4 grid grid-cols-2 gap-px border border-rule bg-rule">
             <Link href="/portfolio" onClick={() => setMobileOpen(false)} className="bg-paper px-3 py-3 text-[13px] text-ink">

@@ -7,7 +7,8 @@ import { createClient } from "@/utils/supabase/client";
 import { usePrefersDark } from "@/lib/usePrefersDark";
 import { Toast, ToastMessage } from "@/components/Toast";
 import { ConfirmTradeModal } from "@/components/ConfirmTradeModal";
-import { SectionRule, DocRef, Panel, Notice, Skeleton, Delta } from "@/components/ui";
+import { SectionRule, Panel, Notice, Skeleton, Delta, Segmented } from "@/components/ui";
+import { ListingMorph } from "@/components/ListingMorph";
 import { usd, count, countCompact, change, toneClass } from "@/lib/format";
 import { SECTIONS, LABELS, STATE, ERROR, ORDER, NAV } from "@/lib/copy";
 import { deriveValuation, type AssetMetrics } from "@/lib/pricing";
@@ -28,6 +29,7 @@ const RANGES = [
   { key: "90D", days: 90 },
   { key: "ALL", days: Infinity },
 ] as const;
+const RANGE_KEYS = RANGES.map((r) => r.key);
 
 /* the single-repo page, treated like a stock: price + its move up top, period
    stats next to it, the chart below, buy/sell ticket last. that order is on
@@ -284,7 +286,6 @@ export default function ListingPage(props: PageProps) {
     } finally {
       setProcessing(null);
       setPending(null);
-      setTimeout(() => setMessage(null), 4500);
     }
   };
 
@@ -309,17 +310,15 @@ export default function ListingPage(props: PageProps) {
             derived figure, not a quote off a wire — the derivation is spelled
             out in the valuation panel below, where it can be checked by hand. */}
         <div className="mt-6 border-b border-rule-2 pb-8">
-          <SectionRule
-            label="Listing"
-            meta={<DocRef code={`TRX-SEC-${repo.slice(0, 6).toUpperCase()}`} />}
-            className="mb-6"
-          />
+          <SectionRule label="Listing" className="mb-6" />
 
           <div className="flex flex-col gap-8 sm:flex-row sm:items-end sm:justify-between">
             <div className="min-w-0">
-              <h1 className="display truncate text-[clamp(2.25rem,6vw,4rem)] uppercase text-ink">
-                {repo}
-              </h1>
+              <ListingMorph ticker={ticker}>
+                <h1 className="display truncate text-[clamp(2.25rem,6vw,4rem)] uppercase text-ink">
+                  {repo}
+                </h1>
+              </ListingMorph>
               <p className="mt-1 flex items-center gap-2 text-sm text-ink-3">
                 <span className="truncate">{owner}</span>
                 {asset && Number(asset.raw_stars) > 0 ? (
@@ -364,27 +363,15 @@ export default function ListingPage(props: PageProps) {
             <section>
               <div className="mb-4 flex items-center justify-between gap-4">
                 <SectionRule label={SECTIONS.history} className="min-w-0 flex-1" />
-                {/* range control: a single bordered group of segments sharing
-                    hairlines, not four separate buttons floating apart */}
-                <div className="flex shrink-0 border border-rule" role="group" aria-label={LABELS.range}>
-                  {RANGES.map((r) => (
-                    <button
-                      key={r.key}
-                      onClick={() => setRange(r.key)}
-                      aria-pressed={range === r.key}
-                      className={`border-r border-rule px-2.5 py-1.5 text-[11px] last:border-r-0 transition-colors ${
-                        range === r.key
-                          ? "bg-brand text-brand-fg"
-                          : "text-ink-2 hover:bg-paper-2 hover:text-ink"
-                      }`}
-                    >
-                      {r.key}
-                    </button>
-                  ))}
-                </div>
+                <Segmented
+                  options={RANGE_KEYS}
+                  value={range}
+                  onChange={setRange}
+                  label={LABELS.range}
+                />
               </div>
 
-              <Panel registered className="p-4 sm:p-6">
+              <Panel className="p-4 sm:p-6">
                 {listed === null ? (
                   <Skeleton className="h-[380px] w-full" />
                 ) : listed === false ? (
@@ -514,7 +501,7 @@ export default function ListingPage(props: PageProps) {
           <aside className="lg:sticky lg:top-28">
             <SectionRule label={SECTIONS.ticket} className="mb-5" />
 
-            <Panel registered className={listed === false ? "opacity-50" : ""}>
+            <Panel className={listed === false ? "opacity-50" : ""}>
               {/* position stats stacked as a ledger — the rail is narrow, so
                   they read as rows, not a four-across strip */}
               <dl>
@@ -574,20 +561,15 @@ export default function ListingPage(props: PageProps) {
         </div>
       </main>
 
-      {pending && currentPrice !== null && (
-        <ConfirmTradeModal
-          action={pending.action}
-          ticker={ticker}
-          quantity={pending.quantity}
-          onQuantityChange={(q) => setPending({ ...pending, quantity: q })}
-          price={currentPrice}
-          balance={balance}
-          ownedShares={ownedShares}
-          processing={processing !== null}
-          onConfirm={confirmTrade}
-          onCancel={() => setPending(null)}
-        />
-      )}
+      <ConfirmTradeModal
+        trade={pending && currentPrice !== null ? { ...pending, ticker, price: currentPrice } : null}
+        onQuantityChange={(q) => setPending((p) => p && { ...p, quantity: q })}
+        balance={balance}
+        ownedShares={ownedShares}
+        processing={processing !== null}
+        onConfirm={confirmTrade}
+        onCancel={() => setPending(null)}
+      />
 
       <Toast message={message} />
     </div>

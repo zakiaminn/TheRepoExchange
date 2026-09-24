@@ -4,8 +4,8 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { createClient } from "@/utils/supabase/client";
 import { Toast, ToastMessage } from "@/components/Toast";
-import { SectionRule, DocRef, Panel, Field, Skeleton, Notice } from "@/components/ui";
-import { ACCOUNT, ERROR, NAV, NOTICE } from "@/lib/copy";
+import { SectionRule, Panel, Field, Skeleton, Notice } from "@/components/ui";
+import { ACCOUNT, AUTH, ERROR, NAV, NOTICE } from "@/lib/copy";
 
 /* account settings — really just "change your name". email is shown but locked
    because it's tied to the Supabase auth identity, and changing that is a whole
@@ -57,7 +57,6 @@ export default function SettingsPage() {
       setMessage({ text: ERROR.unexpected, type: "error" });
     } finally {
       setSaving(false);
-      setTimeout(() => setMessage(null), 4000);
     }
   };
 
@@ -81,15 +80,14 @@ export default function SettingsPage() {
     );
   }
 
-  // admission date off the auth record, stamped in the document month style.
-  const MONTHS = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
-  const admitted = created
+  // when the account was created, off the auth record, as an ordinary date
+  const joined = created
     ? (() => {
         const d = new Date(created);
-        return `${String(d.getDate()).padStart(2, "0")} ${MONTHS[d.getMonth()]} ${d.getFullYear()}`;
+        return `${d.getDate()} ${d.toLocaleString("en-US", { month: "short" })} ${d.getFullYear()}`;
       })()
-    : "—";
-  const fullName = [firstName, lastName].filter(Boolean).join(" ") || "—";
+    : "-";
+  const fullName = [firstName, lastName].filter(Boolean).join(" ") || "-";
 
   return (
     <div className="flex-1 pb-20">
@@ -100,45 +98,40 @@ export default function SettingsPage() {
 
         <SectionRule
           label={ACCOUNT.kicker}
-          meta={<DocRef code="TRX-MBR-0001" />}
           className="mb-8 mt-6"
         />
 
         <h1 className="display mb-2 text-4xl text-ink">{ACCOUNT.title}</h1>
         <p className="prose-measure mb-10 text-sm leading-relaxed text-ink-2">{ACCOUNT.body}</p>
 
-        {/* the file on the left, the one amendable thing on the right. the
-            record reads as a ledger; the amendment is the box you write in. */}
+        {/* what's on the account on the left, the one editable thing on the right */}
         <div className="grid gap-x-12 gap-y-10 lg:grid-cols-2 lg:items-start">
-          {/* ── the record ── */}
+          {/* ── details ── */}
           <section>
-            <SectionRule label="On file" className="mb-4" />
+            <SectionRule label={ACCOUNT.details} className="mb-4" />
             <dl className="border-t border-rule-2">
               <div className="flex items-baseline justify-between gap-4 border-b border-rule py-3">
-                <dt className="label">Member</dt>
+                <dt className="label">{ACCOUNT.name}</dt>
                 <dd className="text-[13px] text-ink">{fullName}</dd>
               </div>
               <div className="flex items-baseline justify-between gap-4 border-b border-rule py-3">
-                <dt className="label">Admitted</dt>
-                <dd className="figure text-[13px] text-ink">{admitted}</dd>
+                <dt className="label">{ACCOUNT.joined}</dt>
+                <dd className="figure text-[13px] text-ink">{joined}</dd>
               </div>
               <div className="flex items-baseline justify-between gap-4 py-3">
-                <dt className="label">Address</dt>
+                <dt className="label">{ACCOUNT.email}</dt>
                 <dd className="max-w-[60%] truncate text-[13px] text-ink" title={email}>{email}</dd>
               </div>
             </dl>
-            <p className="ref mt-3 block leading-relaxed">
-              The address is bound to your credentials and is changed through the sign-in flow, not here.
-            </p>
           </section>
 
-          {/* ── the amendment ── */}
+          {/* ── edit ── */}
           <section>
-            <SectionRule label="Amendment" className="mb-4" />
-            <Panel registered className="p-6 sm:p-7">
+            <SectionRule label={ACCOUNT.editName} className="mb-4" />
+            <Panel className="p-6 sm:p-7">
               <form onSubmit={save} className="space-y-5">
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                  <Field label="First name">
+                  <Field label={AUTH.firstName}>
                     <input
                       type="text"
                       value={firstName}
@@ -148,7 +141,7 @@ export default function SettingsPage() {
                       className="field"
                     />
                   </Field>
-                  <Field label="Last name">
+                  <Field label={AUTH.lastName}>
                     <input
                       type="text"
                       value={lastName}

@@ -28,7 +28,7 @@ function Mark({ s }: { s: number }) {
   );
 }
 
-// A per-listing share card. Identity only — owner + repo + a listing ref —
+// A per-listing share card. Identity only (owner + repo),
 // drawn straight from the route params. Deliberately no price: it would need a
 // network call (a failure mode on a cached image) and a mark shown out of
 // context reads as a quote it isn't.
@@ -38,7 +38,6 @@ export default async function Image({
   params: Promise<{ owner: string; repo: string }>;
 }) {
   const { owner, repo } = await params;
-  const ref = `TRX-SEC-${repo.slice(0, 6).toUpperCase()}`;
 
   return new ImageResponse(
     (
@@ -56,25 +55,11 @@ export default async function Image({
           borderTop: `10px solid ${OG.brand}`,
         }}
       >
-        {/* masthead: mark + wordmark, plus the listing ref on the right */}
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 18 }}>
-            <Mark s={48} />
-            <div style={{ display: "flex", fontSize: 28, fontWeight: 800, letterSpacing: -0.5 }}>
-              {SITE_SHORT}
-            </div>
-          </div>
-          <div
-            style={{
-              display: "flex",
-              fontSize: 16,
-              fontWeight: 500,
-              letterSpacing: 3,
-              textTransform: "uppercase",
-              color: OG.ink3,
-            }}
-          >
-            Listing · {ref}
+        {/* masthead: mark + wordmark */}
+        <div style={{ display: "flex", alignItems: "center", gap: 18 }}>
+          <Mark s={48} />
+          <div style={{ display: "flex", fontSize: 28, fontWeight: 800, letterSpacing: -0.5 }}>
+            {SITE_SHORT}
           </div>
         </div>
 

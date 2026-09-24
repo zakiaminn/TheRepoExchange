@@ -7,7 +7,8 @@
    the curve is a hypotrochoid (the spirograph you drew in school), sampled once
    and rendered as thin concentric strokes. the maths is deterministic, so the
    server and the client draw the exact same path and there's nothing to
-   hydrate. it's static by design, so there's no motion to reduce.
+   hydrate. on the landing hero it engraves itself once (`engrave`); see .engrave in
+   globals.css, which also covers reduced motion.
 
    colour and opacity come from the parent (text-brand-ink + a low opacity);
    this component only owns the geometry. */
@@ -34,7 +35,7 @@ function rosette(R: number, r: number, d: number, norm: number, steps: number): 
   return out + "Z";
 }
 
-export function SecurityPaper({ className }: { className?: string }) {
+export function SecurityPaper({ className, engrave }: { className?: string; engrave?: boolean }) {
   const R = 7;
   const r = 3;
   // nested rings: same lobe structure, shrinking amplitude, so they read as one
@@ -52,7 +53,7 @@ export function SecurityPaper({ className }: { className?: string }) {
 
   return (
     <svg
-      className={className}
+      className={engrave ? `${className ?? ""} engrave` : className}
       viewBox="-1.06 -1.06 2.12 2.12"
       fill="none"
       stroke="currentColor"
@@ -63,7 +64,7 @@ export function SecurityPaper({ className }: { className?: string }) {
       <defs>
         <g id="trx-rosette">
           {rings.map((d, i) => (
-            <path key={i} d={d} />
+            <path key={i} d={d} pathLength={1} />
           ))}
         </g>
       </defs>

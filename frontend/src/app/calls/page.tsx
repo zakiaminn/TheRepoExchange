@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { createClient } from "@/utils/supabase/client";
-import { SectionRule, DocRef, Panel, Field, Notice, Empty, Skeleton } from "@/components/ui";
+import { SectionRule, Panel, Field, Notice, Empty, Skeleton } from "@/components/ui";
 import { Toast, ToastMessage } from "@/components/Toast";
 import { usd, count, countCompact, signedUsd, toneClass, tickerParts } from "@/lib/format";
 import { SECTIONS, LABELS, ERROR, CALLS } from "@/lib/copy";
@@ -215,7 +215,7 @@ export default function CallsPage() {
     <div className="flex-1 pb-20">
       <Toast message={message} />
       <main className="mx-auto w-full max-w-[64rem] px-5 py-10 sm:px-8 sm:py-12">
-        <SectionRule label={SECTIONS.calls} meta={<DocRef code="TRX-CALL-001" />} className="mb-8" />
+        <SectionRule label={SECTIONS.calls} className="mb-8" />
 
         <div className="border-b border-rule-2 pb-8">
           <h1 className="display text-[clamp(2rem,6vw,3.25rem)] leading-none text-ink">{CALLS.title}</h1>
@@ -312,7 +312,7 @@ export default function CallsPage() {
           <section>
             <SectionRule
               label={SECTIONS.calls}
-              meta={`${count(calls.length)} of record`}
+              meta={`${count(calls.length)} total`}
               className="mb-5"
             />
             <Panel>
