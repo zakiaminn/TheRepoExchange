@@ -8,7 +8,7 @@ import os
 import sys
 from datetime import datetime
 
-from pricing import compute_price
+from pricing import compute_price, PRICING_VERSION
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 with open(os.path.join(HERE, "..", "pricing", "fixtures.json")) as f:
@@ -17,6 +17,10 @@ with open(os.path.join(HERE, "..", "pricing", "fixtures.json")) as f:
 now = datetime.strptime(fx["now"], "%Y-%m-%dT%H:%M:%SZ")
 
 failures = 0
+if PRICING_VERSION != fx["version"]:
+    failures += 1
+    print(f"FAIL  pricing.py says {PRICING_VERSION}, fixtures are {fx['version']}")
+
 for c in fx["cases"]:
     i = c["input"]
     got = compute_price(

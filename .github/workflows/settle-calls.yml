@@ -2,22 +2,31 @@ name: TRX Call Settlement
 
 # hits the ledger's POST /api/calls/settle every hour to settle calls past their deadline.
 # it only touches open calls, so a double run doesn't pay out twice. runs at :30 so it
-# doesn't fire at the same minute as ingestion
+# doesn't fire at the same minute as ingestion. the response is just counts
 
 on:
   schedule:
     - cron: '30 * * * *'
   workflow_dispatch:
 
+permissions:
+  contents: read
+
+concurrency:
+  group: settle-calls
+  cancel-in-progress: false
+
 jobs:
   settle:
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
       - name: Settle due calls
         env:
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
         run: |
-          curl -fsS -X POST https://trx-ledger.onrender.com/api/calls/settle \
+          curl -fsS --retry 3 --retry-delay 20 --retry-all-errors --max-time 90 \
+            -X POST https://trx-ledger.onrender.com/api/calls/settle \
             -H "x-cron-secret: $CRON_SECRET" \
             -H "content-type: application/json" \
             -w $'\nHTTP %{http_code}\n'

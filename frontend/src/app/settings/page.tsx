@@ -25,7 +25,7 @@ export default function SettingsPage() {
     const check = async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
-        window.location.href = "/login";
+        window.location.href = "/login?next=%2Fsettings";
         return;
       }
       setEmail(user.email || "");

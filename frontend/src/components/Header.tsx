@@ -3,7 +3,9 @@
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
+import type { User } from "@supabase/supabase-js";
 import { createClient } from "@/utils/supabase/client";
+import type { DiscoveryResponse } from "@/lib/api";
 import { Wordmark } from "@/components/Logo";
 import { NAV, STATE } from "@/lib/copy";
 
@@ -12,7 +14,7 @@ type TickerSuggestion = { ticker: string; category: string };
 // the top bar on every logged-in page: wordmark, search, nav and the account menu. it
 // returns null when there's no session, since the landing page brings its own nav
 export function Header() {
-  const [user, setUser] = useState<any>(null);
+  const [user, setUser] = useState<User | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
   const [menuOpen, setMenuOpen] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -41,9 +43,8 @@ export function Header() {
         if (!res.ok) return;
         const data = await res.json();
 
-        const flat: TickerSuggestion[] = Object.entries(data).flatMap(
-          ([category, repos]: [string, any]) =>
-            (repos as any[]).map((r) => ({ ticker: r.ticker, category }))
+        const flat: TickerSuggestion[] = Object.entries(data as DiscoveryResponse).flatMap(
+          ([category, repos]) => repos.map((r) => ({ ticker: r.ticker, category }))
         );
         setTickers(flat);
       } catch {
@@ -162,7 +163,7 @@ export function Header() {
         aria-activedescendant={active >= 0 ? `suggestion-${active}` : undefined}
         placeholder={NAV.search}
         aria-label={NAV.search}
-        className="field h-9 pr-9 text-[13px]"
+        className="field h-9 pr-9 pointer-fine:text-[13px]"
       />
       {/* the slash hint disappears the moment the field has focus or content */}
       {query.length === 0 && (

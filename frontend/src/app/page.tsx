@@ -25,6 +25,8 @@ type Holding = { ticker: string; shares: number; average_price: number };
 
 type PendingTrade = { ticker: string; quantity: number; price: number } | null;
 
+const POLL_MS = 5000;
+
 // the logged-in home page: the market overview, one board per category, then your
 // positions. each row has one buy button, and quantity gets set in the order ticket
 export default function Terminal() {
@@ -32,6 +34,8 @@ export default function Terminal() {
   const [message, setMessage] = useState<ToastMessage>(null);
   const [pending, setPending] = useState<PendingTrade>(null);
   const [processing, setProcessing] = useState(false);
+  const [ticketNotice, setTicketNotice] = useState<string | null>(null);
+  const [mine, setMine] = useState<Repository[]>([]);
 
   const [userId, setUserId] = useState<string | null>(null);
   const [initializing, setInitializing] = useState(true);
@@ -86,14 +90,29 @@ export default function Terminal() {
     }
   };
 
-  useEffect(() => {
-    if (userId) {
-      fetchPortfolio();
-      fetchBalance();
+  // the listings you added yourself, which only show on your board
+  const fetchMine = async () => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/listings/mine`, {
+        headers: { Authorization: `Bearer ${session.access_token}` },
+      });
+      if (res.ok) setMine((await res.json()).listings || []);
+    } catch {
+      console.error(ERROR.ledger);
     }
+  };
 
-    // discovery is the same for everyone and needs no auth, so it runs
-    // regardless of session state
+  // signed in, the board polls prices every 5 seconds while the tab is visible and catches
+  // up as soon as it's shown again. signed out, the landing page runs its own feed
+  useEffect(() => {
+    if (!userId) return;
+    const loadAccount = async () => {
+      await Promise.all([fetchPortfolio(), fetchBalance(), fetchMine()]);
+    };
+    loadAccount();
+
     const fetchDiscovery = async () => {
       try {
         const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/discovery`);
@@ -126,9 +145,23 @@ export default function Terminal() {
     };
 
     fetchDiscovery();
-    const interval = setInterval(fetchDiscovery, 5000);
-    return () => clearInterval(interval); // otherwise it polls forever after unmount
-  }, [userId]);
+    const interval = setInterval(() => {
+      if (!document.hidden) fetchDiscovery();
+    }, POLL_MS);
+    const onVisible = () => {
+      if (!document.hidden) fetchDiscovery();
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      clearInterval(interval); // otherwise it polls forever after unmount
+      document.removeEventListener("visibilitychange", onVisible);
+    };
+  }, [userId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const openTicket = (trade: NonNullable<PendingTrade>) => {
+    setTicketNotice(null);
+    setPending(trade);
+  };
 
   const confirmTrade = async () => {
     if (!pending || !userId) return;
@@ -136,6 +169,8 @@ export default function Terminal() {
 
     setProcessing(true);
     setMessage(null);
+    setTicketNotice(null);
+    let keepOpen = false;
 
     try {
       const { data: { session } } = await supabase.auth.getSession();
@@ -151,9 +186,15 @@ export default function Terminal() {
       const result = await res.json();
 
       if (res.ok) {
-        setMessage({ text: ORDER.filled("BUY", quantity, ticker, usd(price)), type: "success" });
+        setMessage({ text: ORDER.filled("BUY", quantity, result.ticker ?? ticker, usd(result.price ?? price)), type: "success" });
         fetchBalance();
         fetchPortfolio();
+        fetchMine();
+      } else if (res.status === 409 && typeof result.price === "number") {
+        // the price moved: the ticket stays open at the new price with the reason in it
+        keepOpen = true;
+        setPending((p) => p && { ...p, price: result.price });
+        setTicketNotice(result.error);
       } else {
         setMessage({ text: ORDER.rejected(result.error), type: "error" });
       }
@@ -161,7 +202,7 @@ export default function Terminal() {
       setMessage({ text: ERROR.ledgerRefused, type: "error" });
     } finally {
       setProcessing(false);
-      setPending(null);
+      if (!keepOpen) setPending(null);
     }
   };
 
@@ -190,8 +231,11 @@ export default function Terminal() {
 
   if (!userId) return <LandingPage />;
 
-  // dedupe by ticker inside each category, since the feed can return the same repo twice
-  const categories = Object.entries(discovery).map(([cat, repos]) => {
+  // dedupe by ticker inside each category, since the feed can return the same repo twice.
+  // your own listings go last as their own section
+  const sections = Object.entries(discovery);
+  if (mine.length > 0) sections.push([BOARD.yours, mine]);
+  const categories = sections.map(([cat, repos]) => {
     const seen = new Set<string>();
     const unique = repos.filter((r) => {
       const key = r.ticker.toLowerCase();
@@ -217,7 +261,7 @@ export default function Terminal() {
   const indexCells: { label: string; value: string; sub: string }[] = [
     { label: LABELS.listedValue, value: usd(listedValue), sub: "all prices, summed" },
     { label: SECTIONS.listings, value: count(totalListings), sub: "tracked" },
-    { label: LABELS.purchasingPower, value: balance !== null ? usd(balance) : "—", sub: "cash" },
+    { label: LABELS.purchasingPower, value: balance !== null ? usd(balance) : "-", sub: "cash" },
     { label: LABELS.positionsValue, value: usd(positionsValue), sub: portfolio.length ? `${count(portfolio.length)} held` : "none held" },
   ];
 
@@ -288,7 +332,7 @@ export default function Terminal() {
               <section key={category}>
                 <SectionRule label={category} meta={plural(repos.length, "listing")} className="mb-5" />
                 <div className="overflow-x-auto no-bar">
-                  <table className="board min-w-[40rem]">
+                  <table className="board min-w-0 sm:min-w-[40rem]">
                     <thead>
                       <tr>
                         <th>{COLUMNS.listing}</th>
@@ -298,7 +342,7 @@ export default function Terminal() {
                         </th>
                         <th className="hidden text-right md:table-cell">{COLUMNS.stars}</th>
                         <th className="hidden w-[76px] sm:table-cell" />
-                        <th className="w-[92px]" />
+                        <th className="w-[64px] sm:w-[92px]" />
                       </tr>
                     </thead>
                     <tbody>
@@ -353,7 +397,7 @@ export default function Terminal() {
                             <td className="pr-3 text-right">
                               <button
                                 onClick={() =>
-                                  setPending({
+                                  openTicket({
                                     ticker: repo.ticker,
                                     quantity: 1,
                                     price: Number(repo.current_price),
@@ -427,6 +471,7 @@ export default function Terminal() {
         onQuantityChange={(q) => setPending((p) => p && { ...p, quantity: q })}
         balance={balance}
         processing={processing}
+        notice={ticketNotice}
         onConfirm={confirmTrade}
         onCancel={() => setPending(null)}
       />

@@ -15,5 +15,9 @@ services:
         sync: false
       - key: SUPABASE_ANON_KEY
         sync: false
+      - key: CRON_SECRET
+        sync: false
+      - key: GITHUB_TOKEN
+        sync: false
       - key: CLIENT_ORIGIN
         value: https://www.therepo.exchange,https://therepo.exchange

@@ -438,6 +438,10 @@ body::before {
 }
 .field:focus { outline: none; border-color: var(--brand); background: var(--paper); }
 .field:disabled { color: var(--ink-3); background: var(--paper-3); cursor: not-allowed; }
+/* 16px on touch screens, since ios safari zooms into any input set smaller */
+@media (hover: none), (pointer: coarse) {
+  .field { font-size: 1rem; }
+}
 .field-figure { font-family: var(--font-mono); font-variant-numeric: tabular-nums; text-align: right; }
 
 /* hides the browser's number spinner arrows */

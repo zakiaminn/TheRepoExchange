@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { useRef, useState, useSyncExternalStore } from "react";
 import { Drawer } from "vaul";
 import { Minus, Plus } from "lucide-react";
 import { usd, count } from "@/lib/format";
@@ -19,6 +19,8 @@ type Props = {
   balance: number | null;
   ownedShares?: number;
   processing: boolean;
+  // a rejection from the ledger, shown in the ticket so it can be fixed and resent
+  notice?: string | null;
   onConfirm: () => void;
   onCancel: () => void;
 };
@@ -48,6 +50,7 @@ export function ConfirmTradeModal({
   balance,
   ownedShares = 0,
   processing,
+  notice = null,
   onConfirm,
   onCancel,
 }: Props) {
@@ -80,16 +83,14 @@ export function ConfirmTradeModal({
           : null;
 
   const canSubmit = open && !blocker && !processing;
+  const message = blocker ?? notice;
 
-  // Enter confirms, but only when the order is valid. the drawer handles Escape
-  useEffect(() => {
-    if (!open) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Enter" && canSubmit) onConfirm();
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [open, onConfirm, canSubmit]);
+  // the ticket is a form, so Enter in the quantity field submits it and nothing else does.
+  // the browser won't submit while the confirm button is disabled
+  const submit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (canSubmit) onConfirm();
+  };
 
   const row = (term: string, value: React.ReactNode) => (
     <div className="flex items-baseline justify-between gap-4 border-b border-rule py-3">
@@ -135,90 +136,92 @@ export function ConfirmTradeModal({
             <span className="label">{isBuy ? "Buy at market" : "Sell at market"}</span>
           </div>
 
-          <div className="overflow-y-auto px-5 pt-2">
-            {row("Listing", t?.ticker ?? "")}
-            {row(LABELS.mark, <span className="figure">{usd(price)}</span>)}
+          <form onSubmit={submit} className="flex min-h-0 flex-1 flex-col">
+            <div className="overflow-y-auto px-5 pt-2">
+              {row("Listing", t?.ticker ?? "")}
+              {row(LABELS.mark, <span className="figure">{usd(price)}</span>)}
 
-            <div className="flex items-center justify-between gap-4 border-b border-rule py-3">
-              <label htmlFor="ticket-qty" className="label">
-                {LABELS.quantity}
-              </label>
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => onQuantityChange(Math.max(1, quantity - 1))}
-                  disabled={processing || quantity <= 1}
-                  aria-label="One fewer share"
-                  className="ctl ctl-sm ctl-icon text-ink-2"
-                >
-                  <Minus size={13} strokeWidth={1.75} aria-hidden="true" />
-                </button>
-                <input
-                  id="ticket-qty"
-                  ref={qtyRef}
-                  type="number"
-                  inputMode="numeric"
-                  min={1}
-                  step={1}
-                  value={Number.isFinite(quantity) ? quantity : ""}
-                  onChange={(e) => onQuantityChange(Math.max(0, parseInt(e.target.value, 10) || 0))}
-                  disabled={processing}
-                  className="field field-figure h-9 w-20 select-text text-[16px] sm:text-[13px]"
-                />
-                <button
-                  type="button"
-                  onClick={() => onQuantityChange((Number.isFinite(quantity) ? quantity : 0) + 1)}
-                  disabled={processing}
-                  aria-label="One more share"
-                  className="ctl ctl-sm ctl-icon text-ink-2"
-                >
-                  <Plus size={13} strokeWidth={1.75} aria-hidden="true" />
-                </button>
+              <div className="flex items-center justify-between gap-4 border-b border-rule py-3">
+                <label htmlFor="ticket-qty" className="label">
+                  {LABELS.quantity}
+                </label>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => onQuantityChange(Math.max(1, quantity - 1))}
+                    disabled={processing || quantity <= 1}
+                    aria-label="One fewer share"
+                    className="ctl ctl-sm ctl-icon text-ink-2"
+                  >
+                    <Minus size={13} strokeWidth={1.75} aria-hidden="true" />
+                  </button>
+                  <input
+                    id="ticket-qty"
+                    ref={qtyRef}
+                    type="number"
+                    inputMode="numeric"
+                    min={1}
+                    step={1}
+                    value={Number.isFinite(quantity) ? quantity : ""}
+                    onChange={(e) => onQuantityChange(Math.max(0, parseInt(e.target.value, 10) || 0))}
+                    disabled={processing}
+                    className="field field-figure h-9 w-20 select-text text-[16px] sm:text-[13px]"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => onQuantityChange((Number.isFinite(quantity) ? quantity : 0) + 1)}
+                    disabled={processing}
+                    aria-label="One more share"
+                    className="ctl ctl-sm ctl-icon text-ink-2"
+                  >
+                    <Plus size={13} strokeWidth={1.75} aria-hidden="true" />
+                  </button>
+                </div>
               </div>
-            </div>
 
-            <div className="mt-1 border-t border-rule-2 pt-4">
-              <div className="flex items-baseline justify-between gap-4">
-                <span className="label label-ink">{isBuy ? LABELS.estimated : LABELS.proceeds}</span>
-                <span className="figure text-2xl text-ink">{usd(total)}</span>
+              <div className="mt-1 border-t border-rule-2 pt-4">
+                <div className="flex items-baseline justify-between gap-4">
+                  <span className="label label-ink">{isBuy ? LABELS.estimated : LABELS.proceeds}</span>
+                  <span className="figure text-2xl text-ink">{usd(total)}</span>
+                </div>
+                {isBuy && remaining !== null && (
+                  <div className="mt-2 flex items-baseline justify-between gap-4">
+                    <span className="label">{LABELS.purchasingPower} after</span>
+                    <span className={`figure text-[12px] ${remaining < 0 ? "text-neg" : "text-ink-2"}`}>
+                      {usd(remaining)}
+                    </span>
+                  </div>
+                )}
+                {!isBuy && (
+                  <div className="mt-2 flex items-baseline justify-between gap-4">
+                    <span className="label">{LABELS.position} after</span>
+                    <span className="figure text-[12px] text-ink-2">
+                      {count(Math.max(0, ownedShares - quantity))} {LABELS.shares}
+                    </span>
+                  </div>
+                )}
               </div>
-              {isBuy && remaining !== null && (
-                <div className="mt-2 flex items-baseline justify-between gap-4">
-                  <span className="label">{LABELS.purchasingPower} after</span>
-                  <span className={`figure text-[12px] ${remaining < 0 ? "text-neg" : "text-ink-2"}`}>
-                    {usd(remaining)}
-                  </span>
+
+              {message && (
+                <div role="alert" className="mt-4 border-l-2 border-l-neg pl-3 text-[12px] leading-relaxed text-neg">
+                  {message}
                 </div>
               )}
-              {!isBuy && (
-                <div className="mt-2 flex items-baseline justify-between gap-4">
-                  <span className="label">{LABELS.position} after</span>
-                  <span className="figure text-[12px] text-ink-2">
-                    {count(Math.max(0, ownedShares - quantity))} {LABELS.shares}
-                  </span>
-                </div>
-              )}
             </div>
 
-            {blocker && (
-              <div className="mt-4 border-l-2 border-l-neg pl-3 text-[12px] leading-relaxed text-neg">
-                {blocker}
-              </div>
-            )}
-          </div>
-
-          <div className="mt-auto grid grid-cols-2 gap-3 border-t border-rule px-5 py-4">
-            <button onClick={onCancel} disabled={processing} className="ctl">
-              {ORDER.cancel}
-            </button>
-            <button
-              onClick={onConfirm}
-              disabled={!canSubmit}
-              className={`ctl ${isBuy ? "ctl-primary" : "ctl-neg"}`}
-            >
-              {processing ? ORDER.routing : isBuy ? ORDER.confirmBuy : ORDER.confirmSell}
-            </button>
-          </div>
+            <div className="mt-auto grid grid-cols-2 gap-3 border-t border-rule px-5 py-4">
+              <button type="button" onClick={onCancel} disabled={processing} className="ctl">
+                {ORDER.cancel}
+              </button>
+              <button
+                type="submit"
+                disabled={!canSubmit}
+                className={`ctl ${isBuy ? "ctl-primary" : "ctl-neg"}`}
+              >
+                {processing ? ORDER.routing : isBuy ? ORDER.confirmBuy : ORDER.confirmSell}
+              </button>
+            </div>
+          </form>
         </Drawer.Content>
       </Drawer.Portal>
     </Drawer.Root>

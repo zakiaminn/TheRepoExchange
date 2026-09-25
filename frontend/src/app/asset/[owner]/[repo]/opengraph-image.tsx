@@ -8,6 +8,11 @@ export const contentType = OG_CONTENT_TYPE;
 // width the repo name has to fit in: the card minus its side padding
 const NAME_WIDTH = 1200 - 88 * 2;
 
+// github's own naming rules: owners are up to 39 letters, digits and hyphens, repos up to
+// 100 letters, digits, dots, hyphens and underscores
+const OWNER_RE = /^[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,38})$/;
+const REPO_RE = /^[a-zA-Z0-9._-]{1,100}$/;
+
 // the per-listing share card, with just the owner and repo from the route params. no
 // price, since that would mean a network call from a cached image
 export default async function Image({
@@ -16,6 +21,10 @@ export default async function Image({
   params: Promise<{ owner: string; repo: string }>;
 }) {
   const { owner, repo } = await params;
+  // a name github couldn't have gets a 404 instead of a card
+  if (!OWNER_RE.test(owner) || !REPO_RE.test(repo) || repo === "." || repo === "..") {
+    return new Response("Not found", { status: 404 });
+  }
 
   // shrinks long names to fit one line instead of clipping them. 0.58em is a safe
   // average advance for bricolage semibold in mixed case

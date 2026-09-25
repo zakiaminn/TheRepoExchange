@@ -7,6 +7,7 @@ import { SectionRule, Panel, Field, Notice, Empty, Skeleton } from "@/components
 import { Toast, ToastMessage } from "@/components/Toast";
 import { usd, count, countCompact, signedUsd, toneClass, tickerParts } from "@/lib/format";
 import { SECTIONS, LABELS, ERROR, CALLS } from "@/lib/copy";
+import { minTarget, localDate, deadlineMs as endOfDay } from "@/lib/calls";
 
 type CallStatus = "open" | "won" | "lost" | "void";
 
@@ -28,10 +29,22 @@ type Call = {
 const API = process.env.NEXT_PUBLIC_API_URL;
 const TICKER_RE = /^[a-zA-Z0-9._-]+\/[a-zA-Z0-9._-]+$/;
 
+// what the ledger says about a repo before a call is opened on it
+type Quote = {
+  ticker: string;
+  currentStars: number;
+  velocityPerDay: number | null;
+  eligible: boolean;
+  reason: string | null;
+  openStake: number;
+  maxOpenStake: number;
+  maxStake: number;
+};
+
 // time left until a deadline, measured against the page clock in nowMs
 function countdown(deadlineMs: number, nowMs: number): string {
   const left = deadlineMs - nowMs;
-  if (left <= 0) return "due";
+  if (left <= 0) return "";
   const s = Math.floor(left / 1000);
   const d = Math.floor(s / 86400);
   const h = Math.floor((s % 86400) / 3600);
@@ -64,7 +77,8 @@ export default function CallsPage() {
 
   // form
   const [repo, setRepo] = useState("");
-  const [currentStars, setCurrentStars] = useState<number | null>(null);
+  const [quote, setQuote] = useState<Quote | null>(null);
+  const [quoteError, setQuoteError] = useState<string | null>(null);
   const [checkingRepo, setCheckingRepo] = useState(false);
   const [target, setTarget] = useState("");
   const [deadline, setDeadline] = useState("");
@@ -84,17 +98,12 @@ export default function CallsPage() {
     return () => { window.clearInterval(id); window.clearTimeout(t); };
   }, []);
 
-  // defaults the deadline to 30 days out with tomorrow as the minimum, also set in an
-  // effect to keep Date out of render
+  // defaults the deadline to 30 days out with tomorrow as the minimum, both in the viewer's
+  // own timezone. also set in an effect to keep Date out of render
   useEffect(() => {
     const t = window.setTimeout(() => {
-      const plus = (days: number) => {
-        const d = new Date();
-        d.setDate(d.getDate() + days);
-        return d.toISOString().slice(0, 10);
-      };
-      setDeadline(plus(30));
-      setMinDeadline(plus(1));
+      setDeadline(localDate(30));
+      setMinDeadline(localDate(1));
     }, 0);
     return () => window.clearTimeout(t);
   }, []);
@@ -102,7 +111,7 @@ export default function CallsPage() {
   useEffect(() => {
     const check = async () => {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) { window.location.href = "/login"; return; }
+      if (!user) { window.location.href = "/login?next=%2Fcalls"; return; }
       setUserId(user.id);
     };
     check();
@@ -130,35 +139,52 @@ export default function CallsPage() {
     run();
   }, [userId]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // looks up the repo's live star count as the user types, so the target is checked
-  // against a real number before anything is staked. state only changes inside the
-  // debounced callback, not in the effect body
+  // looks up the repo as the user types: whether it can take calls, its star count, and its
+  // recent pace, so the target is checked against real numbers before anything is staked.
+  // read-only, typing a name never lists anything. state only changes inside the debounced
+  // callback, not in the effect body
   useEffect(() => {
     const t = repo.trim();
     const id = window.setTimeout(async () => {
-      if (!TICKER_RE.test(t)) { setCurrentStars(null); setCheckingRepo(false); return; }
+      if (!TICKER_RE.test(t)) { setQuote(null); setQuoteError(null); setCheckingRepo(false); return; }
       setCheckingRepo(true);
       try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) return;
         const [owner, name] = t.split("/");
-        const res = await fetch(`${API}/api/history/${owner}/${name}`);
-        if (!res.ok) { setCurrentStars(null); return; }
+        const res = await fetch(`${API}/api/calls/quote/${owner}/${name}`, {
+          headers: { Authorization: `Bearer ${session.access_token}` },
+        });
         const data = await res.json();
-        const stars = data?.asset?.raw_stars;
-        setCurrentStars(stars != null ? Number(stars) : null);
+        if (!res.ok) { setQuote(null); setQuoteError(data.error ?? ERROR.unexpected); return; }
+        setQuote(data);
+        setQuoteError(data.eligible ? null : data.reason);
       } catch {
-        setCurrentStars(null);
+        setQuote(null);
+        setQuoteError(ERROR.ledgerRefused);
       } finally {
         setCheckingRepo(false);
       }
     }, 300);
     return () => window.clearTimeout(id);
-  }, [repo]);
+  }, [repo]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  const currentStars = quote?.currentStars ?? null;
+  const floor =
+    quote && quote.eligible && deadline && nowMs > 0
+      ? minTarget(quote.currentStars, quote.velocityPerDay ?? 0, endOfDay(deadline) - nowMs)
+      : null;
+  const stakeRoom = quote ? Math.min(quote.maxStake, quote.maxOpenStake - quote.openStake) : Infinity;
   const targetNum = Number(target);
   const stakeNum = Number(stake);
-  const targetValid = Number.isInteger(targetNum) && targetNum > 0 && currentStars !== null && targetNum > currentStars;
-  const stakeValid = Number.isFinite(stakeNum) && stakeNum >= 1 && (balance === null || stakeNum <= balance);
-  const canSubmit = TICKER_RE.test(repo.trim()) && currentStars !== null && targetValid && stakeValid && !!deadline && !submitting;
+  const targetValid = Number.isInteger(targetNum) && floor !== null && targetNum >= floor;
+  const stakeValid =
+    Number.isFinite(stakeNum) && stakeNum >= 1 && stakeNum <= stakeRoom && (balance === null || stakeNum <= balance);
+  const canSubmit = TICKER_RE.test(repo.trim()) && !!quote?.eligible && targetValid && stakeValid && !!deadline && !submitting;
+  const stakeHint =
+    balance !== null && stakeNum > balance ? CALLS.overStake :
+    quote && stakeNum > stakeRoom ? CALLS.overOpen(usd(quote.maxOpenStake)) :
+    "USD";
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -166,7 +192,7 @@ export default function CallsPage() {
     setSubmitting(true);
     try {
       const { data: { session } } = await supabase.auth.getSession();
-      if (!session) { window.location.href = "/login"; return; }
+      if (!session) { window.location.href = "/login?next=%2Fcalls"; return; }
       const res = await fetch(`${API}/api/calls`, {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
@@ -174,7 +200,7 @@ export default function CallsPage() {
           ticker: repo.trim(),
           targetStars: targetNum,
           stake: stakeNum,
-          deadline: new Date(`${deadline}T23:59:59`).toISOString(),
+          deadline: new Date(endOfDay(deadline)).toISOString(),
         }),
       });
       const data = await res.json();
@@ -182,8 +208,8 @@ export default function CallsPage() {
         setMessage({ text: data.error || ERROR.ledger, type: "error" });
         return;
       }
-      setMessage({ text: `Call opened on ${repo.trim()} at ${count(stakeNum)}.`, type: "success" });
-      setRepo(""); setTarget(""); setStake(""); setCurrentStars(null);
+      setMessage({ text: `Call opened on ${data.call?.ticker ?? repo.trim()} for ${usd(stakeNum)}.`, type: "success" });
+      setRepo(""); setTarget(""); setStake(""); setQuote(null);
       await loadData();
     } catch {
       setMessage({ text: ERROR.ledger, type: "error" });
@@ -232,6 +258,7 @@ export default function CallsPage() {
                   label={CALLS.repo}
                   hint={
                     checkingRepo ? "checking" :
+                    quoteError ? quoteError :
                     currentStars !== null ? `${CALLS.now} ${count(currentStars)} stars` :
                     CALLS.repoHint
                   }
@@ -249,17 +276,21 @@ export default function CallsPage() {
 
                 <Field
                   label={CALLS.target}
-                  hint={currentStars !== null && targetNum > 0 && !targetValid ? CALLS.targetBelowCurrent : "whole number"}
+                  hint={
+                    floor !== null && targetNum > 0 && !targetValid ? CALLS.targetTooLow(count(floor)) :
+                    floor !== null ? `${CALLS.minTarget} ${count(floor)}` :
+                    "whole number"
+                  }
                 >
                   <input
                     className="field field-figure"
                     type="number"
                     inputMode="numeric"
-                    min={currentStars !== null ? currentStars + 1 : 1}
+                    min={floor ?? 1}
                     step={1}
                     value={target}
                     onChange={(e) => setTarget(e.target.value)}
-                    placeholder={currentStars !== null ? String(currentStars + 1000) : "80000"}
+                    placeholder={floor !== null ? String(floor) : "80000"}
                   />
                 </Field>
 
@@ -273,7 +304,7 @@ export default function CallsPage() {
                       onChange={(e) => setDeadline(e.target.value)}
                     />
                   </Field>
-                  <Field label={CALLS.stake} hint={balance !== null && stakeNum > balance ? CALLS.overStake : "USD"}>
+                  <Field label={CALLS.stake} hint={stakeHint}>
                     <input
                       className="field field-figure"
                       type="number"
@@ -290,7 +321,7 @@ export default function CallsPage() {
                 {/* the wager, spelled out: even-money, so a win returns twice the stake */}
                 {stakeValid && targetValid && (
                   <p className="ref leading-relaxed">
-                    Stake {usd(stakeNum)} that {repo.trim()} reaches {count(targetNum)} stars by {deadline ? fmtDate(`${deadline}T00:00:00`) : "-"}.
+                    Stake {usd(stakeNum)} that {quote?.ticker ?? repo.trim()} reaches {count(targetNum)} stars by {deadline ? fmtDate(`${deadline}T00:00:00`) : "-"}.
                     A correct call returns {usd(stakeNum * 2)}.
                   </p>
                 )}
@@ -340,7 +371,9 @@ export default function CallsPage() {
                         <div className="shrink-0 text-right">
                           <div className={`label ${STATUS_TONE[c.status]}`}>
                             {c.status === "open"
-                              ? (nowMs > 0 ? `${CALLS.resolvesIn} ${countdown(deadlineMs, nowMs)}` : CALLS.status.open)
+                              ? (nowMs === 0 ? CALLS.status.open
+                                : deadlineMs <= nowMs ? CALLS.settling
+                                : `${CALLS.resolvesIn} ${countdown(deadlineMs, nowMs)}`)
                               : CALLS.status[c.status]}
                           </div>
                           {c.status === "open" ? (

@@ -10,8 +10,9 @@ import { ConfirmTradeModal } from "@/components/ConfirmTradeModal";
 import { SectionRule, Panel, Notice, Skeleton, Delta, Segmented } from "@/components/ui";
 import { ListingMorph } from "@/components/ListingMorph";
 import { usd, count, countCompact, change, toneClass } from "@/lib/format";
-import { SECTIONS, LABELS, STATE, ERROR, ORDER, NAV } from "@/lib/copy";
+import { SECTIONS, LABELS, ERROR, ORDER, NAV, LISTING } from "@/lib/copy";
 import { deriveValuation, type AssetMetrics } from "@/lib/pricing";
+import type { HoldingRow, HistoryPoint } from "@/lib/api";
 
 interface PageProps {
   params: Promise<{ owner: string; repo: string }>;
@@ -54,19 +55,24 @@ export default function ListingPage(props: PageProps) {
   const [message, setMessage] = useState<ToastMessage>(null);
   const [pending, setPending] = useState<PendingTrade>(null);
   const [processing, setProcessing] = useState<"BUY" | "SELL" | null>(null);
+  const [ticketNotice, setTicketNotice] = useState<string | null>(null);
+  const [adding, setAdding] = useState(false);
+  const [historyVersion, setHistoryVersion] = useState(0);
+  const [unavailable, setUnavailable] = useState(false);
 
   const isDark = usePrefersDark();
   const supabase = createClient();
 
-  // unlike the home page, there's no logged-out version of this route
+  // unlike the home page, there's no logged-out version of this route. sign-in brings you
+  // back to this listing
   useEffect(() => {
     const check = async () => {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) window.location.href = "/login";
+      if (!user) window.location.href = `/login?next=${encodeURIComponent(`/asset/${owner}/${repo}`)}`;
       else setUserId(user.id);
     };
     check();
-  }, [supabase]);
+  }, [supabase, owner, repo]);
 
   const fetchBalance = async (uid: string) => {
     try {
@@ -92,7 +98,7 @@ export default function ListingPage(props: PageProps) {
       const data = await res.json();
       // only this listing matters here, not the whole book
       const holding = (data.portfolio || []).find(
-        (h: any) => h.ticker.toLowerCase() === ticker.toLowerCase()
+        (h: HoldingRow) => h.ticker.toLowerCase() === ticker.toLowerCase()
       );
       setOwnedShares(holding ? holding.shares : 0);
       setAvgPrice(holding ? Number(holding.average_price) : null);
@@ -103,28 +109,40 @@ export default function ListingPage(props: PageProps) {
 
   useEffect(() => {
     if (!userId) return;
-    fetchBalance(userId);
-    fetchPosition(userId);
-  }, [userId, ticker]);
+    const run = async () => {
+      await Promise.all([fetchBalance(userId), fetchPosition(userId)]);
+    };
+    run();
+  }, [userId, ticker]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // price history, which doubles as the listing check. if the ledger has nothing on
-  // file, the repository isn't listed
+  // price history and the current price, which doubles as the listing check. a 404 means
+  // the repository isn't listed, anything else is the ledger being down. refetched after
+  // every trade so the price on the page is the one the ledger will fill at
   useEffect(() => {
     const fetchHistory = async () => {
       try {
         const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/history/${owner}/${repo}`);
-        if (!res.ok) {
+        if (res.status === 404) {
+          setUnavailable(false);
           setListed(false);
           return;
         }
+        if (!res.ok) {
+          setUnavailable(true);
+          return;
+        }
         const data = await res.json();
-        if (data.asset) setAsset(data.asset);
+        setUnavailable(false);
+        setError(null);
+        setAsset(data.asset);
+        setCurrentPrice(Number(data.asset.current_price));
+        setListed(true);
 
         if (data.history && data.history.length > 0) {
           // dedupe on the unix timestamp in case the engine ever emits two
           // points for one day, then sort so the series draws left to right
           const byTime = new Map<number, number>();
-          data.history.forEach((item: any) => {
+          data.history.forEach((item: HistoryPoint) => {
             byTime.set(Math.floor(new Date(item.time).getTime() / 1000), item.value);
           });
           const series = Array.from(byTime.entries())
@@ -132,29 +150,55 @@ export default function ListingPage(props: PageProps) {
             .sort((a, b) => (a.time as number) - (b.time as number));
 
           setHistory(series);
-          setCurrentPrice(series[series.length - 1].value);
-          setListed(true);
         } else {
-          setListed(false);
-          setError(STATE.noHistory);
+          setHistory([]);
         }
       } catch {
-        setListed(false);
-        setError(ERROR.engine);
+        setUnavailable(true);
       }
     };
     fetchHistory();
-  }, [owner, repo]);
+  }, [owner, repo, historyVersion]);
 
-  // the visible window, plus everything derived from it
+  const refreshPrice = () => setHistoryVersion((v) => v + 1);
+
+  // adds this repository to your own listings. github's name for it can differ from the
+  // url (a rename or different casing), so it moves to the canonical page when it does
+  const addListing = async () => {
+    setAdding(true);
+    setError(null);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error("no session");
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/listings`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
+        body: JSON.stringify({ ticker: `${owner}/${repo}` }),
+      });
+      const result = await res.json();
+      if (!res.ok) {
+        setError(result.error ?? ERROR.unexpected);
+      } else if (result.ticker && result.ticker.toLowerCase() !== `${owner}/${repo}`.toLowerCase()) {
+        window.location.href = `/asset/${result.ticker.toLowerCase()}`;
+      } else {
+        refreshPrice();
+      }
+    } catch {
+      setError(ERROR.ledgerRefused);
+    } finally {
+      setAdding(false);
+    }
+  };
+
+  // the visible window, plus everything derived from it. ranges count back from the
+  // latest price
   const view = useMemo(() => {
     const spec = RANGES.find((r) => r.key === range)!;
+    const end = history.length ? (history[history.length - 1].time as number) : 0;
     const windowed =
       spec.days === Infinity
         ? history
-        : history.filter(
-            (p) => (p.time as number) >= Date.now() / 1000 - spec.days * 86400
-          );
+        : history.filter((p) => (p.time as number) >= end - spec.days * 86400);
     // falls back to the full history when the window has fewer than two points
     const data = windowed.length > 1 ? windowed : history;
     const values = data.map((d) => d.value);
@@ -170,7 +214,7 @@ export default function ListingPage(props: PageProps) {
   // the chart gets rebuilt from scratch when the theme changes, since lightweight-charts
   // doesn't restyle an existing instance cleanly
   useEffect(() => {
-    if (!chartContainerRef.current || view.data.length === 0 || listed === false) return;
+    if (!chartContainerRef.current || view.data.length === 0 || listed !== true) return;
 
     const dark = isDark;
     // literal colours from the theme tokens, since lightweight-charts can't read css
@@ -182,12 +226,20 @@ export default function ListingPage(props: PageProps) {
     const wash = dark ? "rgba(220,236,58,0.20)" : "rgba(220,236,58,0.22)";
     const fade = dark ? "rgba(220,236,58,0)" : "rgba(220,236,58,0)";
 
+    // a canvas can't resolve css variables, so the mono's real family names get read off
+    // the page
+    const mono = getComputedStyle(document.documentElement).getPropertyValue("--font-spline").trim() || "monospace";
+
     const chart = createChart(chartContainerRef.current, {
+      // the page keeps the scroll wheel and vertical swipes. drag and pinch still move
+      // and zoom the chart
+      handleScroll: { mouseWheel: false, pressedMouseMove: true, horzTouchDrag: true, vertTouchDrag: false },
+      handleScale: { mouseWheel: false, pinch: true, axisPressedMouseMove: true, axisDoubleClickReset: true },
       layout: {
         background: { type: ColorType.Solid, color: "transparent" },
         textColor: ink3,
         // axis figures in the same mono as every other number in the product
-        fontFamily: "var(--font-mono)",
+        fontFamily: mono,
         fontSize: 11,
         attributionLogo: false,
       },
@@ -238,6 +290,7 @@ export default function ListingPage(props: PageProps) {
   const openTicket = (action: "BUY" | "SELL") => {
     if (currentPrice === null || !userId || listed !== true) return;
     if (action === "SELL" && ownedShares === 0) return;
+    setTicketNotice(null);
     setPending({ action, quantity: 1 });
   };
 
@@ -247,6 +300,8 @@ export default function ListingPage(props: PageProps) {
 
     setProcessing(action);
     setMessage(null);
+    setTicketNotice(null);
+    let keepOpen = false;
 
     try {
       const { data: { session } } = await supabase.auth.getSession();
@@ -266,19 +321,25 @@ export default function ListingPage(props: PageProps) {
 
       if (res.ok) {
         setMessage({
-          text: ORDER.filled(action, quantity, ticker, usd(currentPrice)),
+          text: ORDER.filled(action, quantity, result.ticker ?? ticker, usd(result.price ?? currentPrice)),
           type: "success",
         });
         fetchBalance(userId!);
         fetchPosition(userId!);
+      } else if (res.status === 409 && typeof result.price === "number") {
+        // the price moved: the ticket stays open at the new price with the reason in it
+        keepOpen = true;
+        setCurrentPrice(result.price);
+        setTicketNotice(result.error);
       } else {
         setMessage({ text: ORDER.rejected(result.error), type: "error" });
       }
+      refreshPrice();
     } catch {
       setMessage({ text: ERROR.ledgerRefused, type: "error" });
     } finally {
       setProcessing(null);
-      setPending(null);
+      if (!keepOpen) setPending(null);
     }
   };
 
@@ -357,15 +418,30 @@ export default function ListingPage(props: PageProps) {
               </div>
 
               <Panel className="p-4 sm:p-6">
-                {listed === null ? (
+                {unavailable && listed === null ? (
+                  <div className="flex h-[380px] items-center justify-center px-6 text-center">
+                    <p className="text-sm text-ink-2">{ERROR.engine}</p>
+                  </div>
+                ) : listed === null ? (
                   <Skeleton className="h-[380px] w-full" />
                 ) : listed === false ? (
                   <div className="flex h-[380px] flex-col items-center justify-center px-6 text-center">
-                    <div className="label label-ink mb-3">{ERROR.suspended}</div>
+                    <div className="label label-ink mb-3">{LISTING.notListed}</div>
                     <p className="prose-measure text-sm leading-relaxed text-ink-2">
-                      {ERROR.notListed(`${owner}/${repo}`)}
+                      {LISTING.addBody(`${owner}/${repo}`)}
                     </p>
-                    {error && <p className="ref mt-4">{error}</p>}
+                    {userId ? (
+                      <button onClick={addListing} disabled={adding} className="ctl ctl-primary mt-5">
+                        {adding ? LISTING.adding : LISTING.add}
+                      </button>
+                    ) : (
+                      <p className="ref mt-4">{LISTING.signIn}</p>
+                    )}
+                    {error && <p role="alert" className="ref mt-4">{error}</p>}
+                  </div>
+                ) : view.data.length === 0 ? (
+                  <div className="flex h-[380px] items-center justify-center px-6 text-center">
+                    <p className="text-sm text-ink-2">{LISTING.chartPending}</p>
                   </div>
                 ) : (
                   <div ref={chartContainerRef} className="h-[380px] w-full" />
@@ -418,7 +494,7 @@ export default function ListingPage(props: PageProps) {
                       </div>
                       <div className="flex items-baseline gap-3">
                         <span className="ref hidden sm:block">
-                          × ${l.unit < 1 ? l.unit.toFixed(3) : l.unit.toFixed(2)}
+                          {l.log ? "ln(1 + n) " : ""}× ${l.unit < 1 ? l.unit.toFixed(3) : l.unit.toFixed(2)}
                         </span>
                         <span className="figure text-[13px] text-pos">+{usd(l.contrib)}</span>
                       </div>
@@ -441,7 +517,9 @@ export default function ListingPage(props: PageProps) {
                       )}
                     </div>
                     <div className="flex items-baseline gap-3">
-                      <span className="ref hidden sm:block">× ${valuation.drag.unit.toFixed(2)}</span>
+                      <span className="ref hidden sm:block">
+                        {valuation.drag.log ? "ln(1 + n) " : ""}× ${valuation.drag.unit.toFixed(2)}
+                      </span>
                       <span className="figure text-[13px] text-neg">−{usd(valuation.drag.applied)}</span>
                     </div>
                   </div>
@@ -551,6 +629,7 @@ export default function ListingPage(props: PageProps) {
         balance={balance}
         ownedShares={ownedShares}
         processing={processing !== null}
+        notice={ticketNotice}
         onConfirm={confirmTrade}
         onCancel={() => setPending(null)}
       />

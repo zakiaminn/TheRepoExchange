@@ -29,7 +29,7 @@ export default function PortfolioPage() {
   useEffect(() => {
     const check = async () => {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) window.location.href = "/login";
+      if (!user) window.location.href = "/login?next=%2Fportfolio";
       else setUserId(user.id);
     };
     check();

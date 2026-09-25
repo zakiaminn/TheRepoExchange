@@ -6,6 +6,8 @@ network, no database.
 import math
 from datetime import datetime
 
+PRICING_VERSION = "PRICING-2"
+
 # weights are in dollars.
 W_STAR = 0.001
 W_FORK = 0.01
@@ -44,6 +46,12 @@ def _round_half_up(x):
     return math.floor(x * 100 + 0.5) / 100
 
 
+def activity(n):
+    """open prs and open issues count as ln(1 + n), so a few thousand of either moves the
+    price by a few dollars instead of a few thousand."""
+    return math.log1p(max(0, n))
+
+
 def compute_price(stars, forks, watchers, open_issues, open_prs, pushed_at, now=None):
     """a repo's price from its raw metrics. watchers and open_prs can be None (the
     search endpoint omits them), in which case they're estimated and the hourly
@@ -63,7 +71,7 @@ def compute_price(stars, forks, watchers, open_issues, open_prs, pushed_at, now=
              + stars * W_STAR
              + forks * W_FORK
              + watchers * W_WATCH
-             + open_prs * W_PR)
-    debt = min(open_issues * W_ISSUE, ISSUE_DRAG_CAP * gross)
+             + activity(open_prs) * W_PR)
+    debt = min(activity(open_issues) * W_ISSUE, ISSUE_DRAG_CAP * gross)
     price = (gross - debt) * recency_multiplier(pushed_at, now)
     return _round_half_up(max(PRICE_FLOOR, price))

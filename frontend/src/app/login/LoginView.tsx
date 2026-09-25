@@ -8,6 +8,7 @@ import { Wordmark } from "@/components/Logo";
 import { SectionRule, Field, Notice } from "@/components/ui";
 import { usd, pct, change, toneClass, tickerParts } from "@/lib/format";
 import { AUTH, ERROR, NOTICE, HERO, STATE } from "@/lib/copy";
+import type { DiscoveryResponse } from "@/lib/api";
 
 type Spec = { ticker: string; mark: number; delta: number | null };
 export type Mode = "signin" | "signup" | "forgot";
@@ -19,7 +20,15 @@ export type Mode = "signin" | "signup" | "forgot";
 // a reset link" step. the new-password form itself is on /auth/reset (you land there
 // from the email link). the mode lives in the url (?mode=signup / ?mode=forgot) so
 // links can open straight onto the right one
-export default function LoginView({ initialMode, error }: { initialMode: Mode; error: string | null }) {
+export default function LoginView({
+  initialMode,
+  error,
+  next = "/",
+}: {
+  initialMode: Mode;
+  error: string | null;
+  next?: string;
+}) {
   const [isSignUp, setIsSignUp] = useState(initialMode === "signup");
   const [isForgot, setIsForgot] = useState(initialMode === "forgot");
   const [email, setEmail] = useState("");
@@ -45,12 +54,12 @@ export default function LoginView({ initialMode, error }: { initialMode: Mode; e
       try {
         const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/discovery`);
         if (!res.ok) return;
-        const data = await res.json();
+        const data: DiscoveryResponse = await res.json();
         // the feed can carry the same repo under two different tickers, so this
         // dedupes on both the repo name and the exact mark
         const seenRepo = new Set<string>();
         const seenMark = new Set<string>();
-        const rows: Spec[] = (Object.values(data).flat() as any[])
+        const rows: Spec[] = Object.values(data).flat()
           .filter((r) => Number.isFinite(Number(r.current_price)))
           .filter((r) => {
             const repo = String(r.ticker).split("/").pop()?.toLowerCase() ?? "";
@@ -103,22 +112,29 @@ export default function LoginView({ initialMode, error }: { initialMode: Mode; e
       if (isSignUp) {
         // first/last go into user_metadata; the masthead and the account
         // record both read them back from there
-        const { error } = await supabase.auth.signUp({
+        const { data, error } = await supabase.auth.signUp({
           email,
           password,
           options: { data: { first_name: firstName, last_name: lastName } },
         });
         if (error) throw error;
-        setMessage({ text: AUTH.confirmSent, type: "success" });
+        // supabase doesn't error on an address that already has an account. it returns a
+        // user with no identities and sends no email
+        if (data.user && data.user.identities?.length === 0) {
+          setMessage({ text: ERROR.registered, type: "error" });
+        } else {
+          setMessage({ text: AUTH.confirmSent, type: "success" });
+        }
+        setLoading(false);
       } else {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
-        router.push("/");
+        // the button stays on "Submitting" until the next page takes over
+        router.push(next);
         router.refresh(); // re-render anything that read the session on the server
       }
-    } catch (error: any) {
-      setMessage({ text: readable(error.message), type: "error" });
-    } finally {
+    } catch (error) {
+      setMessage({ text: readable(error instanceof Error ? error.message : ""), type: "error" });
       setLoading(false);
     }
   };
@@ -136,10 +152,11 @@ export default function LoginView({ initialMode, error }: { initialMode: Mode; e
       });
       if (error) throw error;
       setMessage({ text: AUTH.resetSent, type: "success" });
-    } catch (error: any) {
+    } catch (error) {
       // supabase's own wording goes to the console, and the notice gets a rewritten one
-      console.error("[reset request]", error?.status, error?.message);
-      const text = readable(error.message);
+      const e = error as { status?: number; message?: string };
+      console.error("[reset request]", e?.status, e?.message);
+      const text = readable(e?.message ?? "");
       setMessage({ text: text === ERROR.auth ? ERROR.emailSend : text, type: "error" });
     } finally {
       setLoading(false);
@@ -150,7 +167,7 @@ export default function LoginView({ initialMode, error }: { initialMode: Mode; e
     setOauthLoading(true);
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "google",
-      options: { redirectTo: `${window.location.origin}/auth/callback` },
+      options: { redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}` },
     });
     if (error) {
       setMessage({ text: readable(error.message), type: "error" });
@@ -256,7 +273,7 @@ export default function LoginView({ initialMode, error }: { initialMode: Mode; e
                     onChange={(e) => setEmail(e.target.value)}
                     required
                     autoComplete="email"
-                    className="field text-[13px]"
+                    className="field pointer-fine:text-[13px]"
                   />
                 </Field>
                 <button type="submit" disabled={loading} className="ctl ctl-primary w-full">
@@ -305,7 +322,7 @@ export default function LoginView({ initialMode, error }: { initialMode: Mode; e
                     onChange={(e) => setEmail(e.target.value)}
                     required
                     autoComplete="email"
-                    className="field text-[13px]"
+                    className="field pointer-fine:text-[13px]"
                   />
                 </Field>
 
@@ -317,7 +334,7 @@ export default function LoginView({ initialMode, error }: { initialMode: Mode; e
                       onChange={(e) => setPassword(e.target.value)}
                       required
                       autoComplete={isSignUp ? "new-password" : "current-password"}
-                      className="field text-[13px]"
+                      className="field pointer-fine:text-[13px]"
                     />
                   </Field>
                   {/* only offered on sign-in, since there's nothing to recover mid-signup */}

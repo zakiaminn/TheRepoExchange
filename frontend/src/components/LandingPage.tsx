@@ -12,6 +12,7 @@ import { PriceField, type FieldSeries } from "@/components/PriceField";
 import { Footage, FootagePause } from "@/components/Footage";
 import { usd, pct, count, countCompact, change, toneClass, tickerParts } from "@/lib/format";
 import { BRAND, HERO, MECHANICS, CLAUSES, NOTICE, CTA, SECTIONS, COLUMNS, AUTH, FOOTER, LANDING, STATE } from "@/lib/copy";
+import type { DiscoveryResponse } from "@/lib/api";
 
 type Listing = {
   ticker: string;
@@ -43,16 +44,16 @@ export function LandingPage() {
   const [overHero, setOverHero] = useState(true);
   const heroRef = useRef<HTMLElement>(null);
 
-  // discovery is public, so the front page shows the actual market. it polls
-  // so the hero's lines can flash when a price moves.
+  // discovery is public, so the front page shows the actual market. it polls once a
+  // minute while the tab is visible so the hero's lines can flash when a price moves
   useEffect(() => {
     const load = async () => {
       try {
         const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/discovery`);
         if (!res.ok) throw new Error(String(res.status));
         const data = await res.json();
-        const flat: Listing[] = Object.entries(data).flatMap(([category, repos]: [string, any]) =>
-          (repos as any[]).map((r) => ({
+        const flat: Listing[] = Object.entries(data as DiscoveryResponse).flatMap(([category, repos]) =>
+          repos.map((r) => ({
             ticker: r.ticker,
             current_price: Number(r.current_price),
             raw_stars: Number(r.raw_stars),
@@ -70,7 +71,9 @@ export function LandingPage() {
       }
     };
     load();
-    const id = window.setInterval(load, 15000);
+    const id = window.setInterval(() => {
+      if (!document.hidden) load();
+    }, 60000);
     return () => window.clearInterval(id);
   }, []);
 

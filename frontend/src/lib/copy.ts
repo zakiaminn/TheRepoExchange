@@ -95,6 +95,18 @@ export const CTA = {
 // ten recorded marks, not a calendar period
 export const BOARD = {
   columnsNote: "Mark is the price now. Δ is the move across each listing's last ten recorded marks.",
+  yours: "Your listings",
+} as const;
+
+// a repository that isn't listed yet, and adding it to your own listings
+export const LISTING = {
+  notListed: "Not listed",
+  addBody: (ticker: string) =>
+    `${ticker} isn't listed yet. Adding it prices it from its public GitHub numbers, and it shows in your listings only.`,
+  add: "Add to your listings",
+  adding: "Adding",
+  signIn: "Sign in to add it.",
+  chartPending: "The chart starts with the next hourly price.",
 } as const;
 
 // section headings across the product
@@ -138,9 +150,12 @@ export const CALLS = {
   status: { open: "Open", won: "Won", lost: "Lost", void: "Void" },
   noticeLabel: "How calls settle",
   noticeBody:
-    "Every call resolves automatically at its deadline against the repository's public star count, the same figure the price is built from. Settlement is even-money and simulated. A repository that is delisted before resolution voids the call, and the stake is refunded.",
-  targetBelowCurrent: "Target must be above the current star count.",
+    "A call is judged on the first star count recorded after its deadline, usually within the hour. The target has to clear the repository's recent growth projected to the deadline, so a call is a bet on beating the trend. Settlement is even-money and simulated. A repository that goes private or disappears is judged on its last recorded count.",
+  minTarget: "Minimum",
+  targetTooLow: (min: string) => `Target must be at least ${min} stars for that deadline.`,
   overStake: "Stake exceeds purchasing power.",
+  overOpen: (cap: string) => `Open calls are capped at ${cap} in total.`,
+  settling: "Settling",
 } as const;
 
 // column headers
@@ -238,6 +253,7 @@ export const AUTH = {
   resetBody: "Choose a new password for your account.",
   verifyingLink: "Verifying link",
   linkInvalid: "This reset link is invalid or has expired. Request a new one.",
+  linkExpired: "This reset link is invalid or has expired.",
   newPassword: "New password",
   confirmPassword: "Confirm password",
   updatePassword: "Update password",

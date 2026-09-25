@@ -14,7 +14,7 @@ The point isn't the money (there isn't any). It's that the whole thing is *verif
 
 ### Pricing is published, not conjured
 
-Every mark is a function of six public GitHub metrics — stars, forks, watchers, open PRs, open issues, and last-push recency — combined by one fixed formula, versioned as **PRICING-1**. The exact weights and the formula live in [ledger/pricing.js](ledger/pricing.js), and every listing's page shows its own price derived line by line, reconciling to the mark. Point a second tab at GitHub and you can reproduce any number on the board.
+Every mark is a function of six public GitHub metrics — stars, forks, watchers, open PRs, open issues, and last-push recency — combined by one fixed formula, versioned as **PRICING-2**. The exact weights and the formula live in [ledger/pricing.js](ledger/pricing.js), and every listing's page shows its own price derived line by line, reconciling to the mark. Point a second tab at GitHub and you can reproduce any number on the board.
 
 ### Repo Calls (prediction market)
 

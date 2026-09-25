@@ -1,32 +1,47 @@
 {
-  "version": "PRICING-1",
-  "note": "Shared pricing contract. ledger/pricing.js and data-engine/pricing.py must both reproduce every expected value here, so the two pricers cannot drift. `now` fixes the clock so the recency cases are deterministic. Run ledger/pricing.test.js and data-engine/test_pricing.py.",
+  "version": "PRICING-2",
+  "note": "Shared pricing cases. ledger/pricing.js, data-engine/pricing.py and frontend/src/lib/pricing.ts are each tested against every expected value here. `now` fixes the clock so the recency cases are deterministic. Open PRs and open issues count as ln(1 + n).",
   "now": "2026-09-10T00:00:00Z",
   "cases": [
     {
-      "name": "explicit metrics, issue-drag cap binds, no recency",
+      "name": "explicit metrics, no recency",
       "input": { "stars": 40000, "forks": 6000, "watchers": 1200, "openIssues": 900, "openPrs": 80, "pushedAt": null },
-      "expected": 98.00
+      "expected": 162.59
     },
     {
-      "name": "issue-drag cap does not bind",
+      "name": "few open prs and issues",
       "input": { "stars": 10000, "forks": 500, "watchers": 300, "openIssues": 10, "openPrs": 20, "pushedAt": null },
-      "expected": 45.00
+      "expected": 35.65
     },
     {
-      "name": "watchers and open-PR count missing -> estimated, cap binds",
+      "name": "watchers and open-PR count missing -> estimated",
       "input": { "stars": 10000, "forks": 0, "watchers": null, "openIssues": 100, "openPrs": null, "pushedAt": null },
-      "expected": 18.00
+      "expected": 28.32
     },
     {
       "name": "recency in the linear band (120 whole days since push)",
       "input": { "stars": 40000, "forks": 6000, "watchers": 1200, "openIssues": 900, "openPrs": 80, "pushedAt": "2026-05-13T00:00:00Z" },
-      "expected": 90.10
+      "expected": 149.49
     },
     {
       "name": "recency clamped to its 0.70 floor (>= 365 days since push)",
       "input": { "stars": 1000, "forks": 0, "watchers": 0, "openIssues": 0, "openPrs": 0, "pushedAt": "2023-01-01T00:00:00Z" },
       "expected": 4.20
+    },
+    {
+      "name": "heavy open prs, log-scaled so they add a few dollars",
+      "input": { "stars": 96000, "forks": 3900, "watchers": 1100, "openIssues": 5000, "openPrs": 5746, "pushedAt": null },
+      "expected": 195.14
+    },
+    {
+      "name": "small repo, no open prs or issues",
+      "input": { "stars": 12, "forks": 1, "watchers": 1, "openIssues": 0, "openPrs": 0, "pushedAt": null },
+      "expected": 5.07
+    },
+    {
+      "name": "tiny repo, issue-drag cap binds",
+      "input": { "stars": 0, "forks": 0, "watchers": 0, "openIssues": 1000, "openPrs": 0, "pushedAt": null },
+      "expected": 2.00
     }
   ]
 }

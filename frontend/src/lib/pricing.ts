@@ -2,6 +2,7 @@
 // asset page to rebuild a stored price line by line from the repo's public numbers.
 // `reconciles` says whether the rebuild matches the price the ledger reports
 
+export const PRICING_VERSION = "PRICING-2";
 export const BASE_LISTING = 5.0;
 export const W_STAR = 0.001;
 export const W_FORK = 0.01;
@@ -31,19 +32,57 @@ export function recencyMultiplier(days: number): number {
   return 1.0 - (0.3 * (days - 30)) / (365 - 30);
 }
 
+// open prs and open issues count as ln(1 + n), same as the ledger and the worker
+export function activity(n: number): number {
+  return Math.log1p(Math.max(0, n));
+}
+
+export interface PriceInputs {
+  stars?: number | null;
+  forks?: number | null;
+  watchers?: number | null;
+  openIssues?: number | null;
+  openPrs?: number | null;
+  pushedAt?: string | null;
+}
+
+// the price from raw metrics, the same function as computePrice in ledger/pricing.js
+export function computePrice(i: PriceInputs, now: number = Date.now()): number {
+  const stars = i.stars || 0;
+  const forks = i.forks || 0;
+  let openIssues = i.openIssues || 0;
+  const watchers = i.watchers ?? stars * 0.03;
+  let openPrs = i.openPrs;
+  if (openPrs == null) {
+    openPrs = openIssues * 0.15;
+    openIssues = Math.max(0, openIssues - openPrs);
+  }
+  let days: number | null = null;
+  if (i.pushedAt) {
+    const pushed = Date.parse(i.pushedAt);
+    if (Number.isFinite(pushed)) days = Math.floor((now - pushed) / 86400000);
+  }
+  const gross =
+    BASE_LISTING + stars * W_STAR + forks * W_FORK + watchers * W_WATCH + activity(openPrs) * W_PR;
+  const debt = Math.min(activity(openIssues) * W_ISSUE, ISSUE_DRAG_CAP * gross);
+  const price = (gross - debt) * (days === null ? 1.0 : recencyMultiplier(days));
+  return Math.round(Math.max(PRICE_FLOOR, price) * 100) / 100;
+}
+
 export interface MetricLine {
   key: string;
   label: string;
   count: number;
   unit: number;
   contrib: number;
+  log: boolean;
 }
 
 export interface Valuation {
   base: number;
   lines: MetricLine[];
   gross: number;
-  drag: { count: number; unit: number; uncapped: number; applied: number; capped: boolean };
+  drag: { count: number; unit: number; uncapped: number; applied: number; capped: boolean; log: boolean };
   preRecency: number;
   recency: { factor: number; days: number | null; implied: boolean } | null;
   mark: number | null;
@@ -65,14 +104,14 @@ export function deriveValuation(a: AssetMetrics, mark: number | null): Valuation
   const openIssues = num(a.raw_open_issues);
 
   const lines: MetricLine[] = [
-    { key: "raw_stars", label: "Stars", count: stars, unit: W_STAR, contrib: stars * W_STAR },
-    { key: "raw_forks", label: "Forks", count: forks, unit: W_FORK, contrib: forks * W_FORK },
-    { key: "raw_watchers", label: "Watchers", count: watchers, unit: W_WATCH, contrib: watchers * W_WATCH },
-    { key: "raw_open_prs", label: "Open PRs", count: openPrs, unit: W_PR, contrib: openPrs * W_PR },
+    { key: "raw_stars", label: "Stars", count: stars, unit: W_STAR, contrib: stars * W_STAR, log: false },
+    { key: "raw_forks", label: "Forks", count: forks, unit: W_FORK, contrib: forks * W_FORK, log: false },
+    { key: "raw_watchers", label: "Watchers", count: watchers, unit: W_WATCH, contrib: watchers * W_WATCH, log: false },
+    { key: "raw_open_prs", label: "Open PRs", count: openPrs, unit: W_PR, contrib: activity(openPrs) * W_PR, log: true },
   ];
 
   const gross = BASE_LISTING + lines.reduce((s, l) => s + l.contrib, 0);
-  const uncapped = openIssues * W_ISSUE;
+  const uncapped = activity(openIssues) * W_ISSUE;
   const cap = ISSUE_DRAG_CAP * gross;
   const applied = Math.min(uncapped, cap);
   const preRecency = gross - applied;
@@ -104,7 +143,7 @@ export function deriveValuation(a: AssetMetrics, mark: number | null): Valuation
     base: BASE_LISTING,
     lines,
     gross,
-    drag: { count: openIssues, unit: W_ISSUE, uncapped, applied, capped: uncapped > cap },
+    drag: { count: openIssues, unit: W_ISSUE, uncapped, applied, capped: uncapped > cap, log: true },
     preRecency,
     recency,
     mark,

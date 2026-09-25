@@ -44,8 +44,8 @@ export default function ResetPage() {
         router.push("/");
         router.refresh();
       }, 1300);
-    } catch (err: any) {
-      const raw = (err?.message || "").toLowerCase();
+    } catch (err) {
+      const raw = (err instanceof Error ? err.message : "").toLowerCase();
       setMessage({
         text: raw.includes("password") && raw.includes("characters") ? ERROR.password : ERROR.unexpected,
         type: "error",
@@ -71,7 +71,7 @@ export default function ResetPage() {
           <Pending>{AUTH.verifyingLink}</Pending>
         ) : ready === false ? (
           <Notice label="Link expired" tone="neg">
-            {AUTH.linkInvalid}{" "}
+            {AUTH.linkExpired}{" "}
             <Link href="/login?mode=forgot" className="link">
               Request a new one
             </Link>
@@ -86,7 +86,7 @@ export default function ResetPage() {
                 onChange={(e) => setPassword(e.target.value)}
                 required
                 autoComplete="new-password"
-                className="field text-[13px]"
+                className="field pointer-fine:text-[13px]"
               />
             </Field>
             <Field label={AUTH.confirmPassword}>
@@ -96,7 +96,7 @@ export default function ResetPage() {
                 onChange={(e) => setConfirm(e.target.value)}
                 required
                 autoComplete="new-password"
-                className="field text-[13px]"
+                className="field pointer-fine:text-[13px]"
               />
             </Field>
             <button type="submit" disabled={loading} className="ctl ctl-primary w-full">
