@@ -7,7 +7,7 @@ import { createClient } from '@/utils/supabase/server';
 // actual session, then bounces the user wherever they were trying to go.
 //
 // two shapes arrive here:
-//   ?code=...                        PKCE. only works in the browser that started the
+//   ?code=...                        pkce. only works in the browser that started the
 //                                    flow (the verifier lives in a cookie there)
 //   ?token_hash=...&type=recovery    email template link. works on any device,
 //                                    which matters when the email opens on a phone

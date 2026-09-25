@@ -19,7 +19,7 @@ Thumbs.db
 documentation.txt
 .vercel
 
-# ai assistant config, keep this stuff local
+# local editor and tool config
 .claude/
 CLAUDE.md
 AGENTS.md
@@ -28,9 +28,9 @@ GEMINI.md
 .windsurf/
 copilot-instructions.md
 
-# raw screen recordings and stills; the encoded clips live in frontend/public/landing
+# raw screen recordings and stills. the encoded clips live in frontend/public/landing
 recordings/
 
-# notes stay local; the root README is the only public doc
+# local notes. the root README is the only markdown file in the repo
 *.md
 !/README.md

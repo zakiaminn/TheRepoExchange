@@ -1,67 +1,43 @@
 @import "tailwindcss";
-/* dark mode follows the OS, full stop. there's no in-app toggle: the `dark:`
-   utilities and every dark token below key off prefers-color-scheme, so the
-   page matches whatever the operating system is set to. */
+/* dark mode follows the os. there's no in-app toggle: the `dark:` utilities and every
+   dark token below key off prefers-color-scheme */
 @custom-variant dark (@media (prefers-color-scheme: dark));
 
-/* the whole design system lives in this file. i call it "Bureau" and the plan
-   is to reuse it across projects — TRX just happens to be the first one wearing
-   it. the short version:
-
-   - structure comes from hairlines and things lining up. no drop shadows, no
-     rounded corners, nothing floating on the page.
-   - every number is mono + tabular so columns actually line up, and negatives
-     use a real minus sign (−) instead of a hyphen. yes it matters.
-   - motion is almost nothing on purpose: a 4px fade-in, a little flash when
-     a value changes, and things answering you (a press, a toast, a menu
-     opening). nothing moves just to look alive.
-   - labels are tiny uppercase (11px) and they never get to be bigger.
-   - ONE accent colour. green/red are for market data only and never sneak into
-     the UI.
-
-   want this on another project? change --brand, --brand-ink and the fonts.
-   everything else comes along for free. */
+/* the design system: colour tokens, type, controls, tables and motion */
 
 :root {
-  /* tell the browser we support both, so native UI (scrollbars, form controls,
-     the caret) tracks the OS theme alongside our own tokens. */
+  /* native ui (scrollbars, form controls, the caret) follows the os theme too */
   color-scheme: light dark;
 
-  /* backgrounds, lightest to darkest. "Chalk" isn't pure white on purpose —
-     white feels a bit clinical, and the tiny bit of warmth ties it to the ink
-     and the accent. three levels, that's all you get. */
+  /* backgrounds, lightest to darkest. chalk, the base, is a slightly warm off-white */
   --paper:   #FAFAF9;
   --paper-2: #F1F1EE;
   --paper-3: #E9E9E5;
 
-  /* text colours. warm-neutral rather than dead grey so it sits right on the
-     Chalk. all three pass contrast on the ground. */
+  /* text colours, warm-neutral so they sit right on the chalk. all three pass contrast
+     on it */
   --ink:   #16160E;
   --ink-2: #565448;
-  --ink-3: #6E6C60;   /* 5.05:1 on Chalk — tertiary text (labels, refs, sublabels) clears AA */
+  --ink-3: #6E6C60;   /* 5.05:1 on chalk, so tertiary text (labels, refs, sublabels) clears wcag aa */
 
-  /* the hairlines. --rule-2 is the heavier one for real structural breaks
-     (section rules, table headers); --rule is everything else. */
+  /* the hairlines. --rule-2 is the heavier one for structural breaks (section rules,
+     table headers), and --rule is everything else */
   --rule:   #E5E5E1;
   --rule-2: #D4D4CF;
 
-  /* the brand colour. "Sulfur" — an acid chartreuse. nobody's framework ships
-     it and it stays out of the way of the market's green/red. the catch:
-     bright chartreuse is a great FILL and a terrible bit of TEXT, so it splits
-     in two:
+  /* the brand colour, sulfur, an acid chartreuse. it works as a fill but not as text,
+     so it comes in two:
 
-     --brand      the bright one. buttons, the accent underline, selection.
-                  always has dark text on it (--brand-fg), never white.
-     --brand-ink  the text-safe version. on light it drops to olive so you can
-                  actually read links/labels/the seal; on dark the bright one
-                  is already legible so this just matches it. */
+     --brand      the bright one, for buttons, the accent underline and selection,
+                  with dark text on it (--brand-fg)
+     --brand-ink  the text-safe version. olive on light so it stays readable, the
+                  same as --brand on dark */
   --brand:     #DCEC3A;
-  --brand-ink: #6F7A00;   /* text-safe signal: accent text, links, the seal, the live dot */
-  --brand-fg:  #16160E;   /* dark text that sits ON a signal fill */
+  --brand-ink: #6F7A00;   /* text-safe accent for text and fine linework */
+  --brand-fg:  #16160E;   /* dark text that sits on a brand fill */
   --brand-wash: #EFF0CE;
 
-  /* green up, red down. kept a little muted — full-blast green/red on a light
-     page screams "error", and this should read like a statement, not an alarm. */
+  /* green up, red down, a little muted so they don't read as errors on a light page */
   --pos: #2E7D4F;   /* 4.8:1 */
   --neg: #B33A3A;   /* 5.5:1 */
   --pos-wash: rgba(46, 125, 79, 0.12);
@@ -69,37 +45,31 @@
 
   --focus: #8A9600;
 
-  /* the dimmed layer behind a drawer. near-black in both themes: tinting it
-     with --ink turned the page light grey in dark mode instead of dimming it. */
+  /* the dimmed layer behind a drawer, near-black in both themes */
   --scrim: rgba(12, 12, 8, 0.42);
 
-  /* the fonts, and this is the actual trademark: Bricolage Grotesque carries
-     everything a human reads AND the wordmark and labels; Spline Sans Mono is
-     kept strictly to the numbers the machine emits. "Bricolage reads, Spline
-     counts." display + sans both point at Bricolage for now — kept them as
-     separate tokens so a future project can split them without touching a
-     single component. (don't rename the next/font vars to --font-sans/mono,
-     tailwind v4 eats them — see the other note about that.) */
+  /* bricolage grotesque for words, labels and the wordmark, spline sans mono for
+     numbers. display and sans both point at bricolage as separate tokens. the next/font
+     variables are named --font-bricolage and --font-spline so they don't collide with
+     tailwind v4's own --font-sans and --font-mono */
   --font-display: var(--font-bricolage), "Helvetica Neue", Arial, sans-serif;
   --font-sans:    var(--font-bricolage), "Helvetica Neue", Arial, sans-serif;
   --font-mono:    var(--font-spline), ui-monospace, "SF Mono", Menlo, monospace;
 
-  /* spacing. everything sits on an 8px grid; the big section gaps are the only
-     exception. */
-  --gap-section: 5.5rem;   /* 88px  — between major sections */
-  --gap-block:   2.5rem;   /* 40px  — between blocks inside a section */
-  --gap-row:     1rem;     /* 16px  — inside a block */
+  /* spacing. everything sits on an 8px grid except the big section gaps */
+  --gap-section: 5.5rem;   /* 88px, between major sections */
+  --gap-block:   2.5rem;   /* 40px, between blocks inside a section */
+  --gap-row:     1rem;     /* 16px, inside a block */
   --measure:     62ch;     /* prose line length ceiling */
   --shell:       76rem;    /* 1216px content shell */
 
-  /* one easing curve for the whole app. it slows down hard at the end and
-     never overshoots — nothing here should feel bouncy. */
+  /* one easing curve for the whole app. it slows down hard at the end and never
+     overshoots */
   --ease: cubic-bezier(0.22, 1, 0.36, 1);
-  /* for things that travel across the screen (a highlight sliding between
-     segments), which should accelerate away and settle, not just settle */
+  /* for things that travel across the screen (a highlight sliding between segments):
+     accelerates away, then settles */
   --ease-move: cubic-bezier(0.77, 0, 0.175, 1);
-  /* Vaul's drawer curve, borrowed for anything that should feel like the
-     ticket: a heavier object arriving */
+  /* vaul's drawer curve, for things that should move like the order ticket */
   --ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);
   --dur:  240ms;
   --dur-fast: 140ms;
@@ -107,9 +77,7 @@
 
 @media (prefers-color-scheme: dark) {
   :root {
-  /* dark mode = a terminal, not a generic dark theme. the text stays warm
-     (#EDEDE0, not pure white) so it still reads as the same brand as the light
-     side and not some unrelated second skin. */
+  /* dark theme. the text stays warm (#EDEDE0, not pure white) to match the light side */
   --paper:   #0E0E0A;
   --paper-2: #17170F;
   --paper-3: #212118;
@@ -121,8 +89,7 @@
   --rule:   #29291C;
   --rule-2: #3A3A29;
 
-  /* on black the chartreuse is already readable, so brand-ink just equals
-     brand here — no separate text version needed. */
+  /* on black the chartreuse is already readable, so brand-ink is the same as brand */
   --brand:     #DCEC3A;
   --brand-ink: #DCEC3A;
   --brand-fg:  #14140A;
@@ -161,24 +128,13 @@
   --font-mono:  var(--font-mono);
 }
 
-/* ═══════════════════════════════════════════════════════════════════════════
-   CASCADE LAYERS
-   ───────────────────────────────────────────────────────────────────────────
-   Everything below is layered, and that is load-bearing rather than tidiness.
-
-   A plain `.board thead th { text-align: left }` has specificity 0-1-2, which
-   quietly beats Tailwind's `.text-right` at 0-1-0 — so a utility written in
-   the markup silently does nothing and you spend twenty minutes in devtools
-   working out why. Putting the system's classes in `components` means every
-   utility wins by construction, which is the contract people expect when they
-   reach for one.
-
-   Order (established by Tailwind): theme → base → components → utilities.
-   ═══════════════════════════════════════════════════════════════════════════ */
+/* everything below sits in cascade layers (base, then components), so tailwind
+   utilities in the markup always win over these classes. otherwise a plain
+   `.board thead th { text-align: left }` would beat `.text-right` on specificity */
 
 @layer base {
 
-/* ═══ BASE ═══════════════════════════════════════════════════════════════ */
+/* base */
 
 * { border-color: var(--rule); }
 
@@ -198,9 +154,7 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
-/* Paper grain. 3.5% opacity — well below conscious perception, but it stops
-   the bone from reading as flat #RGB and gives the light theme an actual
-   surface. Fades to almost nothing in dark, where grain reads as noise. */
+/* paper grain: a faint noise texture at 3.5% opacity, lower still in dark mode */
 body::before {
   content: "";
   position: fixed;
@@ -214,8 +168,8 @@ body::before {
 
 ::selection { background: var(--brand); color: var(--brand-fg); }
 
-/* one focus style everywhere. offset a couple px so it reads as a little
-   bracket around the control instead of a border stuck to it. */
+/* one focus style everywhere, offset a couple px so it sits around the control
+   instead of on its border */
 :focus-visible {
   outline: 2px solid var(--focus);
   outline-offset: 2px;
@@ -225,12 +179,10 @@ body::before {
 
 @layer components {
 
-/* ═══ TYPE PRIMITIVES ════════════════════════════════════════════════════ */
+/* type */
 
-/* the little uppercase label. probably the most-used class in here — it sits
-   above basically every number and at the top of every section. hard-locked at
-   11px: make it any bigger and it stops being a label and starts fighting the
-   thing it's labelling. */
+/* the little uppercase label, above most numbers and at the top of every section.
+   fixed at 11px */
 .label {
   font-family: var(--font-sans);
   font-size: 0.6875rem;
@@ -242,8 +194,7 @@ body::before {
 }
 .label-ink { color: var(--ink); }
 
-/* headlines. Bricolage at 700 — the slightly wonky letterforms are where the
-   personality is. tight tracking so it doesn't get gappy at big sizes. */
+/* headlines: bricolage at 700, with tight tracking so big sizes don't get gappy */
 .display {
   font-family: var(--font-display);
   font-weight: 700;
@@ -252,11 +203,9 @@ body::before {
   font-variant-numeric: lining-nums tabular-nums;
 }
 
-/* the accent move — a chunky Sulfur underline swiped under a phrase in a
-   headline. it's the one spot the bright colour gets to show up mid-sentence.
-   it's a background gradient (not a real underline) so it works inline and
-   survives line-wraps; the text keeps its normal colour and sits on top. use
-   it once per page, tops. */
+/* the accent swipe: a chunky sulfur underline under a phrase in a headline. it's a
+   background gradient instead of a real underline so it works inline and survives
+   line wraps, with the text sitting on top in its normal colour */
 .swipe {
   background-image: linear-gradient(var(--brand), var(--brand));
   background-repeat: no-repeat;
@@ -266,16 +215,14 @@ body::before {
   box-decoration-break: clone;
 }
 
-/* every number in the app. tabular so columns line up, slashed zero so you
-   never misread a 0 as an O in a ticker. */
+/* every number in the app, in the mono with tabular figures so columns line up */
 .figure {
   font-family: var(--font-mono);
   font-variant-numeric: tabular-nums;
-  letter-spacing: -0.02em;   /* Spline sits at a normal width — a light pull keeps number columns tight */
+  letter-spacing: -0.02em;   /* a light pull keeps number columns tight */
 }
 
-/* the little machine-y bits — reference codes, timestamps, session ids. kept
-   tiny and quiet on purpose; should feel stamped onto the page. */
+/* small, quiet machine text: reference codes, timestamps, ids */
 .ref {
   font-family: var(--font-mono);
   font-size: 0.6875rem;
@@ -286,12 +233,9 @@ body::before {
 
 .prose-measure { max-width: var(--measure); }
 
-/* ═══ SIGNATURE DEVICES ══════════════════════════════════════════════════ */
+/* rules, panels and surfaces */
 
-/* the section rule — a full-width hairline with a little label sitting on
-   it. stolen from legal docs and technical drawings, where every section opens
-   with a ruled title. this one device is what makes the pages recognisable at
-   a glance. see <SectionRule>. */
+/* the hairline in a section rule (<SectionRule>) */
 .rule-line {
   flex: 1;
   height: 1px;
@@ -299,20 +243,15 @@ body::before {
   min-width: 1.5rem;
 }
 
-/* panel — the only box in the whole system. one hairline, no rounded
-   corners, no shadow. depth comes from the surface colour behind it, never a
-   drop shadow. */
+/* the standard box: one hairline, no rounded corners, no shadow */
 .panel {
   border: 1px solid var(--rule);
   background: var(--paper);
 }
 .panel-2 { background: var(--paper-2); }
 
-/* skeleton loader — a hard-edged block in the paper tones with a low-contrast
-   highlight that sweeps across. no rounded blob, no throb; fits the rest of the
-   system. the sweep is linear: it's constant motion, and an ease-out makes it
-   lurch then crawl. under reduced-motion the sweep is switched off and you
-   just get a flat block. */
+/* skeleton loader: a block in the paper tones with a low-contrast highlight sweeping
+   across at a constant speed. reduced motion turns the sweep off */
 .skeleton { position: relative; overflow: hidden; background: var(--paper-3); }
 .skeleton::after {
   content: "";
@@ -324,19 +263,17 @@ body::before {
 }
 @keyframes skeleton-sweep { to { transform: translateX(100%); } }
 
-/* radial fade for the engraved backdrop (see <SecurityPaper>). softens the
-   guilloche into the page toward its edges so it reads as a watermark pressed
-   into the paper, not a graphic pasted on top. */
+/* radial fade for the engraved backdrop (<SecurityPaper>), so it fades into the page
+   toward its edges */
 .veil {
   -webkit-mask-image: radial-gradient(closest-side, #000 52%, transparent 100%);
   mask-image: radial-gradient(closest-side, #000 52%, transparent 100%);
 }
 
-/* night. a dark surface that works in either theme: the landing hero and
-   its feature panels. it re-points the colour tokens for everything inside
-   it, so labels, controls, the wordmark and the rest of the system work on it
-   unchanged. in dark mode the page is already near-black, so night lifts
-   slightly instead, to still read as its own surface. */
+/* night: a dark surface in either theme, for the landing hero and its feature panels.
+   it re-points the colour tokens for everything inside it, so the rest of the system
+   works on it unchanged. in dark mode it's lifted slightly so it still reads as its own
+   surface */
 .night {
   --paper:   #0B0B08;
   --paper-2: #15150F;
@@ -358,9 +295,8 @@ body::before {
   .night { --paper: #13130E; --paper-2: #1B1B14; --paper-3: #24241B; }
 }
 
-/* the hero's field of price lines (see <PriceField>). on wide screens it
-   fades out toward the headline on the left; on narrow ones the headline sits
-   above it, so it fades in from the top instead. */
+/* the hero's field of price lines (<PriceField>). on wide screens it fades out toward
+   the headline on the left, and on narrow ones it sits in a band below the headline */
 .price-field {
   position: absolute;
   inset: 0;
@@ -400,24 +336,19 @@ body::before {
 .price-field-label .figure { color: var(--brand-ink); }
 
 /* a group whose children arrive one after another when it scrolls into view
-   (see <Reveal stagger>): the big index words on the landing page */
+   (<Reveal stagger>), like the big index words on the landing page */
 .reveal-group .stagger-item {
   transition: opacity 640ms var(--ease), transform 640ms var(--ease);
   transition-delay: calc(var(--i, 0) * 50ms);
 }
 .reveal-group[data-state="waiting"] .stagger-item { opacity: 0; transform: translateY(18px); }
 
-/* ═══ CONTROLS ═══════════════════════════════════════════════════════════ */
+/* controls */
 
-/* round means pressable. every button is a pill (or a circle when it's only
-   an icon); everything else on the page stays square and hairline, so you
-   can tell what does something before you read it.
-
-   no outlines. the kind of button is carried by its fill alone: Sulfur for
-   the one thing to do, a soft tint of the ink for everything else. the tint
-   is mixed from --ink, so it reads on paper and on the night panels without
-   a second set of rules. labels are sentence case at a normal size, the
-   way you'd say them. */
+/* buttons are pills (or circles when they're only an icon), and everything else stays
+   square. no outlines: a sulfur fill for the primary action and a soft ink tint for
+   everything else. the tint is mixed from --ink, so it works on paper and on the night
+   panels */
 .ctl {
   --ctl-fill: color-mix(in srgb, var(--ink) 7%, transparent);
   --ctl-fill-hover: color-mix(in srgb, var(--ink) 12%, transparent);
@@ -444,19 +375,16 @@ body::before {
 }
 .ctl:disabled { opacity: 0.4; cursor: not-allowed; }
 
-/* hover only where there's a real pointer. on a phone a tap fires :hover and
-   it sticks until you tap somewhere else, so the button looks half-pressed.
-   tailwind's hover: utilities already do this; these hand-written ones have to
-   opt in. every :hover in this file sits behind the same query. */
+/* hover styles only apply with a real pointer, since on a phone a tapped :hover sticks
+   until you tap somewhere else. every :hover in this file sits behind this query */
 @media (hover: hover) and (pointer: fine) {
   .ctl:hover:not(:disabled) { background: var(--ctl-fill-hover); }
 }
 
-/* the primary button. the bright fill shows up maybe three times on a page,
-   and that's the point: if it's everywhere it stops meaning "do this one". */
+/* the primary button, with the bright sulfur fill */
 .ctl-primary {
   --ctl-fill: var(--brand);
-  /* lighter on hover, not darker: mixing toward the ink turned it olive */
+  /* lighter on hover, since mixing toward the ink looks olive */
   --ctl-fill-hover: color-mix(in srgb, var(--brand) 80%, #ffffff);
   color: var(--brand-fg);
 }
@@ -478,10 +406,9 @@ body::before {
   .ctl-neg:hover:not(:disabled) { color: var(--paper); }
 }
 
-/* the press. the button gives a little under your finger, so you know the
-   click landed before the network answers. 0.98 and the fast duration: it
-   should register, not perform. .press is the same thing for pressables that
-   aren't a .ctl (the listings' Buy chip, the account button). */
+/* the press: buttons scale to 0.98 while held, so a click registers before the
+   network answers. .press does the same for pressables that aren't a .ctl (the buy
+   button on each listing, the account button) */
 .ctl:active:not(:disabled),
 .press:active:not(:disabled) { transform: scale(0.98); }
 .press { transition: transform var(--dur-fast) var(--ease), filter var(--dur-fast) var(--ease), background-color 300ms var(--ease); }
@@ -493,8 +420,7 @@ body::before {
 .ctl-icon { width: 2.75rem; padding: 0; }
 .ctl-sm.ctl-icon { width: 2.25rem; }
 
-/* inputs get a bottom border, not a full box — a form here should feel like
-   filling in a paper record, not stacking web widgets. */
+/* text inputs: a filled box with a hairline border that turns sulfur on focus */
 .field {
   width: 100%;
   height: 2.5rem;
@@ -514,13 +440,12 @@ body::before {
 .field:disabled { color: var(--ink-3); background: var(--paper-3); cursor: not-allowed; }
 .field-figure { font-family: var(--font-mono); font-variant-numeric: tabular-nums; text-align: right; }
 
-/* kill the little up/down arrows — nothing breaks the paper-form vibe faster
-   than a browser number spinner. */
+/* hides the browser's number spinner arrows */
 .field-figure::-webkit-outer-spin-button,
 .field-figure::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
 .field-figure[type="number"] { -moz-appearance: textfield; }
 
-/* text links — thin underline in the rule colour, only goes accent on hover. */
+/* text links: a thin underline in the rule colour that turns sulfur on hover */
 .link {
   color: var(--ink);
   text-decoration: underline;
@@ -533,12 +458,9 @@ body::before {
   .link:hover { text-decoration-color: var(--brand); text-decoration-thickness: 2px; }
 }
 
-/* the hover signal for text links: a thick Sulfur underline fades in under
-   the words, the same stroke as the swipe under the landing headline. text
-   keeps its own colour; bright Sulfur as text on the light page is about
-   1.3:1, which nobody can read, and the text-safe olive read as green. one
-   colour on hover, in both themes. text-decoration (not a background) so it
-   hugs the words even on padded or truncated links. */
+/* the hover underline for nav and listing links: a thick sulfur underline fades in
+   under the words while the text keeps its own colour. it's a text-decoration instead
+   of a background so it hugs the words even on padded or truncated links */
 .sig {
   text-decoration-line: underline;
   text-decoration-color: transparent;
@@ -553,9 +475,7 @@ body::before {
   .group:hover .sig { text-decoration-color: var(--brand); }
 }
 
-/* ═══ TABLE — "the board" ═══
-   how we show more than a couple of anything. rows separated by hairlines and
-   that's it — no zebra stripes, no outer border, no rounded corners. */
+/* the board: tables with hairline rows, no zebra stripes, no outer border */
 
 .board { width: 100%; border-collapse: collapse; }
 .board thead th {
@@ -582,10 +502,9 @@ body::before {
 }
 .board .num { text-align: right; font-family: var(--font-mono); font-variant-numeric: tabular-nums; letter-spacing: -0.02em; }
 
-/* ═══ MOTION ═════════════════════════════════════════════════════════════ */
+/* motion */
 
-/* the fade-in. 4px, 240ms — just enough to feel like it arrived, not enough
-   to look "animated". lists stagger it with an inline --i. */
+/* the fade-in: 4px over 240ms. lists stagger it with an inline --i */
 @keyframes bureau-reveal {
   from { opacity: 0; transform: translateY(4px); }
   to   { opacity: 1; transform: none; }
@@ -595,26 +514,22 @@ body::before {
   animation-delay: calc(var(--i, 0) * 45ms);
 }
 
-/* the price tick. when a number changes its cell flashes and fades, like a
-   real quote board. note the number itself just snaps to the new value — no
-   rolling-counter nonsense, only the background reacts. */
+/* the price tick: when a number changes, its cell flashes green or red and fades. the
+   number itself just snaps to the new value */
 @keyframes bureau-tick-pos { from { background: var(--pos-wash); } to { background: transparent; } }
 @keyframes bureau-tick-neg { from { background: var(--neg-wash); } to { background: transparent; } }
 .tick-pos { animation: bureau-tick-pos 900ms var(--ease); }
 .tick-neg { animation: bureau-tick-neg 900ms var(--ease); }
 
-/* the "Prices updated 14:32:07" reading. each successful poll remounts the
-   time and it washes in the accent and settles, the same move as a price
-   tick. that's the whole liveness cue: a reading with a time on it, which
-   changes when the data does and stops when the data stops. */
+/* the "Prices updated 14:32:07" reading. each successful poll remounts the time, and
+   it washes in the accent and settles like a price tick */
 @keyframes bureau-read { from { background: var(--brand-wash); } to { background: transparent; } }
 .tick-read { animation: bureau-read 1200ms var(--ease); }
 
-/* the toast. comes up 6px from the corner it lives in and goes back the same
-   way, so it reads as one object arriving and leaving. transitions rather than
-   keyframes so a toast that's told to leave mid-entrance just turns around.
-   the exit is faster than the entrance: arriving is news, leaving isn't.
-   <Toast> waits 160ms for the exit before unmounting, keep them in step. */
+/* the toast rises 6px into its corner and drops back out the same way. transitions
+   instead of keyframes, so a toast told to leave mid-entrance just turns around. the
+   exit is faster than the entrance and matches the 160ms <Toast> waits before
+   unmounting */
 .toast {
   transition: opacity var(--dur) var(--ease), transform var(--dur) var(--ease);
 }
@@ -627,34 +542,29 @@ body::before {
   .toast { opacity: 0; transform: translateY(6px); }
 }
 
-/* dropdowns (the account menu). grows out of the button that opened it, hence
-   the top-right origin; a menu scaling from its own centre looks like it came
-   from nowhere. opens only. it closes instantly, because by then you've
-   already picked something and the menu is in the way. */
+/* dropdowns (the account menu) grow out of the button that opened them, from the top
+   right. only opening animates, closing is instant */
 .menu {
   transform-origin: top right;
   transition: opacity 150ms var(--ease), transform 150ms var(--ease);
 }
 @starting-style { .menu { opacity: 0; transform: scale(0.97); } }
 
-/* the mobile menu panel. drops 4px from under the bar that opened it. */
+/* the mobile menu panel drops 4px from under the bar that opened it */
 .drop { transition: opacity 180ms var(--ease), transform 180ms var(--ease); }
 @starting-style { .drop { opacity: 0; transform: translateY(-4px); } }
 
-/* the segmented control's highlight (see <Segmented>). it moves across the
-   row, so it uses the travelling curve. */
+/* the segmented control's highlight (<Segmented>) moves across the row, so it uses the
+   travelling curve */
 .segmented-active[data-ready] { transition: clip-path 220ms var(--ease-move); }
 
-/* the underline under "open source." on the landing headline draws itself in
-   once, left to right, just after the headline lands. the one place the
-   accent gets an entrance, on the one page that's a first impression. */
+/* the underline under "open source." on the landing headline draws itself in once,
+   left to right, just after the headline lands */
 @keyframes swipe-in { from { background-size: 0% 0.24em; } }
 .swipe-in { animation: swipe-in 640ms var(--ease) 360ms both; }
 
-/* the seal behind the landing headline engraves itself once: every ring is a
-   single path, so a dash offset from 1 to 0 draws it the way a burin would.
-   rings start a beat apart, outermost first. it runs at 7% opacity; you
-   notice the page settling more than you notice the drawing. */
+/* .engrave draws the <SecurityPaper> rings in once. every ring is a single path, so a
+   dash offset from 1 to 0 draws it, and the rings start a beat apart, outermost first */
 @keyframes engrave { to { stroke-dashoffset: 0; } }
 .engrave path {
   stroke-dasharray: 1;
@@ -666,23 +576,21 @@ body::before {
 .engrave path:nth-child(4) { animation-delay: 270ms; }
 .engrave path:nth-child(5) { animation-delay: 360ms; }
 
-/* sections below the fold on the landing page (see <Reveal>). they're only
-   hidden once JS has confirmed they're off-screen, so nothing is ever hidden
-   for someone without JS, and nothing already in view blinks out. */
+/* sections below the fold on the landing page (<Reveal>). they're only hidden once js
+   has confirmed they're off-screen, so nothing is hidden without js and nothing
+   already in view blinks out */
 .reveal-scroll { transition: opacity 560ms var(--ease), transform 560ms var(--ease); }
 .reveal-scroll[data-state="waiting"] { opacity: 0; transform: translateY(10px); }
 
-/* the waiting caret. a terminal caret blinks: hard on, hard off, no fade. a
-   soft opacity pulse is the "breathing" thing the LiveDot note bans. */
+/* the waiting caret blinks hard on and off like a terminal caret, no fade */
 @keyframes bureau-caret { 50% { opacity: 0; } }
 .caret { animation: bureau-caret 1s steps(1) infinite; }
 
 }
 
-/* navigation. the page underneath cross-fades quickly, and a listing's name
-   travels from the row you clicked into the title of its page (see
-   <ListingMorph>). the blur mid-flight hides the scaling of small text into
-   large text, which otherwise shimmers. */
+/* navigation. the page underneath cross-fades quickly, and a listing's name travels
+   from the row you clicked into the title of its page (<ListingMorph>). the blur
+   mid-flight hides the shimmer of small text scaling up */
 ::view-transition-group(root) { animation-duration: 180ms; }
 ::view-transition-group(.listing-morph) {
   animation-duration: 460ms;
@@ -691,11 +599,9 @@ body::before {
 ::view-transition-image-pair(.listing-morph) { animation-name: listing-blur; }
 @keyframes listing-blur { 35% { filter: blur(2px); } }
 
-/* reduced motion means less movement, not no feedback. anything that travels
-   (the reveal's lift, the toast's slide, the press, the sweep, the blink, smooth
-   scroll) is removed. fades and colour changes stay, because some of them carry
-   information: the price flash is how you know a quote moved, and killing it
-   would hide the data, not just the decoration. */
+/* reduced motion removes anything that travels (the reveal's lift, the toast's slide,
+   the press, the sweep, the blink, smooth scroll). fades and colour changes stay, since
+   some carry information, like the price flash when a quote moves */
 @keyframes bureau-fade { from { opacity: 0; } }
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }
@@ -714,12 +620,11 @@ body::before {
   /* names jump straight to their new place; the page still cross-fades */
   ::view-transition-group(*) { animation: none; }
   ::view-transition-image-pair(.listing-morph) { animation-name: none; }
-  /* the drawer fades in place instead of sliding. dragging it still works,
-     because that motion is the user's own hand, not the interface's. */
+  /* the drawer fades in place instead of sliding. dragging it still works */
   [data-vaul-drawer][data-state=open] { animation-name: bureau-fade !important; }
   [data-vaul-drawer][data-state=closed] { animation-name: bureau-fade !important; animation-direction: reverse !important; }
 }
 
-/* Hide scrollbars on horizontally-scrolling rails without losing the scroll. */
+/* hides scrollbars on horizontally scrolling rails without losing the scroll */
 .no-bar { scrollbar-width: none; -ms-overflow-style: none; }
 .no-bar::-webkit-scrollbar { display: none; }

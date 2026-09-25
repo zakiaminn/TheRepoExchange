@@ -1,11 +1,6 @@
--- Starting capital: every new account opens with $100,000, as the site, FAQ and
--- landing page all state. The signup trigger and the column default were both
--- still seeding 10,000.00, so new accounts opened with a tenth of what was promised.
---
--- Only affects accounts created after this runs. Existing accounts keep their
--- balance (they have traded against it, so topping them up is a separate call).
---
--- Safe to run more than once.
+-- new accounts open with $100,000. sets the cash_balance default and the signup trigger
+-- (handle_new_user) to seed 100000.00. existing accounts keep their balance.
+-- safe to run more than once.
 
 ALTER TABLE public.users ALTER COLUMN cash_balance SET DEFAULT 100000.00;
 

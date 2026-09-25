@@ -1,9 +1,4 @@
-/* A trend line small enough to live inside a table cell. Deliberately not a
-   chart: no axes, no fill, no gradient, no dots. It answers exactly one
-   question — which way has this been going — and anything added to it makes
-   it answer that question more slowly.
-
-   The real chart, on the asset page, uses lightweight-charts. */
+// a trend line small enough to live inside a table cell: no axes, no fill, no dots
 export function MiniSparkline({
   data,
   positive,
@@ -17,7 +12,7 @@ export function MiniSparkline({
   w?: number;
   h?: number;
 }) {
-  // one point is a dot, not a trend — brand new listings just don't get a line
+  // one point isn't a trend, so brand new listings get an empty box instead of a line
   if (!Array.isArray(data) || data.length < 2) {
     return <span className={`inline-block ${className || ""}`} style={{ width: w, height: h }} />;
   }

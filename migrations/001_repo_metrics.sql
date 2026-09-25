@@ -1,5 +1,5 @@
--- adds the raw github metrics the new valuation formula uses, so the app can show
--- WHY a repo is priced what it is (not just the final number).
+-- adds the raw github metrics the pricing formula uses, so the app can show why a repo
+-- is priced what it is and not just the final number.
 -- safe to run more than once. existing rows default to 0 until the worker refreshes them.
 ALTER TABLE repositories
   ADD COLUMN IF NOT EXISTS raw_forks       INTEGER DEFAULT 0,

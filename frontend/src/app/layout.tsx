@@ -4,18 +4,8 @@ import "./globals.css";
 import { Header } from "@/components/Header";
 import { SITE_URL, SITE_NAME, SITE_SHORT, SITE_DESCRIPTION, abs } from "@/lib/site";
 
-// the fonts — and this is the actual trademark, meant to carry into every
-// project i build, not just TRX:
-//
-//   Bricolage Grotesque = the words, and now the mark too. slightly wonky,
-//   mixed-width grotesque with real character (look at the g) that still reads
-//   fine at any size. it carries titles, body, every label, and the "TRX"
-//   wordmark itself.
-//
-//   Spline Sans Mono = the numbers, and only the numbers. every figure, every
-//   reference code and timestamp. it replaced Martian Mono (2026-09), which had
-//   started reading as a generic/AI mono; the rule tightened to "Bricolage
-//   reads, Spline counts" with the mono kept strictly to the machine's output.
+// the fonts: bricolage grotesque for the words (titles, body, labels and the wordmark),
+// spline sans mono for the numbers (figures, reference codes and timestamps)
 
 const bricolage = Bricolage_Grotesque({
   subsets: ["latin"],
@@ -30,8 +20,8 @@ const spline = Spline_Sans_Mono({
 });
 
 export const metadata: Metadata = {
-  // Resolves every relative OG/canonical/image URL below (and the og:image
-  // that the app/opengraph-image route injects) against the real origin.
+  // resolves every relative og, canonical and image url below (and the og:image that
+  // the app/opengraph-image route injects) against the real origin
   metadataBase: new URL(SITE_URL),
   title: {
     default: `${SITE_SHORT} · ${SITE_NAME}`,
@@ -48,7 +38,7 @@ export const metadata: Metadata = {
     "open source stock market",
     "prediction market open source",
   ],
-  // Own the brand term: the homepage is the canonical for the whole site.
+  // the homepage is the canonical for the whole site
   alternates: { canonical: "/" },
   openGraph: {
     type: "website",
@@ -56,7 +46,7 @@ export const metadata: Metadata = {
     siteName: SITE_NAME,
     title: `${SITE_SHORT} · ${SITE_NAME}`,
     description: SITE_DESCRIPTION,
-    // og:image comes from app/opengraph-image.tsx automatically.
+    // og:image comes from app/opengraph-image.tsx
   },
   twitter: {
     card: "summary_large_image",
@@ -65,11 +55,8 @@ export const metadata: Metadata = {
   },
 };
 
-// Organization + WebSite structured data. This is what earns the branded
-// sitelinks box and a proper knowledge-panel entry when someone searches
-// "the repo exchange" / "TRX" — the single highest-leverage schema for a brand
-// nobody has heard of yet. No SearchAction: there's no public site search to
-// wire it to, and asserting one you don't have is worse than omitting it.
+// Organization and WebSite structured data for search results. there's no SearchAction
+// since the site has no public search
 const structuredData = {
   "@context": "https://schema.org",
   "@graph": [
@@ -103,8 +90,8 @@ export default function RootLayout({
       className={`${bricolage.variable} ${spline.variable} h-full`}
     >
       <body className="min-h-full flex flex-col">
-        {/* Brand structured data. Rendered server-side so crawlers see it in the
-            initial HTML, not after hydration. */}
+        {/* brand structured data, rendered server-side so crawlers see it in the
+            initial html */}
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }}

@@ -1,14 +1,5 @@
-/* the TRX wordmark — the logo is the name itself, no separate symbol.
-
-   the one move: the X is set in the accent (Sulfur). it's the exchange letter,
-   it's the strongest glyph in "TRX", and it gives us a free one-letter favicon
-   (see app/icon.svg). the X uses --brand (full Sulfur) on both themes so it
-   matches the standalone logo: one consistent brand yellow, trading some
-   contrast on the light Chalk ground for that consistency (a deliberate call).
-   set in Bricolage semibold now: the mono is kept strictly to the numbers, so
-   the name reads as the brand's voice, not its machine output.
-
-   (the old octagon seal is retired — this replaced it.) */
+// the trx wordmark, with the "X" in the brand colour (--brand) on both themes and the
+// full name beside it on wider screens
 
 export function Wordmark({
   size = "md",

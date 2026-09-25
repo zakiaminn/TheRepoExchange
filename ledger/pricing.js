@@ -1,16 +1,12 @@
-// ── Canonical pricing — PRICING-1 ──
-// The single source of truth for the Node side. The Python worker mirrors this in
-// data-engine/pricing.py, and BOTH are pinned to the shared cases in
-// pricing/fixtures.json so the two implementations cannot silently drift. If you
-// change a weight or the curve here, change it there and bump the version. Pure: raw numbers in, a price out — no db, no network.
+// the repo pricing formula. data-engine/pricing.py is the python copy, and both are
+// tested against the same cases in pricing/fixtures.json. raw numbers in, a price out
 
 const W_STAR = 0.001, W_FORK = 0.01, W_WATCH = 0.05, W_PR = 1.00, W_ISSUE = 1.00;
 const ISSUE_DRAG_CAP = 0.60, BASE_LISTING = 5.00, PRICE_FLOOR = 1.00;
 
-// multiplier in [0.70, 1.00] from WHOLE days since last push. days is floored to an
-// integer so this matches recency_multiplier() in data-engine/pricing.py exactly —
-// fractional days were a parity bug between the two pricers. `now` is injectable so
-// the shared fixtures are deterministic.
+// multiplier in [0.70, 1.00] from whole days since the last push. days is floored so it
+// matches recency_multiplier() in data-engine/pricing.py. `now` is injectable so the
+// fixtures are deterministic
 function recencyMultiplier(pushedAt, now = Date.now()) {
     if (!pushedAt) return 1.0;
     const pushed = new Date(pushedAt);
@@ -25,7 +21,7 @@ function computePrice({ stars = 0, forks = 0, watchers = null, openIssues = 0, o
     stars = stars || 0; forks = forks || 0; openIssues = openIssues || 0;
     if (watchers == null) watchers = stars * 0.03;           // guess for missing data
     if (openPrs == null) {
-        const estPrs = openIssues * 0.15;                    // ~15% of open issues are really PRs
+        const estPrs = openIssues * 0.15;                    // ~15% of open issues are really prs
         openPrs = estPrs;
         openIssues = Math.max(0, openIssues - estPrs);
     }

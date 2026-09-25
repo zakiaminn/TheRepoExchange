@@ -25,9 +25,8 @@ DATABASE_URL = os.getenv("DATABASE_URL")
 # we only care about repos created in the last 30 days for the "hot ipos" category
 thirty_days_ago = (datetime.now() - timedelta(days=30)).strftime('%Y-%m-%d')
 
-# these are literally just github search queries. each one defines a "shelf" on the
-# discovery page on the frontend. add a new key here and it shows up as a new category,
-# no other code needs to change
+# these are literally just github search queries. each key becomes a category on the
+# board, and a new key shows up as a new category with no other code changes
 CATEGORIES = {
     "AI & Machine Learning": "topic:machine-learning stars:>10000",
     "Blue Chip Systems": "language:rust language:c++ stars:>20000",
@@ -37,15 +36,12 @@ CATEGORIES = {
 
 GITHUB_SEARCH_URL = "https://api.github.com/search/repositories"
 
-# ── how we price a repo ──
-# The pricing formula (weights, issue-drag cap, recency curve) lives in pricing.py
-# now — one canonical copy, mirrored by ledger/pricing.js and pinned by
-# pricing/fixtures.json so the two can't drift. compute_price is imported at the top.
-# This module only fetches the raw metrics and hands them to it.
+# the pricing formula is in pricing.py. this module only fetches the raw metrics and
+# hands them to compute_price
 
 
 def get_open_pr_count(ticker, headers):
-    """how many open PRs a repo has, in a single call. little trick: ask for 1 PR per
+    """how many open prs a repo has, in a single call. little trick: ask for 1 pr per
     page and just read the last page number out of the Link header, so we don't have to
     actually page through all of them. returns None if it breaks and we guess instead."""
     try:
@@ -58,8 +54,8 @@ def get_open_pr_count(ticker, headers):
         link = resp.headers.get("Link", "")
         m = re.search(r'[?&]page=(\d+)>;\s*rel="last"', link)
         if m:
-            return int(m.group(1))     # several pages -> last page number == PR count
-        return len(resp.json())        # 0 or 1 open PRs (no Link header)
+            return int(m.group(1))     # several pages -> last page number == pr count
+        return len(resp.json())        # 0 or 1 open prs (no Link header)
     except requests.exceptions.RequestException:
         return None
 
@@ -75,7 +71,7 @@ def fetch_repositories_for_category(category_name: str, query: str, _retry_count
     """grab the top 10 repos from github for whatever category we're looking at."""
     headers = {
         "Accept": "application/vnd.github.v3+json",
-        "User-Agent": "Quantitative-Exchange-Worker" # don't touch this, it's for debugging
+        "User-Agent": "Quantitative-Exchange-Worker" # names the worker in github's request logs
     }
     if GITHUB_TOKEN:
         # authed requests get 5000 requests/hr instead of 60, so this matters a lot
@@ -94,7 +90,7 @@ def fetch_repositories_for_category(category_name: str, query: str, _retry_count
         response = requests.get(GITHUB_SEARCH_URL, headers=headers, params=params, timeout=10)
 
         if response.status_code == 429:
-            # got rate limited. github tells us exactly how long to chill for via this header
+            # got rate limited. github tells us exactly how long to wait via this header
             if _retry_count >= _max_retries:
                 logger.error(f"Rate limit exceeded {_max_retries} times for {category_name}. Giving up.")
                 return []
@@ -110,13 +106,13 @@ def fetch_repositories_for_category(category_name: str, query: str, _retry_count
         return data.get("items", [])
 
     except requests.exceptions.RequestException as e:
-        # network blip, timeout, dns failure, whatever - just log it and move on with an
+        # network blip, timeout, dns failure, whatever. just log it and move on with an
         # empty list so one bad category doesn't kill the whole run
         logger.error(f"Failed to fetch repositories for {category_name}: {e}")
         return []
 
 def update_known_assets(conn) -> set:
-    """phase 1 - go through every repo we already know about and refresh its star count / price."""
+    """phase 1: go through every repo we already know about and refresh its star count / price."""
     logger.info("Phase 1: Updating known assets.")
     known_tickers = set() # we hand this back so phase 2 knows what to skip
 
@@ -131,13 +127,13 @@ def update_known_assets(conn) -> set:
 
             headers = {
                 "Accept": "application/vnd.github.v3+json",
-                "User-Agent": "Quantitative-Exchange-Worker" # don't touch this, it's for debugging
+                "User-Agent": "Quantitative-Exchange-Worker" # names the worker in github's request logs
             }
             if GITHUB_TOKEN:
                 headers["Authorization"] = f"Bearer {GITHUB_TOKEN}"
 
             # loop over every ticker we already have and hit github's single-repo endpoint
-            # for each one individually. yeah it's a lot of requests, that's what the
+            # for each one individually. it's a lot of requests, which is what the
             # sleep(1) at the bottom of the loop is for
             for row in rows:
                 ticker = row[0]
@@ -174,10 +170,10 @@ def update_known_assets(conn) -> set:
                         raw_stars = data.get("stargazers_count", 0)
                         forks = data.get("forks_count", 0)
                         watchers = data.get("subscribers_count", 0)
-                        oi_total = data.get("open_issues_count", 0)   # open issues + open PRs
+                        oi_total = data.get("open_issues_count", 0)   # open issues + open prs
                         pushed_at = data.get("pushed_at")
-                        # grab the real open-PR count and pull it out of open_issues_count,
-                        # since github lumps issues and PRs together in that number
+                        # grab the real open-pr count and pull it out of open_issues_count,
+                        # since github lumps issues and prs together in that number
                         open_prs = get_open_pr_count(ticker, headers)
                         if open_prs is None:
                             open_prs = int(round(oi_total * 0.15))   # call failed, just estimate
@@ -219,7 +215,7 @@ def update_known_assets(conn) -> set:
                         logger.error(f"Failed to fetch repo {ticker}: {e}")
                         break
 
-                # sleep a bit so github doesn't yell at me
+                # pause between repos to stay under github's rate limit
                 time.sleep(1)
 
             conn.commit()
@@ -232,7 +228,7 @@ def update_known_assets(conn) -> set:
     return known_tickers
 
 def process_and_upsert_new_repositories(category_name: str, items: list, known_tickers: set, conn):
-    """phase 2 - only deals with repos we haven't seen before."""
+    """phase 2: only deals with repos we haven't seen before."""
     records = [] # gonna batch all the new repos into one insert instead of doing them one by one
 
     for item in items:
@@ -246,7 +242,7 @@ def process_and_upsert_new_repositories(category_name: str, items: list, known_t
 
         raw_stars = item.get("stargazers_count", 0)
         forks = item.get("forks_count", 0)
-        oi_total = item.get("open_issues_count", 0)   # open issues + open PRs
+        oi_total = item.get("open_issues_count", 0)   # open issues + open prs
         pushed_at = item.get("pushed_at")
         description = item.get("description", "")
 
@@ -254,8 +250,8 @@ def process_and_upsert_new_repositories(category_name: str, items: list, known_t
         if description and len(description) > 500:
             description = description[:497] + "..."
 
-        # search results don't give watchers or split issues vs PRs, so estimate them for
-        # now; phase 1 comes back within the hour and overwrites with the real numbers
+        # search results don't give watchers or split issues vs prs, so estimate them.
+        # phase 1 comes back within the hour and overwrites them with the real numbers
         est_watchers = int(round(raw_stars * 0.03))
         est_prs = int(round(oi_total * 0.15))
         est_issues = max(0, oi_total - est_prs)
@@ -301,12 +297,9 @@ def process_and_upsert_new_repositories(category_name: str, items: list, known_t
                 ticker, current_price = rec[0], rec[1]
                 known_tickers.add(ticker) # so we don't double count it if it shows up again this run
 
-                # seed a single REAL point at the price we just struck. no synthetic
-                # backfill: a new listing legitimately has one data point until the
-                # worker polls it again, and every price on a chart has to be one the
-                # formula actually produced from real metrics. a straight ramp of
-                # invented prices is exactly the fabricated data the product says it
-                # never shows — the chart fills in for real as the worker runs.
+                # seed a single point at the price we just computed. a new listing has one
+                # data point until the worker polls it again, and the chart fills in from
+                # there
                 history_records.append((ticker, current_price, current_time))
 
             history_query = """
@@ -322,7 +315,7 @@ def process_and_upsert_new_repositories(category_name: str, items: list, known_t
         logger.error(f"Database error during Phase 2 upsert for {category_name}: {e}")
 
 def run_ingestion_pipeline():
-    """kicks off the whole pipeline - refresh known repos, then scout for new ones."""
+    """kicks off the whole pipeline: refresh known repos, then scout for new ones."""
     logger.info("Starting GitHub ingestion pipeline.")
 
     try:
@@ -342,7 +335,7 @@ def run_ingestion_pipeline():
             items = fetch_repositories_for_category(category_name, query)
             if items:
                 process_and_upsert_new_repositories(category_name, items, known_tickers, conn)
-            # sleep a bit so github doesn't yell at me
+            # pause between categories to stay under github's rate limit
             time.sleep(2)
     finally:
         # always close the connection, even if we blew up somewhere above
@@ -354,10 +347,8 @@ def run_ingestion_pipeline():
 
 if __name__ == "__main__":
     logger.info("Starting single-execution ingestion cycle.")
-    # this thing just runs forever. it's meant to be a long-lived process (deployed as a
-    # render worker), not a script that runs once and exits. there's also a github actions
-    # cron job that runs this same file once an hour as a backup in case the worker process
-    # ever goes down for some reason
+    # this runs forever as a long-lived process: one pipeline run, then an hour's sleep.
+    # the ingestion github actions workflow also runs this file on an hourly cron
     while True:
         try:
             run_ingestion_pipeline()
@@ -366,7 +357,7 @@ if __name__ == "__main__":
 
         except Exception as e:
             # catch literally anything so one bad cycle doesn't kill the whole worker.
-            # log it, chill for 5 min, then go around the loop and try again
+            # log it, wait 5 minutes, then go around the loop and try again
             logger.critical(f"Unhandled exception in ingestion pipeline: {e}")
             logger.info("Sleeping for 5 minutes before retry...")
             time.sleep(300)

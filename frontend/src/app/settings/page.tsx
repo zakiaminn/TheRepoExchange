@@ -7,11 +7,9 @@ import { Toast, ToastMessage } from "@/components/Toast";
 import { SectionRule, Panel, Field, Skeleton, Notice } from "@/components/ui";
 import { ACCOUNT, AUTH, ERROR, NAV, NOTICE } from "@/lib/copy";
 
-/* account settings — really just "change your name". email is shown but locked
-   because it's tied to the Supabase auth identity, and changing that is a whole
-   separate confirm-email flow we don't do here. styled as amending a record
-   rather than a settings form, which is honestly more accurate since there's
-   exactly one editable field. */
+// account settings, which is really just "change your name". email is shown but locked
+// because it's tied to the supabase auth identity, and changing it would need a separate
+// confirm-email flow
 export default function SettingsPage() {
   const [email, setEmail] = useState("");
   const [firstName, setFirstName] = useState("");
@@ -106,7 +104,7 @@ export default function SettingsPage() {
 
         {/* what's on the account on the left, the one editable thing on the right */}
         <div className="grid gap-x-12 gap-y-10 lg:grid-cols-2 lg:items-start">
-          {/* ── details ── */}
+          {/* details */}
           <section>
             <SectionRule label={ACCOUNT.details} className="mb-4" />
             <dl className="border-t border-rule-2">
@@ -125,7 +123,7 @@ export default function SettingsPage() {
             </dl>
           </section>
 
-          {/* ── edit ── */}
+          {/* edit */}
           <section>
             <SectionRule label={ACCOUNT.editName} className="mb-4" />
             <Panel className="p-6 sm:p-7">

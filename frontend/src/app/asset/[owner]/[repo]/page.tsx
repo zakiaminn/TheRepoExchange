@@ -20,9 +20,7 @@ interface PageProps {
 type ChartData = { time: Time; value: number };
 type PendingTrade = { action: "BUY" | "SELL"; quantity: number } | null;
 
-// Client-side windows over the history we already hold. No extra requests —
-// the data is in memory, and an exchange that makes you wait on the network
-// to look at last week is not much of an exchange.
+// chart ranges, filtered client-side from the history already in memory
 const RANGES = [
   { key: "7D", days: 7 },
   { key: "30D", days: 30 },
@@ -31,10 +29,8 @@ const RANGES = [
 ] as const;
 const RANGE_KEYS = RANGES.map((r) => r.key);
 
-/* the single-repo page, treated like a stock: price + its move up top, period
-   stats next to it, the chart below, buy/sell ticket last. that order is on
-   purpose — you read price, then range, then chart, then decide. leading with
-   the buy button is what a casino would do. */
+// the single-repo page: price and its move up top, then the chart and period stats, the
+// valuation breakdown, and the buy/sell ticket
 export default function ListingPage(props: PageProps) {
   const params = use(props.params);
   const { owner, repo } = params;
@@ -111,8 +107,8 @@ export default function ListingPage(props: PageProps) {
     fetchPosition(userId);
   }, [userId, ticker]);
 
-  // price history, which doubles as the admission check — if the ledger has
-  // nothing on file, the repository isn't listed
+  // price history, which doubles as the listing check. if the ledger has nothing on
+  // file, the repository isn't listed
   useEffect(() => {
     const fetchHistory = async () => {
       try {
@@ -159,7 +155,7 @@ export default function ListingPage(props: PageProps) {
         : history.filter(
             (p) => (p.time as number) >= Date.now() / 1000 - spec.days * 86400
           );
-    // never render an empty chart just because the window outran the data
+    // falls back to the full history when the window has fewer than two points
     const data = windowed.length > 1 ? windowed : history;
     const values = data.map((d) => d.value);
     return {
@@ -171,16 +167,14 @@ export default function ListingPage(props: PageProps) {
     };
   }, [history, range]);
 
-  // The chart is rebuilt from scratch on theme change — lightweight-charts
-  // doesn't restyle an existing instance cleanly, and a chart carrying the
-  // previous theme's colours is worse than a brief remount.
+  // the chart gets rebuilt from scratch when the theme changes, since lightweight-charts
+  // doesn't restyle an existing instance cleanly
   useEffect(() => {
     if (!chartContainerRef.current || view.data.length === 0 || listed === false) return;
 
     const dark = isDark;
-    // pulled from the Bureau tokens; lightweight-charts needs literal values.
-    // the series carries the Sulfur brand — the bright chartreuse on dark, the
-    // text-safe olive on light so the line reads against the Chalk ground.
+    // literal colours from the theme tokens, since lightweight-charts can't read css
+    // variables. the line is bright sulfur on dark and a darker olive on light
     const ink3 = dark ? "#86846F" : "#78766A";
     const ink = dark ? "#EDEDE0" : "#16160E";
     const rule = dark ? "#29291C" : "#E5E5E1";
@@ -198,8 +192,7 @@ export default function ListingPage(props: PageProps) {
         attributionLogo: false,
       },
       grid: {
-        // horizontal rules only. Vertical gridlines add a second axis of
-        // linework that competes with the series for no informational gain.
+        // horizontal gridlines only
         vertLines: { visible: false },
         horzLines: { color: rule },
       },
@@ -238,7 +231,7 @@ export default function ListingPage(props: PageProps) {
 
     return () => {
       window.removeEventListener("resize", onResize);
-      chart.remove(); // otherwise every theme toggle leaks an instance
+      chart.remove(); // otherwise every theme change leaks an instance
     };
   }, [view.data, isDark, listed]);
 
@@ -293,9 +286,8 @@ export default function ListingPage(props: PageProps) {
   const positionPnl =
     currentPrice !== null && avgPrice !== null ? (currentPrice - avgPrice) * ownedShares : null;
 
-  // Rebuild the mark from the stored public metrics so the panel below is a shown
-  // derivation, not a plug: base + each metric's contribution, less capped issue
-  // drag, aged by recency, reconciling to the mark. See lib/pricing.ts.
+  // rebuilds the mark from the stored public metrics for the valuation panel: base plus
+  // each metric's contribution, less capped issue drag, times recency
   const valuation = asset ? deriveValuation(asset, currentPrice) : null;
 
   return (
@@ -305,10 +297,7 @@ export default function ListingPage(props: PageProps) {
           ← {NAV.back}
         </Link>
 
-        {/* ── quote header ─────────────────────────────────────────────
-            The security's identity and its mark, full width. The mark is a
-            derived figure, not a quote off a wire — the derivation is spelled
-            out in the valuation panel below, where it can be checked by hand. */}
+        {/* quote header: the listing's name and its mark, full width */}
         <div className="mt-6 border-b border-rule-2 pb-8">
           <SectionRule label="Listing" className="mb-6" />
 
@@ -351,14 +340,10 @@ export default function ListingPage(props: PageProps) {
           </div>
         </div>
 
-        {/* ── terminal body ────────────────────────────────────────────
-            Chart and derivation on the left, the order ticket on a sticky
-            rail to the right so it stays in reach while you read. On a phone
-            it stacks in reading order — price, chart, why the mark is what it
-            is, then the ticket last, because leading with the buy button is
-            what a casino would do. */}
+        {/* chart and valuation on the left, the order ticket on a sticky rail on the
+            right. on a phone it stacks in that order */}
         <div className="mt-10 grid items-start gap-8 lg:grid-cols-[1.7fr_1fr] lg:gap-10">
-          {/* ── left: history + valuation ── */}
+          {/* left: history and valuation */}
           <div className="min-w-0">
             <section>
               <div className="mb-4 flex items-center justify-between gap-4">
@@ -410,7 +395,7 @@ export default function ListingPage(props: PageProps) {
               )}
             </section>
 
-            {/* ── valuation breakdown — the mark, rebuilt from public numbers ── */}
+            {/* valuation breakdown: the mark, rebuilt from public numbers */}
             {listed === true && valuation && (
               <section className="mt-12">
                 <SectionRule label={SECTIONS.valuation} className="mb-5" />
@@ -497,13 +482,12 @@ export default function ListingPage(props: PageProps) {
             )}
           </div>
 
-          {/* ── right: the order ticket, sticky ── */}
+          {/* right: the order ticket, sticky */}
           <aside className="lg:sticky lg:top-28">
             <SectionRule label={SECTIONS.ticket} className="mb-5" />
 
             <Panel className={listed === false ? "opacity-50" : ""}>
-              {/* position stats stacked as a ledger — the rail is narrow, so
-                  they read as rows, not a four-across strip */}
+              {/* position stats stacked as rows, since the rail is narrow */}
               <dl>
                 <div className="flex items-baseline justify-between gap-3 border-b border-rule px-4 py-3">
                   <dt className="label">{LABELS.position}</dt>

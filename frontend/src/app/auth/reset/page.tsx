@@ -8,11 +8,11 @@ import { Wordmark } from "@/components/Logo";
 import { SectionRule, Field, Pending, Notice } from "@/components/ui";
 import { AUTH, ERROR } from "@/lib/copy";
 
-/* the "set a new password" step. you land here from the reset email link:
-   Supabase -> /auth/callback (exchanges the code, sets a recovery session) ->
-   here. so by the time this renders we should already have a session, and
-   updateUser({ password }) just works. if there's no session, the link was
-   bad or expired and we say so instead of showing a dead form. */
+// the "set a new password" step. you land here from the reset email link: supabase ->
+// /auth/callback (verifies the link, sets a recovery session) -> here. so by the time
+// this renders there should already be a session, and updateUser({ password }) just
+// works. if there's no session, the link was bad or expired and we say so instead of
+// showing the form
 export default function ResetPage() {
   const [ready, setReady] = useState<boolean | null>(null); // null = still checking
   const [password, setPassword] = useState("");
@@ -39,7 +39,7 @@ export default function ResetPage() {
       const { error } = await supabase.auth.updateUser({ password });
       if (error) throw error;
       setMessage({ text: AUTH.passwordUpdated, type: "success" });
-      // the recovery session is now a full session — send them in
+      // the recovery session works as a normal session, so this sends them in
       setTimeout(() => {
         router.push("/");
         router.refresh();

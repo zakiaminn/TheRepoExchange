@@ -1,9 +1,6 @@
-"""Parity test for the Python pricer. Loads the shared contract in
-pricing/fixtures.json and asserts compute_price() reproduces every expected value.
-Its twin, ledger/pricing.test.js, asserts the same file against the Node pricer, so
-the two implementations are pinned to the same numbers and cannot drift.
-
-Run:  python data-engine/test_pricing.py   (no test framework, exits non-zero on failure)
+"""checks compute_price() against every case in pricing/fixtures.json.
+ledger/pricing.test.js runs the same cases against the node pricer. plain python,
+exits non-zero on failure.
 """
 
 import json

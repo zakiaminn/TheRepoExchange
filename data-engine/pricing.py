@@ -1,11 +1,6 @@
-"""Canonical pricing — PRICING-1.
-
-The single source of truth for the Python side. The Node ledger mirrors this in
-ledger/pricing.js, and BOTH are pinned to the shared cases in pricing/fixtures.json
-so the two implementations cannot silently drift. If you change a weight or the
-curve here, change it there and bump the version.
-
-Everything is pure: raw numbers in, a price out. No network, no database.
+"""the repo pricing formula, the python copy of ledger/pricing.js. both are tested
+against the same cases in pricing/fixtures.json. raw numbers in, a price out, no
+network, no database.
 """
 
 import math
@@ -24,9 +19,8 @@ PRICE_FLOOR = 1.00      # marks never price below this
 
 
 def recency_multiplier(pushed_at_iso, now=None):
-    """Multiplier in [0.70, 1.00] from WHOLE days since the last push. days is an
-    integer (floored), matching recencyMultiplier() in ledger/pricing.js exactly —
-    fractional days were a parity bug between the two pricers."""
+    """multiplier in [0.70, 1.00] from whole days since the last push. days is floored
+    so it matches recencyMultiplier() in ledger/pricing.js."""
     if not pushed_at_iso:
         return 1.0
     try:
@@ -44,16 +38,16 @@ def recency_multiplier(pushed_at_iso, now=None):
 
 
 def _round_half_up(x):
-    """Round to the cent, half away from zero — matches JS Math.round(x*100)/100 for
-    the non-negative prices we deal with. Python's built-in round() is banker's
+    """round to the cent, half away from zero, to match js Math.round(x*100)/100 for
+    the non-negative prices we deal with. python's built-in round() is banker's
     rounding, which would disagree with the ledger on exact half-cents."""
     return math.floor(x * 100 + 0.5) / 100
 
 
 def compute_price(stars, forks, watchers, open_issues, open_prs, pushed_at, now=None):
-    """The one place a repo's price is decided on the Python side. watchers and
-    open_prs may be None (the search endpoint omits them); we estimate and the
-    hourly refresh corrects it. `now` is injectable so the fixtures are deterministic."""
+    """a repo's price from its raw metrics. watchers and open_prs can be None (the
+    search endpoint omits them), in which case they're estimated and the hourly
+    refresh corrects them. `now` is injectable so the fixtures are deterministic."""
     stars = stars or 0
     forks = forks or 0
     open_issues = open_issues or 0

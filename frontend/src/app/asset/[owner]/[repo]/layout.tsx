@@ -3,20 +3,10 @@ import { SITE_NAME, abs } from "@/lib/site";
 
 type Params = { owner: string; repo: string };
 
-// Per-repo metadata for /asset/[owner]/[repo]. This lives in a server layout so
-// the client trading page (page.tsx) is left untouched — a client component
-// can't export generateMetadata, and this is the least invasive way to give
-// every listing its own title, description, canonical, and share card.
-//
-// robots: index:false is deliberate. The page body is auth-gated and redirects
-// to /login for anyone not signed in — including Googlebot — so letting it be
-// indexed would just fill the index with login shells. noindex keeps it out of
-// search while `follow` still passes link equity, and it does NOT stop social
-// scrapers (Slack, X, Discord) from reading the Open Graph tags, so a shared
-// /asset/owner/repo link still renders a rich per-repo card.
-//
-// When these pages are reworked to server-render public content, drop the
-// index:false and add them to sitemap.ts — that's the long-tail SEO surface.
+// per-repo title, description, canonical and share card for /asset/[owner]/[repo]. it's a
+// server layout because the page is a client component and can't export generateMetadata.
+// the page is auth-gated, so it's noindex to keep login shells out of search, while social
+// scrapers can still read the open graph tags for a shared link
 export async function generateMetadata({
   params,
 }: {
@@ -37,7 +27,7 @@ export async function generateMetadata({
       url: abs(path),
       title: `${owner}/${repo}`,
       description,
-      // og:image comes from the sibling opengraph-image.tsx (per-repo card).
+      // og:image comes from the sibling opengraph-image.tsx
     },
     twitter: {
       card: "summary_large_image",

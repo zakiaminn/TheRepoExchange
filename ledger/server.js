@@ -16,18 +16,14 @@ class TradeError extends Error {
 }
 
 // postgres aborts one transaction to break a deadlock (sqlstate 40P01) or when a
-// serializable conflict can't be resolved (40001). neither is a real failure - the
-// losing transaction just got rolled back cleanly, so the right move is to run the
-// whole thing again on a fresh connection rather than bubble a 500 up to the user.
+// serializable conflict can't be resolved (40001). the losing transaction gets rolled
+// back cleanly, so we run it again on a fresh connection instead of returning a 500
 const RETRYABLE_SQLSTATES = new Set(['40P01', '40001']);
 
-// runs `executor` inside begin/commit and hands it a dedicated client. on a retryable
-// abort it rolls back and tries again (a few times, no backoff - trades are quick and a
-// burst clears fast), so callers only ever see either a real result or a real error.
-// keeping this in one place means every route locks rows in the same way and nobody
-// has to remember to release the client. NOTE: to avoid deadlocks, any executor that
-// touches more than one table must lock rows in a consistent order - users before
-// portfolios - see the buy/sell routes.
+// runs `executor` inside begin/commit on its own client and always releases it. on a
+// retryable abort it rolls back and tries again (a few times, no backoff, since trades
+// are quick), so callers only ever see a real result or a real error. the trade routes
+// lock users before portfolios so concurrent trades can't deadlock
 async function runInTransaction(executor, attempts = 3) {
     for (let attempt = 1; ; attempt++) {
         const client = await pool.connect();
@@ -37,8 +33,8 @@ async function runInTransaction(executor, attempts = 3) {
             await client.query('COMMIT');
             return result;
         } catch (error) {
-            // rollback can itself fail if the connection is already broken; don't let
-            // that mask the original error we actually care about
+            // rollback can fail too if the connection is already broken. that gets
+            // swallowed so the original error is the one that surfaces
             try { await client.query('ROLLBACK'); } catch { /* connection's gone */ }
             if (RETRYABLE_SQLSTATES.has(error.code) && attempt < attempts) {
                 console.warn(`[Ledger] retrying trade after ${error.code} (attempt ${attempt})`);
@@ -58,11 +54,8 @@ function isValidTicker(ticker) {
     return typeof ticker === 'string' && ticker.length <= 140 && TICKER_REGEX.test(ticker);
 }
 
-// ── how we price a repo ──
-// The formula lives in ./pricing.js now — one canonical Node copy, mirrored by
-// data-engine/pricing.py and pinned by pricing/fixtures.json so they can't drift.
-// computePrice here is only the fallback for a repo the worker hasn't discovered
-// yet; the worker reprices it identically on its next pass.
+// the pricing formula is in ./pricing.js. computePrice is only used here for a repo the
+// worker hasn't discovered yet, and the worker reprices it the same way on its next pass
 const { computePrice } = require('./pricing');
 const calls = require('./calls');
 
@@ -102,7 +95,7 @@ app.use((req, res, next) => {
     next();
 });
 
-// health check for render (and anyone curious the ledger is alive)
+// health check for render and the keepalive workflow
 app.get('/', (req, res) => {
     res.json({ status: 'ok', service: 'trx-ledger' });
 });
@@ -181,8 +174,8 @@ app.post('/api/buy', tradeLimiter, verifyAuth, async (req, res) => {
     }
 
     try {
-        // the whole trade runs inside one transaction with begin/commit/rollback, and
-        // retries itself if postgres aborts it for a deadlock (see runInTransaction)
+        // the whole trade runs in one transaction, and retries itself if postgres aborts
+        // it for a deadlock
         const trueTicker = await runInTransaction(async (client) => {
             // ilike so we match regardless of how the user typed the casing
             const stockRes = await client.query('SELECT ticker, current_price FROM repositories WHERE ticker ILIKE $1', [ticker]);
@@ -190,8 +183,8 @@ app.post('/api/buy', tradeLimiter, verifyAuth, async (req, res) => {
             const price = stockRes.rows[0].current_price;
 
             // reject if the price moved more than 1% since the user clicked buy. this is the
-            // slippage protection - stops someone from quoting an old price and getting a
-            // way better deal than what's actually live right now
+            // slippage check, so nobody can quote an old price and get a better deal than
+            // what's live right now
             if (Math.abs(price - expectedPrice) / expectedPrice > 0.01) {
                 throw new TradeError(`Slippage error: Asset price shifted to ${price}. Trade rejected.`);
             }
@@ -202,21 +195,21 @@ app.post('/api/buy', tradeLimiter, verifyAuth, async (req, res) => {
 
             // lock the row so nobody else can mess with the balance mid-trade. without this
             // two buy requests firing at the same time could both read the same balance and
-            // both succeed even if the user can only actually afford one of them.
-            // LOCK ORDER: users first, then portfolios - the sell route locks them in the
-            // same order so a buy and a sell racing on the same holding can't deadlock.
+            // both succeed even if the user can only actually afford one of them. users get
+            // locked before portfolios here and in the sell route, so a buy and a sell
+            // racing on the same holding can't deadlock
             const userRes = await client.query('SELECT cash_balance FROM users WHERE id = $1 FOR UPDATE', [userId]);
             if (userRes.rows.length === 0) throw new TradeError("User not found.", 404);
             const cash = userRes.rows[0].cash_balance;
 
-            // making sure the user can actually afford this
+            // check the user can actually afford this
             if (cash < totalCost) throw new TradeError("Insufficient funds.");
 
             await client.query('UPDATE users SET cash_balance = cash_balance - $1 WHERE id = $2', [totalCost, userId]);
 
-            // upsert - if they already own this stock, just add to it and recalc the avg price.
-            // this is just a weighted average: (old shares * old avg price + new shares * new
-            // price) / total shares, which is how you get the new blended cost basis
+            // upsert. if they already own this stock, add to it and recalc the avg price as
+            // a weighted average: (old shares * old avg price + new shares * new price) /
+            // total shares, which gives the new blended cost basis
             const portfolioQuery = `
                 INSERT INTO portfolios (user_id, ticker, shares, average_price)
                 VALUES ($1, $2, $3, $4)
@@ -242,16 +235,16 @@ app.post('/api/buy', tradeLimiter, verifyAuth, async (req, res) => {
         if (error instanceof TradeError) {
             res.status(error.statusCode).json({ error: error.message });
         } else {
-            // this is an error we didn't expect, so don't leak the raw message back to the
-            // client, just log it server-side and give them something generic
+            // an error we didn't expect. the raw message gets logged server-side and the
+            // client gets something generic
             console.error(`[Ledger Error] Buy transaction failed: ${error.message}`);
             res.status(500).json({ error: "An internal error occurred. Please try again." });
         }
     }
 });
 
-// same deal as buy but backwards - mirror logic, just checks they own enough shares
-// instead of checking they have enough cash
+// same as buy but in reverse. checks they own enough shares instead of checking they
+// have enough cash
 app.post('/api/sell', tradeLimiter, verifyAuth, async (req, res) => {
     const { ticker, shares, expectedPrice } = req.body;
     const userId = req.user.id;
@@ -284,15 +277,14 @@ app.post('/api/sell', tradeLimiter, verifyAuth, async (req, res) => {
             const trueTicker = stockRes.rows[0].ticker;
             const totalValue = Number((price * shares).toFixed(2));
 
-            // LOCK ORDER: users first, then portfolios - identical to the buy route. this
-            // is what stops a buy and a sell racing on the same holding from grabbing the
-            // two rows in opposite orders and deadlocking. we don't read the balance here,
-            // we just take the lock up front so the ordering holds.
+            // lock users before portfolios, same as the buy route, so a buy and a sell on
+            // the same holding can't grab the two rows in opposite orders and deadlock. the
+            // balance isn't read here, the lock just keeps the ordering
             const userRes = await client.query('SELECT id FROM users WHERE id = $1 FOR UPDATE', [userId]);
             if (userRes.rows.length === 0) throw new TradeError("User not found.", 404);
 
-            // now the portfolio row: make sure they actually own enough shares to sell. same
-            // race-condition protection as the buy route, just checking shares instead of cash
+            // then the portfolio row: check they actually own enough shares to sell. same
+            // race protection as the buy route, just on shares instead of cash
             const portRes = await client.query('SELECT shares FROM portfolios WHERE user_id = $1 AND ticker = $2 FOR UPDATE', [userId, trueTicker]);
             if (portRes.rows.length === 0 || portRes.rows[0].shares < shares) {
                 throw new TradeError("Insufficient shares to sell.");
@@ -324,8 +316,8 @@ app.post('/api/sell', tradeLimiter, verifyAuth, async (req, res) => {
 
 // just returns how much cash the logged in user has, used for the "purchasing power" display
 app.get('/api/balance/:userId', readLimiter, verifyAuth, async (req, res) => {
-    // note we don't even use req.params.userId here, we use req.user.id from the verified
-    // token instead. that way nobody can just change the url and read someone else's balance
+    // req.params.userId is ignored. the id comes from the verified token, so changing the
+    // url can't read someone else's balance
     const userId = req.user.id;
 
     try {
@@ -345,7 +337,7 @@ app.get('/api/balance/:userId', readLimiter, verifyAuth, async (req, res) => {
 // returns everything the user currently owns, joined against repositories so we can send
 // back the live current price alongside their average entry price
 app.get('/api/portfolio/:userId', readLimiter, verifyAuth, async (req, res) => {
-    const userId = req.user.id; // same deal as balance, always use the verified id not the url param
+    const userId = req.user.id; // verified token id, not the url param, same as balance
 
     try {
         const query = `
@@ -362,13 +354,12 @@ app.get('/api/portfolio/:userId', readLimiter, verifyAuth, async (req, res) => {
     }
 });
 
-// ── Repo Calls ───────────────────────────────────────────────────────────────
-// A call is a prediction that a repo reaches a star target by a deadline, settled
-// even-money from the same simulated wallet. The economics live in ./calls.js; every
-// outcome is judged against the public star count the worker already tracks.
+// repo calls: a prediction that a repo reaches a star target by a deadline, settled
+// even-money from the same wallet. the payout rules are in ./calls.js, and outcomes are
+// judged against the star count the worker already tracks
 
-// open a call: validate the target against the repo's LIVE star count, debit the stake,
-// and record the position — all in one locked transaction, same posture as a buy.
+// opens a call: checks the target against the repo's live star count, debits the stake,
+// and records the call, all in one locked transaction like a buy
 app.post('/api/calls', tradeLimiter, verifyAuth, async (req, res) => {
     const { ticker, targetStars, stake, deadline } = req.body;
     const userId = req.user.id;
@@ -383,8 +374,8 @@ app.post('/api/calls', tradeLimiter, verifyAuth, async (req, res) => {
 
     try {
         const created = await runInTransaction(async (client) => {
-            // resolve the repo and read its live star count — the target is checked against
-            // a real current public number, never whatever the client happened to send
+            // look up the repo and its live star count, so the target is checked against the
+            // real number and not whatever the client sent
             const repoRes = await client.query(
                 'SELECT ticker, raw_stars FROM repositories WHERE ticker ILIKE $1 AND is_active = TRUE',
                 [ticker]
@@ -423,8 +414,8 @@ app.post('/api/calls', tradeLimiter, verifyAuth, async (req, res) => {
     }
 });
 
-// list the logged-in user's calls — open ones first (they carry the countdown), then by
-// deadline. always keyed off the verified token id, never a url param.
+// lists the logged-in user's calls, open ones first, then by deadline. keyed off the
+// verified token id
 app.get('/api/calls', readLimiter, verifyAuth, async (req, res) => {
     const userId = req.user.id;
     try {
@@ -442,10 +433,10 @@ app.get('/api/calls', readLimiter, verifyAuth, async (req, res) => {
     }
 });
 
-// resolver: settle every open call whose deadline has passed, against the latest public
-// star count. Guarded by a shared secret because it moves money and is meant to be driven
-// by a scheduler, not a user. Idempotent: it only ever touches rows still 'open', and
-// SKIP LOCKED lets overlapping runs divide the work instead of double-paying.
+// settles every open call past its deadline against the latest star count. a scheduler
+// calls it, not a user, so it's behind a shared secret instead of user auth. it only
+// touches rows still 'open', and SKIP LOCKED lets overlapping runs split the work
+// instead of paying out twice
 app.post('/api/calls/settle', async (req, res) => {
     const secret = process.env.CRON_SECRET;
     if (!secret || req.get('x-cron-secret') !== secret) {
@@ -465,8 +456,8 @@ app.post('/api/calls/settle', async (req, res) => {
 
             const out = [];
             for (const row of due.rows) {
-                // a repo we can no longer read a public star count for is voided, not
-                // guessed — the stake is refunded rather than the user penalised
+                // if we can't read a star count for the repo anymore, the call is voided
+                // and the stake refunded
                 const missing = row.is_active !== true || row.raw_stars == null;
                 const decision = missing
                     ? calls.voidRefund({ stake: row.stake })
@@ -525,9 +516,9 @@ app.get('/api/history/:owner/:repo', readLimiter, async (req, res) => {
             return res.json({ history: formattedHistory, asset: assetRes.rows[0] || null });
         }
 
-        // no history yet, so we go grab it from github and seed it right here. this covers
-        // the case where someone searches for a repo the data engine hasn't discovered yet -
-        // instead of showing an empty chart we just fetch it live and add it to the db
+        // no history yet, so we grab the repo from github and seed it right here. this covers
+        // someone searching for a repo the data engine hasn't discovered yet, so they get a
+        // price instead of an empty chart
         const githubRes = await fetch(`https://api.github.com/repos/${owner}/${repo}`);
         if (githubRes.status === 404) {
             return res.status(404).json({ error: "Repository not found on GitHub" });
@@ -537,19 +528,19 @@ app.get('/api/history/:owner/:repo', readLimiter, async (req, res) => {
         }
 
         const githubData = await githubRes.json();
-        // gotta type-check everything coming back from github before it touches the db,
-        // don't just trust the shape of an external api's response
+        // type-check everything coming back from github before it touches the db instead
+        // of trusting the shape of the response
         const stargazers_count = typeof githubData.stargazers_count === 'number' ? githubData.stargazers_count : 0;
         const forks = typeof githubData.forks_count === 'number' ? githubData.forks_count : 0;
         const watchers = typeof githubData.subscribers_count === 'number' ? githubData.subscribers_count : 0;
-        const oiTotal = typeof githubData.open_issues_count === 'number' ? githubData.open_issues_count : 0; // issues + PRs
+        const oiTotal = typeof githubData.open_issues_count === 'number' ? githubData.open_issues_count : 0; // issues + prs
         const pushedAt = githubData.pushed_at || null;
         let description = typeof githubData.description === 'string' ? githubData.description : '';
         if (description.length > 500) description = description.substring(0, 497) + '...';
         const category = githubData.language || "Unknown";
 
-        // this path doesn't cheaply give the issue/PR split, so estimate it the same way
-        // the worker does; the worker corrects it on its next hourly pass
+        // this path doesn't cheaply give the issue/pr split, so estimate it the same way
+        // the worker does. the worker corrects it on its next hourly pass
         const openPrs = Math.round(oiTotal * 0.15);
         const openIssues = Math.max(0, oiTotal - openPrs);
         const current_price = computePrice({ stars: stargazers_count, forks, watchers, openIssues, openPrs, pushedAt });
@@ -574,8 +565,8 @@ app.get('/api/history/:owner/:repo', readLimiter, async (req, res) => {
             [ticker, current_price, description, category, stargazers_count, forks, watchers, openIssues, openPrs, pushedAt]
         );
 
-        // just seed a single history point for right now, the data engine will backfill
-        // more history the next time it runs
+        // seed a single history point at the current price. the data engine adds another
+        // one every time it runs
         const historyInsert = await pool.query(
             "INSERT INTO price_history (ticker, price, created_at) VALUES ($1, $2, NOW()) RETURNING TO_CHAR(created_at, 'YYYY-MM-DD') AS time",
             [ticker, current_price]
@@ -609,9 +600,8 @@ let cachedDiscoveryData = null;
 let lastCacheTime = 0;
 const CACHE_TTL_MS = 5000;
 
-// this is the "denial of wallet" defense mentioned in the readme - the frontend polls
-// this endpoint every 5 seconds per user, and without this cache that's 5 seconds worth
-// of database load times however many people happen to have the site open at once
+// the frontend polls this endpoint every 5 seconds per user, so without the cache db load
+// would scale with however many people have the site open at once
 app.get('/api/discovery', discoveryLimiter, async (req, res) => {
     const now = Date.now();
 
@@ -628,9 +618,9 @@ app.get('/api/discovery', discoveryLimiter, async (req, res) => {
             return res.json({});
         }
 
-        // grab the last 10 price points per active ticker for the little sparkline on
-        // each discovery card. row_number() partitioned by ticker is the postgres way to
-        // do a "top n per group" query in one round trip instead of one query per repo
+        // grab the last 10 price points per ticker for the sparklines on the board.
+        // row_number() partitioned by ticker is the postgres way to do a "top n per group"
+        // query in one round trip instead of one query per repo
         const sparklineRes = await pool.query(`
             SELECT ticker, price FROM (
                 SELECT ticker, price, created_at,
@@ -648,19 +638,11 @@ app.get('/api/discovery', discoveryLimiter, async (req, res) => {
             return acc;
         }, {});
 
-        // Dedupe same-repo listings admitted under different tickers (the known
-        // react/react vs facebook/react defect). The ticker STRING is not a
-        // reliable identity — GitHub redirects an alias to the canonical repo and
-        // returns the same data — so key on repo identity: the resolved GitHub
-        // node id when the row carries one, otherwise the metric fingerprint
-        // (identical stars + mark means the same underlying repo, whichever alias
-        // fetched it). When two tickers collide, keep the canonical one: an
-        // owner/name pair that isn't just the repo named after itself.
-        //
-        // This is the read-side half. The durable half — a github_node_id column
-        // populated by the worker — is migrations/002_repo_identity.sql; once it
-        // lands, add github_node_id to the SELECT above and identity() prefers it
-        // with no other change.
+        // dedupe listings of the same repo under different tickers (react/react and
+        // facebook/react). github redirects an alias to the canonical repo and returns the
+        // same data, so the key is the github node id when the row has one, otherwise
+        // stars + mark. when two collide we keep the ticker that isn't the repo named
+        // after itself
         const selfNamed = (r) => {
             const [o = "", n = ""] = String(r.ticker).split("/");
             return o.toLowerCase() === n.toLowerCase();
@@ -679,8 +661,8 @@ app.get('/api/discovery', discoveryLimiter, async (req, res) => {
         }
         const dedupedRows = [...byIdentity.values()];
 
-        // group everything by category so the frontend can just render each key as its
-        // own row of cards without doing any grouping logic on its end
+        // group everything by category so the frontend can render each key as its own
+        // board without doing any grouping on its end
         const groupedData = dedupedRows.reduce((acc, repo) => {
             const categoryName = repo.category || "Uncategorized";
             if (!acc[categoryName]) {

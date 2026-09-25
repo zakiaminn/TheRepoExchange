@@ -12,17 +12,13 @@ import { AUTH, ERROR, NOTICE, HERO, STATE } from "@/lib/copy";
 type Spec = { ticker: string; mark: number; delta: number | null };
 export type Mode = "signin" | "signup" | "forgot";
 
-/* login + signup + password-reset request, all on one page.
-
-   two columns instead of a centred card: the left says what you're joining and
-   on what terms, the right takes your details. the point of the split is that
-   the notice (the fine print a real exchange makes you see before you sign) is
-   right there while you sign up, not buried in a footer.
-
-   three modes, driven by isSignUp / isForgot: sign in, open account, and the
-   "email me a reset link" step. the actual new-password form lives on
-   /auth/reset (you land there from the email link). the mode lives in the URL
-   (?mode=signup / ?mode=forgot) so links can open straight onto the right one. */
+// login + signup + password-reset request, all on one page. the left column says what
+// you're joining and shows the notice, the right one takes your details.
+//
+// three modes, driven by isSignUp / isForgot: sign in, open account, and the "email me
+// a reset link" step. the new-password form itself is on /auth/reset (you land there
+// from the email link). the mode lives in the url (?mode=signup / ?mode=forgot) so
+// links can open straight onto the right one
 export default function LoginView({ initialMode, error }: { initialMode: Mode; error: string | null }) {
   const [isSignUp, setIsSignUp] = useState(initialMode === "signup");
   const [isForgot, setIsForgot] = useState(initialMode === "forgot");
@@ -32,8 +28,8 @@ export default function LoginView({ initialMode, error }: { initialMode: Mode; e
   const [lastName, setLastName] = useState("");
   const [loading, setLoading] = useState(false);
   const [oauthLoading, setOauthLoading] = useState(false);
-  // /auth/callback sends failed links back here with ?error=. a dead reset
-  // link lands on the forgot form, so the fix is one field away.
+  // /auth/callback sends failed links back here with ?error=, and a dead reset link
+  // lands on the forgot form
   const [message, setMessage] = useState<{ text: string; type: "success" | "error" } | null>(
     error === "reset" ? { text: AUTH.linkInvalid, type: "error" } : error ? { text: ERROR.auth, type: "error" } : null,
   );
@@ -41,9 +37,7 @@ export default function LoginView({ initialMode, error }: { initialMode: Mode; e
   const router = useRouter();
   const supabase = createClient();
 
-  // a live specimen of the board for the left column. it's the public
-  // discovery feed (no auth), so an applicant sees the actual market working
-  // before they sign — the product proving itself instead of describing itself.
+  // a few live listings for the left column, from the public discovery feed (no auth)
   const [spec, setSpec] = useState<Spec[]>([]);
   useEffect(() => {
     let alive = true;
@@ -52,11 +46,8 @@ export default function LoginView({ initialMode, error }: { initialMode: Mode; e
         const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/discovery`);
         if (!res.ok) return;
         const data = await res.json();
-        // this is a curated teaser, so it dedupes defensively: the feed carries
-        // known duplicate listings for one repo under different tickers (the
-        // documented node-id defect), and a doubled row on the sign-in page is
-        // the last place the verifiability pitch can afford one. key on both the
-        // repo name and the exact mark so neither twin gets through.
+        // the feed can carry the same repo under two different tickers, so this
+        // dedupes on both the repo name and the exact mark
         const seenRepo = new Set<string>();
         const seenMark = new Set<string>();
         const rows: Spec[] = (Object.values(data).flat() as any[])
@@ -80,7 +71,7 @@ export default function LoginView({ initialMode, error }: { initialMode: Mode; e
           .slice(0, 8);
         if (alive) setSpec(rows);
       } catch {
-        // no specimen; the headline and notice still carry the column
+        // no listings then. the headline and notice still fill the column
       }
     };
     load();
@@ -88,9 +79,7 @@ export default function LoginView({ initialMode, error }: { initialMode: Mode; e
     return () => { alive = false; window.clearInterval(id); };
   }, []);
 
-  // Supabase's raw errors are written for developers. These are written for
-  // the person reading them, in the same register as everything else — a
-  // notice, not an apology.
+  // maps supabase's raw error messages to the plain notices in copy.ts
   const readable = (raw: string): string => {
     const m = raw.toLowerCase();
     if (m.includes("invalid login credentials") || m.includes("invalid password")) return ERROR.credentials;
@@ -99,7 +88,7 @@ export default function LoginView({ initialMode, error }: { initialMode: Mode; e
     if (m.includes("rate limit") || m.includes("too many requests")) return ERROR.rateLimit;
     // supabase makes you wait about a minute between emails to one address
     if (m.includes("for security purposes") || m.includes("request this after")) return ERROR.rateLimit;
-    // the email provider (SMTP) refused or failed. not the person's fault
+    // the email provider (smtp) refused or failed. not the person's fault
     if (m.includes("error sending")) return ERROR.emailSend;
     if (m.includes("password") && m.includes("characters")) return ERROR.password;
     return ERROR.auth;
@@ -134,10 +123,9 @@ export default function LoginView({ initialMode, error }: { initialMode: Mode; e
     }
   };
 
-  // send the reset email. Supabase deliberately does NOT tell us whether the
-  // address exists (so nobody can probe for accounts), so on success we show
-  // the same neutral "if it's on file…" message either way. the link lands on
-  // /auth/callback, which exchanges the code and forwards to /auth/reset.
+  // sends the reset email. supabase doesn't say whether the address exists (so nobody
+  // can probe for accounts), so success shows the same neutral message either way. the
+  // link lands on /auth/callback, which verifies it and forwards to /auth/reset
   const handleForgot = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -149,7 +137,7 @@ export default function LoginView({ initialMode, error }: { initialMode: Mode; e
       if (error) throw error;
       setMessage({ text: AUTH.resetSent, type: "success" });
     } catch (error: any) {
-      // keep supabase's own wording in the console; the notice is rewritten
+      // supabase's own wording goes to the console, and the notice gets a rewritten one
       console.error("[reset request]", error?.status, error?.message);
       const text = readable(error.message);
       setMessage({ text: text === ERROR.auth ? ERROR.emailSend : text, type: "error" });
@@ -168,11 +156,11 @@ export default function LoginView({ initialMode, error }: { initialMode: Mode; e
       setMessage({ text: readable(error.message), type: "error" });
       setOauthLoading(false);
     }
-    // on success the browser is already navigating away to Google
+    // on success the browser is already navigating away to google
   };
 
-  // keep the address bar in step with the form, so refresh and shared links
-  // land on the same mode. replaceState, not a route change: nothing to refetch.
+  // keeps the address bar in step with the form, so refresh and shared links land on
+  // the same mode. replaceState, not a route change, since there's nothing to refetch
   const setMode = (mode: Mode) => {
     setIsSignUp(mode === "signup");
     setIsForgot(mode === "forgot");
@@ -186,7 +174,7 @@ export default function LoginView({ initialMode, error }: { initialMode: Mode; e
 
   return (
     <div className="grid min-h-screen lg:grid-cols-2">
-      {/* ── the terms ────────────────────────────────────────────────── */}
+      {/* left column: the pitch, live listings and the notice */}
       <aside className="relative hidden flex-col justify-between overflow-hidden border-r border-rule bg-paper-2 p-10 lg:flex xl:p-14">
         <Link href="/" className="relative">
           <Wordmark size="md" />
@@ -198,8 +186,7 @@ export default function LoginView({ initialMode, error }: { initialMode: Mode; e
           </h2>
           <p className="mt-5 text-sm leading-relaxed text-ink-2">{HERO.dek}</p>
 
-          {/* the market, proving itself — real listings and marks off the
-              public feed, marked live. no numbers are invented here. */}
+          {/* real listings and marks off the public feed */}
           <div className="mt-9">
             <SectionRule
               label="Selected listings"
@@ -246,7 +233,7 @@ export default function LoginView({ initialMode, error }: { initialMode: Mode; e
         </div>
       </aside>
 
-      {/* ── the application ──────────────────────────────────────────── */}
+      {/* right column: the form */}
       <div className="flex flex-col justify-center px-5 py-12 sm:px-10">
         <div className="mx-auto w-full max-w-sm">
           <Link href="/" className="mb-10 block lg:hidden">
@@ -258,7 +245,7 @@ export default function LoginView({ initialMode, error }: { initialMode: Mode; e
           <h1 className="display mb-2 text-3xl text-ink">{title}</h1>
           <p className="mb-8 text-sm leading-relaxed text-ink-2">{body}</p>
 
-          {/* ── reset-request mode: just an email + send ── */}
+          {/* reset-request mode: just an email and a send button */}
           {isForgot ? (
             <>
               <form onSubmit={handleForgot} className="space-y-4">
@@ -333,7 +320,7 @@ export default function LoginView({ initialMode, error }: { initialMode: Mode; e
                       className="field text-[13px]"
                     />
                   </Field>
-                  {/* only offered on sign-in — there's nothing to recover mid-signup */}
+                  {/* only offered on sign-in, since there's nothing to recover mid-signup */}
                   {!isSignUp && (
                     <div className="mt-2 text-right">
                       <button type="button" onClick={() => setMode("forgot")} className="link text-[12px]">
@@ -359,7 +346,7 @@ export default function LoginView({ initialMode, error }: { initialMode: Mode; e
                   AUTH.connecting
                 ) : (
                   <>
-                    {/* Google's own mark, inlined rather than pulling an icon
+                    {/* google's own mark, inlined rather than pulling an icon
                         package in for a single glyph */}
                     <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
                       <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4" />

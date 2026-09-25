@@ -1,9 +1,7 @@
 import type { Config } from "tailwindcss";
 
-// Tailwind v4 reads the design tokens from the `@theme inline` block in
-// globals.css, not from here — this file exists so the token names are
-// discoverable by tooling and editors. globals.css is the source of truth;
-// if the two ever disagree, globals.css wins.
+// tailwind v4 reads the design tokens from the `@theme inline` block in globals.css,
+// not from here. this file lists the token names for editors and tooling
 export default {
   darkMode: "class",
   content: [

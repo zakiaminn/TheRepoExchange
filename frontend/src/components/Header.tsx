@@ -9,10 +9,8 @@ import { NAV, STATE } from "@/lib/copy";
 
 type TickerSuggestion = { ticker: string; category: string };
 
-/* the top bar: the masthead, laid out like a newspaper front page, which is
-   most of why this feels like an exchange and not a dashboard. shows up on
-   every logged-in page; it just returns null when there's no session (the
-   landing page brings its own nav). */
+// the top bar on every logged-in page: wordmark, search, nav and the account menu. it
+// returns null when there's no session, since the landing page brings its own nav
 export function Header() {
   const [user, setUser] = useState<any>(null);
   const [authLoading, setAuthLoading] = useState(true);
@@ -35,7 +33,7 @@ export function Header() {
   const inputRef = useRef<HTMLInputElement>(null);
 
   // populates the autocomplete index. filtering client-side means typing
-  // doesn't hit the API on every keystroke.
+  // doesn't hit the api on every keystroke
   useEffect(() => {
     const load = async () => {
       try {
@@ -55,14 +53,11 @@ export function Header() {
     load();
   }, []);
 
-  // follow the session rather than asking for it once. this used to be a
-  // single getUser() on mount, and the header lives in the root layout, so it
-  // mounts once per page load: sign in on /login (where it had already
-  // recorded "no user") and the bar stayed gone until a reload, and any
-  // failed or thrown lookup hid it for the rest of the visit. the listener
-  // fires INITIAL_SESSION straight away from the stored session, then again
-  // on sign-in, sign-out, token refresh and name changes. it's only deciding
-  // whether to draw the bar; every page still verifies the user itself.
+  // follows the session instead of asking for it once, since the header lives in the
+  // root layout and only mounts once per page load. the listener fires INITIAL_SESSION
+  // straight away from the stored session, then again on sign-in, sign-out, token
+  // refresh and name changes. it only decides whether to draw the bar, and every page
+  // still checks the user itself
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user ?? null);
@@ -81,8 +76,7 @@ export function Header() {
     return () => document.removeEventListener("mousedown", onDown);
   }, []);
 
-  // "/" focuses search, Escape leaves it. Terminal convention, and the kind
-  // of thing the people who'd actually use this expect to work.
+  // "/" focuses search and Escape leaves it
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const el = document.activeElement;
@@ -181,8 +175,7 @@ export function Header() {
           {suggestions.length === 0 ? (
             <div className="px-3 py-2.5 text-xs text-ink-3">{STATE.noSuggestions}</div>
           ) : (
-            // no motion on the highlight: arrowing through a list is something
-            // you do fast and often, so it has to keep up with the keys
+            // no transition on the highlight, so it keeps up with fast arrowing
             suggestions.map((s, i) => (
               <button
                 key={s.ticker}

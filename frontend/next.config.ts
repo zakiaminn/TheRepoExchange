@@ -3,11 +3,9 @@ import type { NextConfig } from "next";
 // mostly just security headers here, next.js doesn't set these by default and there's
 // no backend framework (like express) in front of the frontend to add them for us
 const nextConfig: NextConfig = {
-  // turbopack's on-disk cache is on by default since next 16.3, and vercel
-  // restores .next/cache between deploys. a deploy built from that cache
-  // shipped the new javascript with the previous globals.css, so the live site
-  // had none of the new styles. the dev server did the same thing locally.
-  // a cold compile is a few seconds slower and always matches the source.
+  // turbopack's on-disk cache is off for builds and dev. vercel restores .next/cache
+  // between deploys, and a build from that cache can pair new javascript with a stale
+  // globals.css. a cold compile is a few seconds slower and always matches the source
   experimental: {
     turbopackFileSystemCacheForBuild: false,
     turbopackFileSystemCacheForDev: false,

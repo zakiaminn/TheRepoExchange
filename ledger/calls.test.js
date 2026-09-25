@@ -1,5 +1,4 @@
-// Tests for the Repo Calls economics. No framework — exits non-zero on failure.
-// Run:  node ledger/calls.test.js
+// tests for the repo calls payout rules. plain node, exits non-zero on failure
 
 const assert = require('assert');
 const { validateOpen, settle, voidRefund, PAYOUT_MULTIPLIER } = require('./calls');
@@ -13,7 +12,7 @@ function check(name, fn) {
     catch (e) { failures++; console.error(`FAIL  ${name}\n      ${e.message}`); }
 }
 
-// ── validateOpen ──
+// validateOpen
 check('accepts a well-formed call', () => {
     const r = validateOpen({ stake: 250, targetStars: 80000, currentStars: 75000, deadlineMs: NOW + 30 * day, now: NOW });
     assert.deepStrictEqual(r, { ok: true, stake: 250, targetStars: 80000 });
@@ -40,7 +39,7 @@ check('rejects a deadline too soon or too far out', () => {
     assert.strictEqual(validateOpen({ stake: 10, targetStars: 100, currentStars: 10, deadlineMs: NOW + 400 * day, now: NOW }).ok, false);
 });
 
-// ── settle (even-money) ──
+// settle
 check('a met target wins and returns 2x the stake', () => {
     assert.deepStrictEqual(settle({ targetStars: 80000, stake: 250, resolvedStars: 80000 }), { status: 'won', payout: 500 });
     assert.deepStrictEqual(settle({ targetStars: 80000, stake: 250, resolvedStars: 81234 }), { status: 'won', payout: 500 });
@@ -53,7 +52,7 @@ check('payout multiplier is even-money (2x)', () => {
     assert.strictEqual(settle({ targetStars: 1, stake: 33.33, resolvedStars: 1 }).payout, 66.66);
 });
 
-// ── voidRefund ──
+// voidRefund
 check('a void refunds exactly the stake', () => {
     assert.deepStrictEqual(voidRefund({ stake: 250 }), { status: 'void', payout: 250 });
 });

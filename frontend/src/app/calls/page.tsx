@@ -28,8 +28,7 @@ type Call = {
 const API = process.env.NEXT_PUBLIC_API_URL;
 const TICKER_RE = /^[a-zA-Z0-9._-]+\/[a-zA-Z0-9._-]+$/;
 
-// countdown from a fixed deadline against the page clock (nowMs is state, never
-// Date.now() in render). deadlines are day-plus out, so day/hour/minute is enough.
+// time left until a deadline, measured against the page clock in nowMs
 function countdown(deadlineMs: number, nowMs: number): string {
   const left = deadlineMs - nowMs;
   if (left <= 0) return "due";
@@ -42,7 +41,8 @@ function countdown(deadlineMs: number, nowMs: number): string {
   return `${m}m ${s % 60}s`;
 }
 
-// deterministic given its input, so it's safe to call in render (unlike new Date()).
+// formats an iso date like "Sep 24, 2026". it only depends on its input, so it's safe
+// to call in render
 function fmtDate(iso: string): string {
   return new Date(iso).toLocaleDateString("en-US", { day: "numeric", month: "short", year: "numeric" });
 }
@@ -54,10 +54,8 @@ const STATUS_TONE: Record<CallStatus, string> = {
   void: "text-ink-3",
 };
 
-/* Repo calls. A prediction that a repository reaches a star target by a date,
-   staked from the same simulated wallet and settled even-money against the
-   public star count. Open a call up top; your book of calls sits below, open
-   ones first with a live countdown. */
+// the repo calls page. the form to open a call is up top, and your calls sit below, open
+// ones first with a live countdown
 export default function CallsPage() {
   const [userId, setUserId] = useState<string | null>(null);
   const [balance, setBalance] = useState<number | null>(null);
@@ -79,16 +77,15 @@ export default function CallsPage() {
 
   const supabase = createClient();
 
-  // page clock for the countdowns — set off the render path so Date.now() is
-  // never called during render
+  // page clock for the countdowns, set in an effect so Date.now() stays out of render
   useEffect(() => {
     const id = window.setInterval(() => setNowMs(Date.now()), 1000);
     const t = window.setTimeout(() => setNowMs(Date.now()), 0);
     return () => { window.clearInterval(id); window.clearTimeout(t); };
   }, []);
 
-  // default the deadline 30 days out, floor it at tomorrow — computed off the
-  // render path for the same reason
+  // defaults the deadline to 30 days out with tomorrow as the minimum, also set in an
+  // effect to keep Date out of render
   useEffect(() => {
     const t = window.setTimeout(() => {
       const plus = (days: number) => {
@@ -133,10 +130,9 @@ export default function CallsPage() {
     run();
   }, [userId]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // resolve the repo's live star count as the user types, so the target is set
-  // against a real number and validated before anything is staked. all state
-  // updates happen inside the debounced callback, never synchronously in the
-  // effect body.
+  // looks up the repo's live star count as the user types, so the target is checked
+  // against a real number before anything is staked. state only changes inside the
+  // debounced callback, not in the effect body
   useEffect(() => {
     const t = repo.trim();
     const id = window.setTimeout(async () => {
@@ -223,7 +219,7 @@ export default function CallsPage() {
         </div>
 
         <div className="mt-10 grid gap-x-12 gap-y-12 lg:grid-cols-[1fr_1.1fr]">
-          {/* ── open a call ─────────────────────────────────────────────── */}
+          {/* open a call */}
           <section>
             <SectionRule
               label={SECTIONS.newCall}
@@ -308,7 +304,7 @@ export default function CallsPage() {
             <Notice label={CALLS.noticeLabel} className="mt-6">{CALLS.noticeBody}</Notice>
           </section>
 
-          {/* ── the book of calls ──────────────────────────────────────── */}
+          {/* your calls */}
           <section>
             <SectionRule
               label={SECTIONS.calls}

@@ -4,19 +4,14 @@ import { useEffect, useState } from "react";
 
 export type ToastMessage = { text: string; type: "success" | "error" } | null;
 
-// how long a notice stays up, and how long its fade-out takes. the fade has to
-// match the exit transition on .toast in globals.css.
+// how long a notice stays up, and how long its fade-out takes (the same length as the
+// exit transition on .toast in globals.css)
 const DWELL = 4500;
 const EXIT = 160;
 
-/* the little pop-up message. styled like a notice pinned to the corner, not a
-   confetti moment: hairline box, coloured bar on the left, mono text, no icon,
-   no rounded pill.
-
-   whoever uses it just sets the message. the toast owns its own clock: it
-   stays up for DWELL, fades out, and a new message replaces the old one and
-   restarts the clock. it used to be the caller's job to clear it, and two
-   trades inside the window meant the first timer killed the second notice. */
+// the little pop-up message: a hairline box in the corner with a coloured bar on the
+// left. the caller just sets the message and the toast runs its own clock. it stays up
+// for DWELL, fades out, and a new message replaces the old one and restarts the clock
 export function Toast({ message }: { message: ToastMessage }) {
   const [shown, setShown] = useState<{ msg: NonNullable<ToastMessage>; id: number } | null>(null);
   const [leaving, setLeaving] = useState(false);

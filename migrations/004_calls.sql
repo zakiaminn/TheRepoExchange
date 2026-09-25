@@ -1,17 +1,7 @@
--- Repo Calls: a user's prediction that a repository reaches a star target by a
--- deadline. Settled even-money from the simulated wallet by the ledger's resolver
--- (see ledger/calls.js): a correct call returns 2x the stake, a wrong one forfeits
--- it, a voided one refunds it. Every outcome is judged against the public star count,
--- so it stays as verifiable as the prices.
---
--- APPLY ORDER (each step is safe on its own):
---   1. Run this migration. Creates the table, its indexes, and RLS. No effect on the
---      existing board, portfolios, or wallet.
---   2. Deploy the ledger (ledger/server.js): adds POST /api/calls (open),
---      GET /api/calls (list), POST /api/calls/settle (resolver). Deploy only AFTER
---      step 1 — the routes read/write this table.
---
--- Safe to run more than once.
+-- the calls table. a call is a user's prediction that a repo reaches a star target by a
+-- deadline. the ledger settles it even-money from the wallet against the public star
+-- count: a correct call returns 2x the stake, a wrong one loses it, a voided one refunds it.
+-- safe to run more than once.
 
 CREATE TABLE IF NOT EXISTS calls (
     id             uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -34,10 +24,9 @@ CREATE INDEX IF NOT EXISTS idx_calls_user ON calls (user_id, created_at DESC);
 -- the resolver's working set: open calls whose deadline has passed
 CREATE INDEX IF NOT EXISTS idx_calls_due ON calls (deadline) WHERE status = 'open';
 
--- Defense in depth: even though writes and settlement go through the ledger's
--- service-role connection (which bypasses RLS), lock the table down so a viewer using
--- the Supabase client directly can only ever read their OWN calls — same posture as
--- portfolios and transactions.
+-- writes and settlement go through the ledger's service-role connection, which bypasses
+-- rls. with rls on, anyone using the supabase client directly can only read their own
+-- calls, same as portfolios and transactions
 ALTER TABLE calls ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS calls_select_own ON calls;

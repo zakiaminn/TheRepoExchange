@@ -14,10 +14,10 @@ type Line = {
   delay: number;
 };
 
-// how far a line's own movement may bend it, in css px. a repo's price moves
-// a fraction of a percent a day, so drawn to the same scale as the vertical
-// placement every line would be dead flat; each line's last ten prices are
-// scaled to its own range and allowed this much bend. placement is to scale.
+// how far a line's own movement can bend it, in css px. a repo's price moves a fraction
+// of a percent a day, so drawn to the same scale as the vertical placement every line
+// would be dead flat. each line's last ten prices are scaled to their own range and get
+// this much bend, while the vertical placement stays to scale
 const BEND = 7;
 const INTRO_SPREAD = 900; // ms between the first and last line starting
 const INTRO_DRAW = 1400; // ms for one line to draw across
@@ -25,20 +25,20 @@ const FLASH = 1400; // ms for an updated line to fade back
 
 const easeOut = (t: number) => 1 - Math.pow(1 - t, 3);
 
-/* the landing hero's backdrop: the whole market as a field of hairlines.
-   every line is a real listing. its height is its price (log scale, so a $5
-   listing and a $2,000 one both fit), and its shape is its last ten prices.
-
-   it draws itself in once, left to right. after that it only moves when the
-   data does: a listing whose price changes on the next poll flashes in the
-   accent and settles. with a mouse, hovering reads a line out. */
+// the landing hero's backdrop: the whole market as a field of hairlines. every line is a
+// real listing. its height is its price (log scale, so a $5 listing and a $2,000 one both
+// fit), and its shape is its last ten prices.
+//
+// it draws itself in once, left to right. after that it only moves when the data does:
+// a listing whose price changes on the next poll flashes in the accent and settles. with
+// a mouse, hovering a line shows its name and price
 export function PriceField({ series, className }: { series: FieldSeries[]; className?: string }) {
   const wrapRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const labelRef = useRef<HTMLDivElement>(null);
 
   // everything the draw loop reads lives in refs, so a pointer move or a
-  // new frame never goes through React
+  // new frame never goes through react
   const lines = useRef<Line[]>([]);
   const size = useRef({ w: 0, h: 0, dpr: 1 });
   const start = useRef<number | null>(null);
@@ -222,7 +222,7 @@ export function PriceField({ series, className }: { series: FieldSeries[]; class
     return () => {
       ro.disconnect();
       // clear the handle too, or schedule() thinks a frame is still coming
-      // and never asks for another (React mounts effects twice in dev)
+      // and never asks for another (react mounts effects twice in dev)
       if (frame.current !== null) cancelAnimationFrame(frame.current);
       frame.current = null;
     };
@@ -280,7 +280,7 @@ export function PriceField({ series, className }: { series: FieldSeries[]; class
       aria-hidden="true"
     >
       <canvas ref={canvasRef} className="absolute inset-0 h-full w-full" />
-      {/* the name is words, so it's Bricolage; only the price is mono */}
+      {/* the name in the body font, the price in mono */}
       <div ref={labelRef} className="price-field-label">
         <span />
         <span className="figure" />

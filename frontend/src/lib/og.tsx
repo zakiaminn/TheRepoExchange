@@ -1,6 +1,5 @@
-// Shared bits for the generated Open Graph images (app/opengraph-image.tsx and
-// the per-repo one under app/asset/...). Kept in one place so both cards share
-// the same palette, type, lockup, dimensions, and host string.
+// shared pieces for the generated open graph images (app/opengraph-image.tsx and the
+// per-repo one under app/asset/...): palette, fonts, lockup, size and host
 
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
@@ -9,24 +8,23 @@ import { SITE_URL } from "@/lib/site";
 export const OG_SIZE = { width: 1200, height: 630 };
 export const OG_CONTENT_TYPE = "image/png";
 
-// The ground is the logo's own tint (public/trx-logo.png), not Chalk: the Sulfur
-// X only holds up against this pale yellow, and the card should read as the
-// same object as the logo.
+// the ground is the logo's own pale yellow tint (public/trx-logo.png), so the card reads
+// as the same object as the logo
 export const OG = {
   ground: "#EFF0CE",
   ink: "#16160E",
   ink2: "#4A4A3A",
   ink3: "#6A6A55",
   rule: "#D6D8AE",
-  brand: "#DCEC3A", // Sulfur
+  brand: "#DCEC3A", // sulfur
 } as const;
 
-// The bare host, e.g. "therepo.exchange", used in the footer.
+// the bare host, e.g. "therepo.exchange", for the footer
 export const OG_HOST = SITE_URL.replace(/^https?:\/\//, "");
 
-// Bricolage Grotesque, the brand face. Satori (inside next/og) only reads
-// ttf/otf and next/font ships woff2, so static instances live in assets/og.
-// Read with process.cwd() + a literal path so Next traces them into the build.
+// bricolage grotesque, the brand face. satori (inside next/og) only reads ttf/otf and
+// next/font ships woff2, so static instances live in assets/og. they're read with
+// process.cwd() + a literal path so next traces them into the build
 let fonts: Promise<{ name: string; data: Buffer; weight: 400 | 600; style: "normal" }[]> | null = null;
 
 export function ogFonts() {
@@ -41,9 +39,9 @@ export function ogFonts() {
   return fonts;
 }
 
-// The logo lockup: "TRX" with the Sulfur X, beside "THE REPO" over "Exchange".
-// Rebuilt as type rather than embedding the PNG so it stays sharp at any size.
-// `s` is the cap height of TRX in px; everything else scales from it.
+// the logo lockup: "TRX" with a sulfur "X", beside "THE REPO" over "Exchange". it's set
+// as type instead of the png so it stays sharp at any size. `s` is the cap height of the
+// wordmark in px and everything else scales from it
 export function Lockup({ s }: { s: number }) {
   return (
     <div style={{ display: "flex", alignItems: "center", gap: s * 0.28 }}>
@@ -69,7 +67,7 @@ export function Lockup({ s }: { s: number }) {
   );
 }
 
-// The footer both cards share: host on the left, a plain note on the right.
+// the footer both cards share: host on the left, a note on the right
 export function Footer({ note }: { note: string }) {
   return (
     <div

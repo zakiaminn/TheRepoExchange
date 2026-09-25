@@ -1,11 +1,6 @@
-// Reader-side pricing mirror — PRICING-1.
-//
-// The authorities that STRIKE prices are the ledger (ledger/pricing.js) and the
-// worker (data-engine/pricing.py), pinned to each other by pricing/fixtures.json.
-// This module lets the asset page RECONSTRUCT a stored mark, line by line, from the
-// repository's public numbers — so the price is a shown derivation, not a figure to
-// take on faith. It re-implements the same formula on purpose; if it ever drifts, the
-// page's own reconciliation flag (`reconciles`) surfaces it on screen.
+// the same pricing formula as ledger/pricing.js and data-engine/pricing.py, used by the
+// asset page to rebuild a stored price line by line from the repo's public numbers.
+// `reconciles` says whether the rebuild matches the price the ledger reports
 
 export const BASE_LISTING = 5.0;
 export const W_STAR = 0.001;
@@ -28,8 +23,8 @@ export interface AssetMetrics {
   description?: string | null;
 }
 
-// Multiplier in [0.70, 1.00] from WHOLE days since last push — floored to an integer
-// so it matches the ledger and worker exactly (fractional days were a parity bug).
+// multiplier in [0.70, 1.00] from whole days since the last push, same as the ledger
+// and the worker
 export function recencyMultiplier(days: number): number {
   if (days <= 30) return 1.0;
   if (days >= 365) return 0.7;
@@ -60,8 +55,8 @@ const num = (v: unknown): number => {
   return Number.isFinite(n) ? n : 0;
 };
 
-// Rebuild the mark from stored public metrics. `mark` is the price the ledger reports;
-// we recompute the derivation and check it reconciles.
+// rebuilds the price from stored public metrics. `mark` is the price the ledger reports,
+// and the result says whether the rebuild matches it
 export function deriveValuation(a: AssetMetrics, mark: number | null): Valuation {
   const stars = num(a.raw_stars);
   const forks = num(a.raw_forks);
@@ -82,10 +77,9 @@ export function deriveValuation(a: AssetMetrics, mark: number | null): Valuation
   const applied = Math.min(uncapped, cap);
   const preRecency = gross - applied;
 
-  // Recency is exact when both timestamps are present (the mark was struck at
-  // priced_at; the repo was last pushed at pushed_at). Until those are backfilled we
-  // back the factor out of the mark so the column still reconciles, and mark it
-  // "implied".
+  // recency is exact when both timestamps are there (priced at priced_at, last pushed at
+  // pushed_at). without them the factor is backed out of the mark so the column still
+  // reconciles, and flagged as implied
   let recency: Valuation["recency"] = null;
   if (a.pushed_at && a.priced_at) {
     const pushedMs = Date.parse(a.pushed_at);

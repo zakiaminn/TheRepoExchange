@@ -1,11 +1,9 @@
-// Server-only presentational bits for the legal pages. No hooks, no "use
-// client": these pages are static text, so they ship zero JavaScript. The look
-// borrows the Bureau system (ruled sections, mono figures for the clause
-// numbers, Bricolage for headings), kept calm and plain per the house voice.
+// server-only building blocks for the legal pages. no hooks and no client code, so the
+// pages are static text with no javascript
 import Link from "next/link";
 import type { ReactNode } from "react";
 
-/** A text link in the standard underlined-on-hover style. */
+// a text link in the standard underline-on-hover style
 export function L({ href, children }: { href: string; children: ReactNode }) {
   return (
     <Link href={href} className="link">
@@ -14,7 +12,7 @@ export function L({ href, children }: { href: string; children: ReactNode }) {
   );
 }
 
-/** The three-way sub-nav shown at the top of every legal page. */
+// the three-way sub-nav at the top of every legal page
 export function LegalNav() {
   return (
     <nav className="mb-8 flex flex-wrap items-center gap-x-5 gap-y-2" aria-label="Legal documents">
@@ -25,7 +23,7 @@ export function LegalNav() {
   );
 }
 
-/** A left-ruled note, matching the app's Notice component. */
+// a left-ruled note, like the app's Notice component
 export function Note({
   label,
   children,
@@ -43,7 +41,7 @@ export function Note({
   );
 }
 
-/** The document title block: name, one-line summary, and the effective date. */
+// the document title block: name, one-line summary, and the effective date
 export function DocHeader({
   title,
   summary,
@@ -62,8 +60,8 @@ export function DocHeader({
   );
 }
 
-/** A clause: the title as a ruled section label (the house SectionRule
-    pattern), the body as measured prose below. No leading number. */
+// a clause: the title as a ruled section label (like SectionRule), with the body as
+// prose below
 export function Clause({
   title,
   children,
@@ -84,7 +82,7 @@ export function Clause({
   );
 }
 
-/** A bulleted list inside a clause, in the same measured prose style. */
+// a bulleted list inside a clause, in the same prose style
 export function List({ items }: { items: ReactNode[] }) {
   return (
     <ul className="prose-measure list-disc space-y-1.5 pl-5 text-sm leading-relaxed text-ink-2">

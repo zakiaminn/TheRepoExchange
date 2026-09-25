@@ -1,4 +1,4 @@
-# Local environments
+# local environments
 .env
 .env.local
 .env.development.local

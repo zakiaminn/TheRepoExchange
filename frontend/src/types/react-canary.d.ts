@@ -1,3 +1,3 @@
-// ViewTransition ships in the React build Next uses, but its types live in the
-// canary entry point.
+// ViewTransition ships in the react build next uses, but its types live in the canary
+// entry point
 /// <reference types="react/canary" />

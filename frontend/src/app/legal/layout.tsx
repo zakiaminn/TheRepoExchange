@@ -2,9 +2,9 @@ import Link from "next/link";
 import { SITE_NAME } from "@/lib/site";
 import { LegalNav, Note } from "./parts";
 
-// Shared shell for every /legal page: a narrow reading column, a way back to
-// the app, the document nav, and the standing "this is not legal advice" note.
-// Per-document titles and metadata live on the pages themselves.
+// shared shell for every /legal page: a narrow reading column, a way back to the app,
+// the document nav, and the "not legal advice" note. titles and metadata are set on
+// each page
 export default function LegalLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex-1">

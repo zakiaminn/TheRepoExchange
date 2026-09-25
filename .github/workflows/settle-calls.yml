@@ -1,9 +1,8 @@
 name: TRX Call Settlement
 
-# Settles every open call whose deadline has passed, against the latest public star
-# count, and credits winners. The resolver lives in the ledger (POST /api/calls/settle);
-# this just pokes it on a schedule. It's idempotent, so an occasional double-run is safe.
-# Runs hourly, offset from the ingestion cron so the two don't fire at the same minute.
+# hits the ledger's POST /api/calls/settle every hour to settle calls past their deadline.
+# it only touches open calls, so a double run doesn't pay out twice. runs at :30 so it
+# doesn't fire at the same minute as ingestion
 
 on:
   schedule:

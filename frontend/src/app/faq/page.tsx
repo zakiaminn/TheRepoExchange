@@ -8,11 +8,8 @@ export const metadata: Metadata = {
   alternates: { canonical: "/faq" },
 };
 
-// Answers are plain strings so the same data feeds both the rendered page and
-// the FAQPage structured data below, and so quotes/apostrophes never trip the
-// JSX no-unescaped-entities rule. Where a fuller answer lives elsewhere, `more`
-// points at it. Facts here mirror the app's NOTICE, the pricing breakdown, and
-// the repo-calls rules, so the FAQ and the product never disagree.
+// answers are plain strings so the same data feeds both the page and the FAQPage
+// structured data below. `more` links to a fuller answer where there is one
 type QA = { q: string; a: string; more?: { href: string; label: string } };
 type Group = { group: string; items: QA[] };
 
@@ -181,8 +178,7 @@ export default function FAQ_() {
           , or the per-listing pages, where every price shows its own working.
         </p>
 
-        {/* FAQPage structured data. Valid and still read by non-Google surfaces;
-            Google no longer shows FAQ rich results for general sites. */}
+        {/* FAQPage structured data */}
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(faqJsonLd) }}

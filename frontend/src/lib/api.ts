@@ -1,8 +1,6 @@
-// ── LEDGER / ENGINE RESPONSE SHAPES ───────────────────────────────────────
-// The API hands back numbers as strings in some columns and numbers in
-// others (Postgres numerics via node-postgres), so every field that can be
-// either is typed as both and coerced at the point of use rather than
-// trusted. These types exist so the fetch sites stop reaching for `any`.
+// response shapes from the ledger. the api hands back numbers as strings in some columns
+// and numbers in others (postgres numerics via node-postgres), so any field that can be
+// either is typed as both and coerced where it's used
 
 export type ListingRow = {
   ticker: string;
@@ -12,7 +10,7 @@ export type ListingRow = {
   sparkline?: number[];
 };
 
-/** /api/discovery — listings grouped by category. */
+// /api/discovery: listings grouped by category
 export type DiscoveryResponse = Record<string, ListingRow[]>;
 
 export type HoldingRow = {
@@ -22,9 +20,9 @@ export type HoldingRow = {
   current_price?: number | string;
 };
 
-/** /api/portfolio/:id */
+// /api/portfolio/:id
 export type PortfolioResponse = { portfolio?: HoldingRow[] };
 
-/** /api/history/:owner/:repo — one point per observation. */
+// /api/history/:owner/:repo: one point per observation
 export type HistoryPoint = { time: string; value: number };
 export type HistoryResponse = { history?: HistoryPoint[] };

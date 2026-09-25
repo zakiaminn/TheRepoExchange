@@ -1,9 +1,5 @@
-// Parity test for the Node pricer. Loads the shared contract in pricing/fixtures.json
-// and asserts computePrice() reproduces every expected value. Its twin,
-// data-engine/test_pricing.py, asserts the same file against the Python pricer, so the
-// two implementations are pinned to the same numbers and cannot drift.
-//
-// Run:  node ledger/pricing.test.js   (no test framework, exits non-zero on failure)
+// checks computePrice() against every case in pricing/fixtures.json. data-engine/test_pricing.py
+// runs the same cases against the python pricer. plain node, exits non-zero on failure
 
 const fs = require('fs');
 const path = require('path');

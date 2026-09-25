@@ -38,13 +38,10 @@ function useWide() {
   );
 }
 
-/* the order ticket, and the one place you set quantity. size, cost and the
-   cash left over are all decided here, with the arithmetic visible before
-   anything is sent.
-
-   it's a Vaul drawer rather than a centred dialog so it can be thrown away:
-   drag it, flick it, or press Escape. while it closes it keeps rendering the
-   last trade, so the numbers don't blank out halfway through the slide. */
+// the order ticket, and the one place you set quantity. size, cost and the cash left
+// over are all shown before anything is sent. it's a vaul drawer, so it can be dragged,
+// flicked or escaped away, and while it closes it keeps rendering the last trade so the
+// numbers don't blank out halfway through the slide
 export function ConfirmTradeModal({
   trade,
   onQuantityChange,
@@ -72,8 +69,7 @@ export function ConfirmTradeModal({
   const total = quantity * price;
   const remaining = balance !== null ? balance - total : null;
 
-  // what, specifically, is stopping this order, stated as a fact rather
-  // than a red field with no explanation
+  // what's stopping this order, if anything, shown as a message under the total
   const blocker =
     !Number.isFinite(quantity) || quantity < 1
       ? "Quantity must be at least one share."
@@ -85,8 +81,7 @@ export function ConfirmTradeModal({
 
   const canSubmit = open && !blocker && !processing;
 
-  // Enter commits, but only when the order is valid, so hammering Enter on a
-  // rejected ticket does nothing. Escape belongs to the drawer.
+  // Enter confirms, but only when the order is valid. the drawer handles Escape
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => {
@@ -109,9 +104,9 @@ export function ConfirmTradeModal({
       onOpenChange={(o) => { if (!o) onCancel(); }}
       direction={wide ? "right" : "bottom"}
       dismissible={!processing}
-      // vaul's own keyboard handling shoved the sheet up the screen on iOS
-      // and left a gap above the keypad; the browser's default keeps the
-      // focused field in view without moving the sheet
+      // vaul's own input repositioning pushes the sheet up the screen on ios and
+      // leaves a gap above the keypad. the browser's default keeps the focused field
+      // in view without moving the sheet
       repositionInputs={false}
     >
       <Drawer.Portal>
@@ -132,7 +127,7 @@ export function ConfirmTradeModal({
               : "fixed inset-x-0 bottom-0 z-50 flex max-h-[92dvh] flex-col border-t border-rule-2 bg-paper pb-[env(safe-area-inset-bottom)] outline-none"
           }
         >
-          {/* a flat grab bar rather than Vaul's rounded pill; nothing else here is round */}
+          {/* a flat grab bar instead of vaul's rounded pill */}
           {!wide && <div className="mx-auto mt-2.5 h-1 w-10 shrink-0 bg-rule-2" aria-hidden="true" />}
 
           <div className="flex items-baseline justify-between gap-3 border-b border-rule-2 px-5 py-4">

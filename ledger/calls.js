@@ -1,23 +1,18 @@
-// ── Repo Calls economics ──
-// A "call" is a prediction that a repo reaches a star target by a deadline. v1 settles
-// EVEN-MONEY from the simulated wallet: a correct call returns 2x the stake (net +stake),
-// a wrong one forfeits it (net -stake), and a call we can't judge (repo delisted, no
-// public star count) is voided and the stake refunded. No invented odds — the payout
-// rule is flat and stated, consistent with the rest of the product. A proper derived-odds
-// model is v2, and needs star-velocity history we don't record yet.
-//
-// Pure: no db, no network. Pinned by ledger/calls.test.js.
+// payout rules for repo calls. a call is a prediction that a repo reaches a star target
+// by a deadline, settled even-money from the simulated wallet: a correct call returns 2x
+// the stake, a wrong one loses it, and a call we can't judge (repo delisted, no public
+// star count) is voided and the stake refunded. no db, no network
 
 const MIN_STAKE = 1.0;
 const MAX_STAKE = 100000.0;
-const MIN_HORIZON_MS = 24 * 60 * 60 * 1000;         // deadline must be >= 1 day out
-const MAX_HORIZON_MS = 365 * 24 * 60 * 60 * 1000;   // and <= 1 year out
+const MIN_HORIZON_MS = 24 * 60 * 60 * 1000;         // deadline at least 1 day out
+const MAX_HORIZON_MS = 365 * 24 * 60 * 60 * 1000;   // and at most 1 year out
 const PAYOUT_MULTIPLIER = 2;                         // even-money: a win returns 2x stake
 
 const round2 = (n) => Math.round(Number(n) * 100) / 100;
 
-// Validate a call-open request against the repo's current stars and the clock.
-// Returns { ok: true, stake, targetStars } or { ok: false, error }.
+// validates a call-open request against the repo's current stars and the clock.
+// returns { ok: true, stake, targetStars } or { ok: false, error }
 function validateOpen({ stake, targetStars, currentStars, deadlineMs, now = Date.now() }) {
     const s = Number(stake);
     if (!Number.isFinite(s) || s < MIN_STAKE || s > MAX_STAKE) {
@@ -31,7 +26,7 @@ function validateOpen({ stake, targetStars, currentStars, deadlineMs, now = Date
     if (!Number.isFinite(c) || c < 0) {
         return { ok: false, error: "Current star count is unavailable for this repository." };
     }
-    // the target has to be ABOVE where the repo is now, or there is nothing to predict
+    // the target has to be above where the repo is now, or there's nothing to predict
     if (t <= c) {
         return { ok: false, error: `Target (${t}) must be above the current star count (${c}).` };
     }
@@ -48,9 +43,8 @@ function validateOpen({ stake, targetStars, currentStars, deadlineMs, now = Date
     return { ok: true, stake: round2(s), targetStars: t };
 }
 
-// Decide a due call against the resolved public star count. Returns
-// { status: 'won' | 'lost', payout } where payout is what to CREDIT to the wallet
-// (2x stake on a win, 0 on a loss).
+// decides a due call against the resolved star count. returns { status: 'won' | 'lost',
+// payout } where payout is what gets credited to the wallet (2x stake on a win, 0 on a loss)
 function settle({ targetStars, stake, resolvedStars, direction = 'above' }) {
     const won = direction === 'below'
         ? Number(resolvedStars) <= Number(targetStars)
@@ -61,8 +55,8 @@ function settle({ targetStars, stake, resolvedStars, direction = 'above' }) {
     };
 }
 
-// A call we can't judge (repo delisted, star count missing) is voided and the stake
-// refunded — the user is made whole, never penalised for our missing data.
+// a call we can't judge (repo delisted, star count missing) is voided and the stake
+// refunded in full
 function voidRefund({ stake }) {
     return { status: 'void', payout: round2(stake) };
 }

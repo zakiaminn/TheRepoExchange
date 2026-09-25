@@ -5,13 +5,11 @@ export const alt = "Listing on The Repo Exchange";
 export const size = OG_SIZE;
 export const contentType = OG_CONTENT_TYPE;
 
-// Width the repo name has to fit in: the card minus its side padding.
+// width the repo name has to fit in: the card minus its side padding
 const NAME_WIDTH = 1200 - 88 * 2;
 
-// A per-listing share card. Identity only (owner + repo), drawn straight from
-// the route params. Deliberately no price: it would need a network call (a
-// failure mode on a cached image) and a mark shown out of context reads as a
-// quote it isn't.
+// the per-listing share card, with just the owner and repo from the route params. no
+// price, since that would mean a network call from a cached image
 export default async function Image({
   params,
 }: {
@@ -19,8 +17,8 @@ export default async function Image({
 }) {
   const { owner, repo } = await params;
 
-  // Shrink long names to one line instead of clipping them. 0.58em is a safe
-  // average advance for Bricolage semibold in mixed case.
+  // shrinks long names to fit one line instead of clipping them. 0.58em is a safe
+  // average advance for bricolage semibold in mixed case
   const nameSize = Math.round(Math.min(120, NAME_WIDTH / (repo.length * 0.58)));
 
   return new ImageResponse(

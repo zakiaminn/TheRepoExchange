@@ -15,9 +15,9 @@ type Holding = {
   current_price: string | number;
 };
 
-/* the portfolio page. net worth, what it's made of, and the holdings. laid out
-   like a brokerage statement: one big number up top, the cash/positions
-   breakdown under it, then every position listed out row by row. */
+// the portfolio page: net worth, what it's made of, and the holdings. laid out like a
+// brokerage statement, with one big number up top, the cash/positions breakdown next to
+// it, then every position row by row
 export default function PortfolioPage() {
   const [userId, setUserId] = useState<string | null>(null);
   const [balance, setBalance] = useState<number | null>(null);
@@ -44,7 +44,7 @@ export default function PortfolioPage() {
         if (!session) return;
         const opts = { headers: { Authorization: `Bearer ${session.access_token}` } };
 
-        // both in flight at once rather than in sequence — halves the wait
+        // both requests in flight at once rather than in sequence
         const [balanceRes, portfolioRes] = await Promise.all([
           fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/balance/${userId}`, opts),
           fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/portfolio/${userId}`, opts),
@@ -62,7 +62,7 @@ export default function PortfolioPage() {
     load();
   }, [userId, supabase.auth]);
 
-  // everything below is arithmetic on data already fetched — no extra calls
+  // everything below is arithmetic on data already fetched, no extra calls
   const cash = balance ?? 0;
   const positionsValue = portfolio.reduce(
     (sum, h) => sum + h.shares * Number(h.current_price),
@@ -99,12 +99,8 @@ export default function PortfolioPage() {
       <main className="mx-auto w-full max-w-[64rem] px-5 py-10 sm:px-8 sm:py-12">
         <SectionRule label={SECTIONS.summary} className="mb-10" />
 
-        {/* ── the statement head ─────────────────────────────────────────
-            A statement reconciles to one number and shows its work. Left:
-            the net asset value, marked live against the same quotes as the
-            board. Right: the reconciliation — cash plus positions is the
-            value; cost basis against the mark is the unrealised. Every line
-            is arithmetic on figures you can check on the board. */}
+        {/* statement head: net asset value on the left, and on the right how it adds
+            up (cash plus positions) with the cost basis and unrealised p/l below */}
         <div className="grid gap-x-12 gap-y-9 border-b border-rule-2 pb-10 lg:grid-cols-[1.15fr_1fr] lg:items-end">
           <div>
             <div className="label mb-3">{LABELS.netWorth}</div>
@@ -120,8 +116,8 @@ export default function PortfolioPage() {
             </div>
           </div>
 
-          {/* reconciliation ledger — cash + positions rule up to the value,
-              then cost basis and the unrealised sit below the line */}
+          {/* cash + positions rule up to the value, then cost basis and the
+              unrealised sit below the line */}
           <dl className="border-t border-rule-2">
             <div className="flex items-baseline justify-between border-b border-rule py-2.5">
               <dt className="text-[13px] text-ink-2">{LABELS.cash}</dt>
@@ -149,13 +145,11 @@ export default function PortfolioPage() {
           </dl>
         </div>
 
-        {/* ── allocation ─────────────────────────────────────────────────
-            The one split that means anything here: deployed against cash.
-            A colour per holding would look like a pie and say nothing. */}
+        {/* allocation: how much is in positions against cash */}
         <section className="mt-10">
           <SectionRule label={SECTIONS.allocation} meta={`${investedShare.toFixed(1)}% deployed`} className="mb-4" />
-          {/* the fill is a full-width bar scaled from the left, not a width. a
-              width change re-lays out the row on every frame; a scale doesn't */}
+          {/* the fill is a full-width bar scaled from the left instead of a width,
+              so animating it doesn't re-lay out the row on every frame */}
           <div className="h-2 w-full overflow-hidden border border-rule bg-paper-3">
             <div
               className="h-full w-full origin-left bg-brand transition-transform duration-[240ms] ease-[var(--ease)]"
@@ -169,7 +163,7 @@ export default function PortfolioPage() {
           </div>
         </section>
 
-        {/* ── the book ───────────────────────────────────────────────── */}
+        {/* holdings */}
         <section className="mt-12">
           <SectionRule
             label={SECTIONS.holdings}
@@ -233,8 +227,8 @@ export default function PortfolioPage() {
                           <td className="num text-[13px] text-ink">{usd(mark)}</td>
                           <td className="num text-[13px] text-ink">{usd(value)}</td>
                           <td className="hidden pr-3 align-middle sm:table-cell">
-                            {/* weight = this position's share of the book. the
-                                bar makes concentration legible at a glance */}
+                            {/* weight = this position's share of all positions,
+                                with a small bar next to the number */}
                             <div className="flex items-center justify-end gap-2">
                               <span className="figure text-[12px] text-ink-2">{weight.toFixed(1)}%</span>
                               <span className="inline-block h-1 w-12 bg-paper-3" aria-hidden="true">

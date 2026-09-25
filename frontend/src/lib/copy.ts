@@ -1,18 +1,4 @@
-// every word the user reads lives in this one file, so the voice can't drift
-// page by page.
-//
-// the voice: plain, exact English. say what is true and stop. TRX is a real
-// piece of software about a simulated market, and it reads that way: no
-// exchange-floor vocabulary, no deadpan bit, no cheerleading.
-//
-// house rules:
-//   - state facts. don't congratulate, reassure, or sell.
-//   - no exclamation marks, no emoji, none of "just/simply/oops/let's".
-//   - no em-dashes. a period or a comma does the same work.
-//   - failures say what failed. "Ledger unreachable." not "Something went
-//     wrong! Please try again."
-//   - sentence case in prose, caps only for labels. never Title Case.
-//   - if a sentence can stop sooner, it stops sooner.
+// all the user-facing strings in one place
 
 export const BRAND = {
   ticker: "TRX",
@@ -23,14 +9,13 @@ export const BRAND = {
 
 export const HERO = {
   headline: "A market in open source.",
-  // what it is, where the prices come from, and that it isn't real, before
-  // anyone has to ask
+  // what it is, where the prices come from, and that it isn't real
   dek: "Listings are priced from live GitHub activity. Positions are simulated, and nothing offered here is a security.",
   primary: "Open an account",
   secondary: "Read the mechanics",
 } as const;
 
-/** How the market works, one fact per row. */
+// how the market works, one fact per row
 export const MECHANICS: ReadonlyArray<{ term: string; value: string }> = [
   { term: "Pricing basis", value: "Weighted from live GitHub activity. Stars, forks and watchers lift a listing; open pull requests add and open issues subtract. Polled continuously." },
   { term: "Settlement", value: "Immediate. T+0." },
@@ -41,7 +26,7 @@ export const MECHANICS: ReadonlyArray<{ term: string; value: string }> = [
   { term: "Custody", value: "None. Positions are entries in a ledger, not assets." },
 ];
 
-/** The three steps, in the order they happen. */
+// the three steps, in the order they happen
 export const CLAUSES: ReadonlyArray<{ title: string; body: string }> = [
   {
     title: "Open an account",
@@ -62,7 +47,7 @@ export const NOTICE = {
   body: "TRX is a simulation. No securities are offered, sold, or held. Positions give no ownership of, or claim on, any repository or its maintainers. Cash balances are fictional and can't be transferred. Prices come from public activity metrics and are not a valuation of anything.",
 } as const;
 
-/** The landing page's sections, top to bottom. */
+// the landing page's sections, top to bottom
 export const LANDING = {
   fieldNote: "Each line is one listing. Its height is its price; its shape is its last ten prices.",
   index: [
@@ -106,15 +91,13 @@ export const CTA = {
   action: "Open an account",
 } as const;
 
-/** What the columns on the listings table mean. The Δ basis is stated
-    plainly because the change is measured over a defined window (each listing's
-    last ten recorded marks), not a calendar period — and a change column that
-    doesn't say what it measures has no business existing. */
+// what the columns on the listings table mean. Δ is measured over each listing's last
+// ten recorded marks, not a calendar period
 export const BOARD = {
   columnsNote: "Mark is the price now. Δ is the move across each listing's last ten recorded marks.",
 } as const;
 
-/** Section headings across the product. */
+// section headings across the product
 export const SECTIONS = {
   board: "Listings",
   market: "Market",
@@ -133,8 +116,7 @@ export const SECTIONS = {
   newCall: "Open a call",
 } as const;
 
-// Repo calls: a prediction that a repository reaches a star target by a date.
-// states the mechanic and the settlement rule, never sells it.
+// repo calls: a prediction that a repository reaches a star target by a date
 export const CALLS = {
   title: "Repo calls",
   intro:
@@ -161,7 +143,7 @@ export const CALLS = {
   overStake: "Stake exceeds purchasing power.",
 } as const;
 
-/** Column headers. Short, absolute, never a sentence. */
+// column headers
 export const COLUMNS = {
   listing: "Listing",
   mark: "Mark",
@@ -175,9 +157,7 @@ export const COLUMNS = {
   action: "",
 } as const;
 
-// ── SYSTEM MESSAGES ───────────────────────────────────────────────────────
-// the strings people read twenty times a session. present tense, no ellipsis,
-// no "please wait", no apologies.
+// loading, empty and error states
 
 export const STATE = {
   session: "Loading",
@@ -244,7 +224,7 @@ export const AUTH = {
   password: "Password",
   firstName: "First name",
   lastName: "Last name",
-  // ── password recovery ──
+  // password recovery
   forgotLink: "Forgot your password?",
   forgotKicker: "Password reset",
   forgotTitle: "Reset your password",

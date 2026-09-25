@@ -2,10 +2,9 @@
 
 import { useEffect, useRef, useState, type ReactNode } from "react";
 
-/* fades a below-the-fold section in the first time it scrolls into view, and
-   never again. server output is fully visible; the section is only hidden
-   after mount, and only if it's actually off-screen at that moment, so there
-   is no flash and nothing is lost without JS. */
+// fades a below-the-fold section in the first time it scrolls into view. server output
+// is fully visible, and the section is only hidden after mount if it's actually
+// off-screen at that moment, so there's no flash and nothing is lost without js
 export function Reveal({
   children,
   className,

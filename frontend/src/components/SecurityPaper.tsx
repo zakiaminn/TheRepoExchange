@@ -1,17 +1,9 @@
-/* SECURITY PAPER
-   the faint engraved rosette behind the hero and the admission block. it's the
-   guilloche linework you find on banknotes, share certificates and passports:
-   the literal visual language of the institution TRX writes in. drawn, not
-   photographed, so it sits inside the hard-edged system instead of fighting it.
-
-   the curve is a hypotrochoid (the spirograph you drew in school), sampled once
-   and rendered as thin concentric strokes. the maths is deterministic, so the
-   server and the client draw the exact same path and there's nothing to
-   hydrate. on the landing hero it engraves itself once (`engrave`); see .engrave in
-   globals.css, which also covers reduced motion.
-
-   colour and opacity come from the parent (text-brand-ink + a low opacity);
-   this component only owns the geometry. */
+// the faint engraved rosette behind the landing page's sign-up block, like the guilloche
+// linework on banknotes and share certificates. the curve is a hypotrochoid (a
+// spirograph), sampled once and drawn as thin concentric strokes. the maths is
+// deterministic, so the server and client draw the exact same path. with `engrave` it
+// draws itself in once, using the .engrave animation in globals.css. colour and opacity
+// come from the parent, this only draws the geometry
 
 const TAU = Math.PI * 2;
 
@@ -19,9 +11,8 @@ function gcd(a: number, b: number): number {
   return b === 0 ? a : gcd(b, a % b);
 }
 
-// one closed hypotrochoid, normalised into the unit box and returned as an SVG
-// path string. R/r set the lobe structure; d is the pen offset (the amplitude
-// of each ring).
+// one closed hypotrochoid, normalised into the unit box and returned as an svg path
+// string. R/r set the lobe structure, and d is the pen offset (the amplitude of each ring)
 function rosette(R: number, r: number, d: number, norm: number, steps: number): string {
   const rot = r / gcd(R, r); // how many turns until the curve closes on itself
   const k = (R - r) / r;
@@ -38,17 +29,15 @@ function rosette(R: number, r: number, d: number, norm: number, steps: number): 
 export function SecurityPaper({ className, engrave }: { className?: string; engrave?: boolean }) {
   const R = 7;
   const r = 3;
-  // nested rings: same lobe structure, shrinking amplitude, so they read as one
-  // engraved medallion rather than separate shapes. point counts and ring/stamp
-  // counts are kept deliberately lean: this is a faint backdrop, not a plot, and
-  // the geometry is stamped several times, so the segment total adds up fast.
+  // nested rings with the same lobe structure and shrinking amplitude, so they read as one
+  // medallion. point and ring counts stay low since the geometry gets stamped several
+  // times and the segment total adds up fast
   const ds = [3.0, 2.4, 1.8, 1.2, 0.6];
   const norm = R - r + ds[0] + 0.02; // largest extent, so everything fits [-1, 1]
   const rings = ds.map((d) => rosette(R, r, d, norm, 640));
 
-  // the ring group is defined once and stamped a few times at small rotations.
-  // the overlapping copies weave the open lattice into the denser, moire-fine
-  // linework you see on a banknote, without multiplying the DOM further.
+  // the ring group is defined once and stamped a few times at small rotations, which
+  // weaves it into a denser lattice without adding more paths to the dom
   const stamps = [0, 6, 12, 18];
 
   return (

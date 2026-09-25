@@ -6,8 +6,7 @@ export const alt = `${SITE_SHORT} · ${SITE_NAME}`;
 export const size = OG_SIZE;
 export const contentType = OG_CONTENT_TYPE;
 
-// The site-wide share card: the logo lockup, one line on what TRX is, and the
-// host. Same ground and type as the logo so a shared link looks like the brand.
+// the site-wide share card: the logo lockup, one line on what trx is, and the host
 export default async function Image() {
   return new ImageResponse(
     (

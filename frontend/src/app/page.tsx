@@ -25,16 +25,8 @@ type Holding = { ticker: string; shares: number; average_price: number };
 
 type PendingTrade = { ticker: string; quantity: number; price: number } | null;
 
-/* the logged-in home page. two real structural changes from the old version,
-   both about showing more info rather than looking nicer:
-
-   1. the discovery feed used to be a side-scrolling row of cards. now it's a
-      board — one ruled table per category. tables put every listing on the
-      same baseline so you can actually compare prices, fit four columns where
-      a card fit one, and don't hide half the market off the right edge.
-
-   2. each row has one button. quantity gets set in the order ticket (where you
-      can see the maths) instead of a giant number box on every card. */
+// the logged-in home page: the market overview, one board per category, then your
+// positions. each row has one buy button, and quantity gets set in the order ticket
 export default function Terminal() {
   const [discovery, setDiscovery] = useState<Record<string, Repository[]>>({});
   const [message, setMessage] = useState<ToastMessage>(null);
@@ -51,9 +43,7 @@ export default function Terminal() {
   const lastMarks = useRef<Record<string, number>>({});
   const [flash, setFlash] = useState<Record<string, "pos" | "neg">>({});
 
-  // when the last poll actually returned prices, and whether the latest one
-  // failed. this replaces the old live dot: instead of a light that says
-  // "live", the page states when its numbers were read.
+  // when the last poll actually returned prices, and whether the latest one failed
   const [updatedAt, setUpdatedAt] = useState<Date | null>(null);
   const [feedDown, setFeedDown] = useState(false);
 
@@ -116,9 +106,8 @@ export default function Terminal() {
         setUpdatedAt(new Date());
         setFeedDown(false);
 
-        // work out which marks moved on this poll and flash just those.
-        // The number itself changes instantly — only the surface animates,
-        // which is exactly how a real quote board behaves.
+        // work out which marks moved on this poll and flash just those. the number
+        // itself changes straight away and only the cell animates
         const moved: Record<string, "pos" | "neg"> = {};
         (Object.values(data).flat() as Repository[]).forEach((r) => {
           const prev = lastMarks.current[r.ticker];
@@ -201,8 +190,7 @@ export default function Terminal() {
 
   if (!userId) return <LandingPage />;
 
-  // dedupe by ticker inside each category — the feed sometimes returns the
-  // same repo twice (that was the double REACT on the board)
+  // dedupe by ticker inside each category, since the feed can return the same repo twice
   const categories = Object.entries(discovery).map(([cat, repos]) => {
     const seen = new Set<string>();
     const unique = repos.filter((r) => {
@@ -216,18 +204,16 @@ export default function Terminal() {
   const morphed = new Set<string>();
   const totalListings = categories.reduce((n, [, repos]) => n + repos.length, 0);
 
-  // the masthead figures. all three are derived, not stored, and every one is
-  // checkable by hand against the same quotes on the board below:
-  //   listedValue    — the size of the market: every listing's mark, summed.
-  //   positionsValue — your holdings marked at the live quote (falling back to
-  //                    the average paid for anything not currently on the feed).
+  // the masthead figures, derived from the same quotes as the board below:
+  //   listedValue     every listing's mark, summed
+  //   positionsValue  your holdings at the live quote, or at the average paid for
+  //                   anything not currently on the feed
   const marks: Record<string, number> = {};
   categories.forEach(([, repos]) => repos.forEach((r) => { marks[r.ticker] = Number(r.current_price); }));
   const listedValue = Object.values(marks).reduce((s, m) => s + m, 0);
   const positionsValue = portfolio.reduce((s, h) => s + h.shares * (marks[h.ticker] ?? h.average_price), 0);
 
-  // the index strip — four ruled cells, the market first, then you. equal
-  // weight on purpose: an index row states figures, it doesn't rank them.
+  // the index strip: four ruled cells, the market first, then your account
   const indexCells: { label: string; value: string; sub: string }[] = [
     { label: LABELS.listedValue, value: usd(listedValue), sub: "all prices, summed" },
     { label: SECTIONS.listings, value: count(totalListings), sub: "tracked" },
@@ -251,10 +237,8 @@ export default function Terminal() {
   return (
     <div className="flex-1">
       <main className="mx-auto w-full max-w-[76rem] px-5 py-10 sm:px-8 sm:py-12">
-        {/* ── overview ─────────────────────────────────────────────────
-            the page opens on the state of the market and your account: size
-            of the market, how many listings, what you can spend, what you
-            hold. every figure is priced off the same poll as the tables below. */}
+        {/* overview: the size of the market, how many listings, what you can spend and
+            what you hold, all priced off the same poll as the boards below */}
         <div className="mb-12">
           <SectionRule label={SECTIONS.market} className="mb-5" />
           <div className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-1.5">
@@ -288,19 +272,18 @@ export default function Terminal() {
           </dl>
         </div>
 
-        {/* the columns legend — states what Mark and Δ measure once, up front,
-            so the Δ column never sits over a number whose window is unstated */}
+        {/* the columns legend, which says what mark and Δ measure */}
         {categories.length > 0 && (
           <p className="ref mb-6 block">{BOARD.columnsNote}</p>
         )}
 
-        {/* ── the boards, one per category ────────────────────────────── */}
+        {/* the boards, one per category */}
         {categories.length === 0 ? (
           <SkeletonBoard rows={8} />
         ) : (
           <div className="space-y-14">
-            {/* a listing can sit in more than one category; only its first
-                row carries the shared name, since a name must be unique */}
+            {/* a listing can sit in more than one category. only its first row gets
+                the shared morph name, since a name can only be on the page once */}
             {categories.map(([category, repos]) => (
               <section key={category}>
                 <SectionRule label={category} meta={plural(repos.length, "listing")} className="mb-5" />
@@ -332,9 +315,7 @@ export default function Terminal() {
                         return (
                           <tr key={repo.ticker}>
                             <td className="max-w-0">
-                              {/* one line per listing — name + owner inline. denser
-                                  than the old two-row cell; the description lives on
-                                  the asset page now */}
+                              {/* one line per listing, with the name and owner inline */}
                               {/* full prefetch so the listing page can render in the
                                   same frame as the click, which is what lets its
                                   name morph out of this row */}
@@ -395,7 +376,7 @@ export default function Terminal() {
           </div>
         )}
 
-        {/* ── positions ───────────────────────────────────────────────── */}
+        {/* positions */}
         <section className="mt-16">
           <SectionRule
             label={SECTIONS.positions}

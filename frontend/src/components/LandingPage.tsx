@@ -21,9 +21,7 @@ type Listing = {
   category: string;
 };
 
-// Shown only if the discovery API can't be reached. Real listings are
-// fetched below — a marketing page for an exchange that shows invented
-// quotes when live ones are one fetch away is just a screenshot.
+// sample listings, shown only if the discovery api can't be reached
 const FALLBACK: Listing[] = [
   { ticker: "facebook/react",   current_price: 2335.23, raw_stars: 233523, sparkline: [2294.1, 2301.4, 2288.9, 2310.2, 2305.6, 2318.0, 2325.7, 2320.4, 2331.1, 2335.23], category: "frontend" },
   { ticker: "vercel/next.js",   current_price: 1271.50, raw_stars: 127150, sparkline: [1232.0, 1238.6, 1229.4, 1244.8, 1251.2, 1247.9, 1258.3, 1263.0, 1267.4, 1271.50], category: "frontend" },
@@ -33,13 +31,10 @@ const FALLBACK: Listing[] = [
   { ticker: "denoland/deno",    current_price: 1043.60, raw_stars: 104360, sparkline: [1056.3, 1054.1, 1051.8, 1052.9, 1049.4, 1047.2, 1048.0, 1045.5, 1044.8, 1043.60], category: "runtimes" },
 ];
 
-/* the logged-out home page. page.tsx shows this when there's no session, so
-   it's its own little site with its own nav.
-
-   it runs in panels, one idea each, alternating dark and light: the market
-   as a field of price lines, an index of what you can do, a panel per thing
-   (with a screen recording of it), then the plain facts: the listings, how
-   it works, the mechanics, the notice. everything on it is literally true. */
+// the logged-out home page. page.tsx shows this when there's no session, so it has its
+// own nav. it runs in panels alternating dark and light: the market as a field of price
+// lines, an index of what you can do, a panel per feature with a screen recording, then
+// the listings, how it works, the mechanics and the notice
 export function LandingPage() {
   const [listings, setListings] = useState<Listing[]>(FALLBACK);
   const [live, setLive] = useState(false);
@@ -70,7 +65,7 @@ export function LandingPage() {
           setLive(true);
         }
       } catch {
-        // fallback stays; the page is still honest, just not current
+        // the sample listings stay up
         setFailed(true);
       }
     };
@@ -110,7 +105,7 @@ export function LandingPage() {
 
   return (
     <div className="flex min-h-screen flex-col">
-      {/* ── masthead ─────────────────────────────────────────────────── */}
+      {/* masthead */}
       <header
         className={`fixed inset-x-0 top-0 z-40 border-b transition-[background-color,border-color] duration-200 ${
           overHero ? "night border-transparent bg-transparent" : "border-rule bg-[var(--paper)]/92 backdrop-blur-md"
@@ -131,7 +126,7 @@ export function LandingPage() {
         </div>
       </header>
 
-      {/* ── hero ─────────────────────────────────────────────────────── */}
+      {/* hero */}
       <section ref={heroRef} className="night relative overflow-hidden">
         <PriceField series={field} />
 
@@ -157,7 +152,7 @@ export function LandingPage() {
             </div>
           </div>
 
-          {/* the facts, stated flatly along the bottom of the panel */}
+          {/* the key facts along the bottom of the panel */}
           <dl className="reveal grid grid-cols-2 border-t border-rule-2 sm:grid-cols-4" style={{ "--i": 3 } as React.CSSProperties}>
             {[
               { term: "Listings", value: <span className="figure">{count(listings.length)}</span> },
@@ -178,7 +173,7 @@ export function LandingPage() {
       </section>
 
       <main className="flex-1">
-        {/* ── index ──────────────────────────────────────────────────── */}
+        {/* index */}
         <section className="mx-auto max-w-[76rem] px-5 py-24 sm:px-8 sm:py-36">
           <Reveal stagger>
             <nav aria-label="Sections">
@@ -212,7 +207,7 @@ export function LandingPage() {
           }
         />
 
-        {/* ── on a phone ─────────────────────────────────────────────── */}
+        {/* on a phone */}
         <section className="mx-auto grid max-w-[76rem] items-center gap-14 px-5 py-24 sm:px-8 sm:py-32 lg:grid-cols-12 lg:gap-16">
           <Reveal className="lg:col-span-6 lg:col-start-2">
             <span className="label">{LANDING.phone.kicker}</span>
@@ -244,7 +239,7 @@ export function LandingPage() {
         />
 
         <div className="mx-auto w-full max-w-[76rem] px-5 sm:px-8">
-          {/* ── statement ────────────────────────────────────────────── */}
+          {/* statement */}
           <section className="py-24 sm:py-36">
             <Reveal>
               <h2 className="display max-w-[16ch] text-[clamp(2.5rem,6.5vw,5rem)] text-ink">
@@ -271,7 +266,7 @@ export function LandingPage() {
         />
 
         <div className="mx-auto w-full max-w-[76rem] px-5 pt-24 sm:px-8 sm:pt-32">
-        {/* ── the board ──────────────────────────────────────────────── */}
+        {/* the board */}
         <section className="pb-20 sm:pb-28">
           <SectionRule
             label={SECTIONS.board}
@@ -328,7 +323,7 @@ export function LandingPage() {
           </Reveal>
         </section>
 
-        {/* ── procedure ──────────────────────────────────────────────── */}
+        {/* how it works */}
         <section className="pb-20 sm:pb-28">
           <Reveal>
             <div className="grid gap-10 md:grid-cols-3 md:gap-12">
@@ -344,7 +339,7 @@ export function LandingPage() {
           </Reveal>
         </section>
 
-        {/* ── mechanics ──────────────────────────────────────────────── */}
+        {/* mechanics */}
         <section id="mechanics" className="scroll-mt-24 pb-20 sm:pb-28">
           <Reveal>
             <SectionRule label={SECTIONS.mechanics} className="mb-6" />
@@ -362,7 +357,7 @@ export function LandingPage() {
           </Reveal>
         </section>
 
-        {/* ── sign-up ────────────────────────────────────────────────── */}
+        {/* sign-up */}
         <section className="pb-20 sm:pb-28">
           <Reveal>
             <div className="relative overflow-hidden border border-rule-2 bg-paper-2">
@@ -394,7 +389,7 @@ export function LandingPage() {
           </Reveal>
         </section>
 
-        {/* ── notice ─────────────────────────────────────────────────── */}
+        {/* notice */}
         <section className="pb-20 sm:pb-24">
           <Reveal>
             <Notice tone="brand">
@@ -405,7 +400,7 @@ export function LandingPage() {
         </div>
       </main>
 
-      {/* ── colophon ─────────────────────────────────────────────────── */}
+      {/* colophon */}
       <footer className="border-t border-rule">
         <div className="mx-auto flex max-w-[76rem] flex-col gap-6 px-5 py-10 sm:flex-row sm:items-start sm:justify-between sm:px-8">
           <div>
@@ -429,9 +424,8 @@ export function LandingPage() {
   );
 }
 
-/* one dark panel: the copy on one side, the recording of that thing on the
-   other. `flip` swaps the sides on wide screens so consecutive panels don't
-   all lean the same way. */
+// one dark panel with the copy on one side and the recording on the other. `flip` swaps
+// the sides on wide screens so consecutive panels alternate
 function FeaturePanel({
   id,
   kicker,

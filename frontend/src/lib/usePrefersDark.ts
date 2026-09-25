@@ -1,12 +1,8 @@
 import { useEffect, useState } from "react";
 
-/* OS-driven dark-mode detection. the app has no in-app theme toggle; it follows
-   prefers-color-scheme. anything that needs literal theme values rather than CSS
-   variables (the price chart, which hands lightweight-charts real hex colours)
-   reads the current mode from here, and re-runs when the OS setting flips.
-
-   first render is light; the value corrects on mount. that matches the chart's
-   effect, which rebuilds whenever this flips. */
+// tracks the os dark mode setting (prefers-color-scheme) for anything that needs literal
+// theme values instead of css variables, like the price chart's colours. the first
+// render is light and it corrects on mount
 export function usePrefersDark(): boolean {
   const [dark, setDark] = useState(false);
 

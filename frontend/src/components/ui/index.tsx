@@ -3,18 +3,14 @@
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { pct, toneClass } from "@/lib/format";
 
-/* the reusable bits — the half of the system that doesn't know or care that
-   it's TRX. it's all structure, so it should drop into the next project as-is. */
+// the shared ui building blocks: section rules, panels, stats, fields, notices and
+// loading states
 
 const cx = (...parts: Array<string | false | null | undefined>) =>
   parts.filter(Boolean).join(" ");
 
-/* the section rule — a hairline across the column with a little label on the
-   left and optional machine text on the right. it's basically the title block
-   off a technical drawing. this is the signature device; use it instead of an
-   <h2> + margin, the rule IS the heading.
-   Used consistently, it's the thing that makes two Bureau pages recognisably
-   the same system even when they share no other component.               */
+// the section rule: a little label on the left, a hairline across the column, and
+// optional meta text on the right. most sections use it as their heading
 export function SectionRule({
   label,
   meta,
@@ -35,7 +31,7 @@ export function SectionRule({
   );
 }
 
-/* the only box we have. one hairline, no rounded corners, no shadow. */
+// the standard box: one hairline, no rounded corners, no shadow
 export function Panel({
   tint,
   className,
@@ -52,9 +48,7 @@ export function Panel({
   );
 }
 
-/* label on top, number underneath. the label never gets bigger and the number
-   never gets smaller — the size gap does the hierarchy, no colour/weight
-   tricks needed. */
+// label on top, number underneath, with an optional line below
 export function Stat({
   label,
   value,
@@ -86,8 +80,8 @@ export function Stat({
   );
 }
 
-/* a +/- percentage in green or red. always two decimals, always the real
-   minus, so a column of them stays lined up on the sign. */
+// a +/- percentage in green or red, with two decimals and a real minus so a column of
+// them stays lined up on the sign
 export function Delta({
   value,
   className,
@@ -103,9 +97,7 @@ export function Delta({
   return <span className={cx("figure", toneClass(value), className)}>{pct(value)}</span>;
 }
 
-/* label on top, input under it, hint after. no floating labels, no
-   placeholder-as-label — it's a form pretending to be a paper record, and
-   paper records label their fields properly. */
+// a form field: label on top with an optional hint beside it, and the input underneath
 export function Field({
   label,
   hint,
@@ -128,9 +120,7 @@ export function Field({
   );
 }
 
-/* a chunk of text that matters, marked with a coloured bar down its left edge.
-   the bar is the only colour it gets — a full tinted background would make it
-   look like an error, and it's a notice, not an alarm. */
+// a chunk of text that matters, marked with a coloured bar down its left edge
 export function Notice({
   label,
   tone = "neutral",
@@ -157,17 +147,14 @@ export function Notice({
   );
 }
 
-/* every empty state. centred, quiet, and worded as a fact about the record
-   ("No positions yet.") not a nudge at the user. */
+// the empty state: centred, quiet text like "No positions yet."
 export function Empty({ children, className }: { children: ReactNode; className?: string }) {
   return (
     <div className={cx("px-6 py-14 text-center text-sm text-ink-3", className)}>{children}</div>
   );
 }
 
-/* loading state. no spinner — a blinking caret is what something actually
-   waiting looks like; a spinning arc is what something pretending to be busy
-   looks like. */
+// loading state: a label with a blinking caret after it
 export function Pending({ children, className }: { children: ReactNode; className?: string }) {
   return (
     <div className={cx("flex items-center justify-center gap-2 px-6 py-14 text-sm text-ink-3", className)}>
@@ -177,13 +164,13 @@ export function Pending({ children, className }: { children: ReactNode; classNam
   );
 }
 
-/* skeleton loader block — hard-edged, brand-toned, subtle sweep. size it with className. */
+// skeleton loader block with a subtle sweep, sized by className
 export function Skeleton({ className }: { className?: string }) {
   return <span className={cx("skeleton block", className)} aria-hidden="true" />;
 }
 
-/* placeholder for the board while quotes load — ruled rows that echo the real table
-   so the layout doesn't jump when the data lands. */
+// placeholder for the board while quotes load: ruled rows shaped like the real table so
+// the layout doesn't jump when the data lands
 export function SkeletonBoard({ rows = 8 }: { rows?: number }) {
   return (
     <div className="panel" role="status" aria-label="Loading listings">
@@ -205,11 +192,9 @@ export function SkeletonBoard({ rows = 8 }: { rows?: number }) {
   );
 }
 
-/* a row of mutually exclusive options sharing hairlines (the chart range).
-   the selected state is a second copy of the row in the active colours,
-   clipped down to the chosen segment. changing the value slides the clip, so
-   the colour moves across as one piece instead of one segment fading out
-   while another fades in. */
+// a row of mutually exclusive options (the chart range). the selected state is a second
+// copy of the row in the active colours, clipped down to the chosen segment. changing
+// the value slides the clip, so the colour moves across as one piece
 export function Segmented<K extends string>({
   options,
   value,
