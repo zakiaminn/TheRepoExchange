@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/utils/supabase/client";
 import { Wordmark } from "@/components/Logo";
+import { Turnstile, TURNSTILE_SITE_KEY } from "@/components/Turnstile";
 import { SectionRule, Field, Notice } from "@/components/ui";
 import { usd, pct, change, toneClass, tickerParts } from "@/lib/format";
 import { AUTH, ERROR, NOTICE, HERO, STATE } from "@/lib/copy";
@@ -44,6 +45,26 @@ export default function LoginView({
   );
 
   const router = useRouter();
+
+  // the latest bot-check token from cloudflare, and a counter that asks for a new one
+  const captcha = useRef<string | null>(null);
+  const [captchaRound, setCaptchaRound] = useState(0);
+
+  // the token for the next request. waits up to five seconds if the check is still running,
+  // and sends none without a site key. supabase decides whether it's needed
+  const captchaToken = async (): Promise<string | undefined> => {
+    if (!TURNSTILE_SITE_KEY) return undefined;
+    for (let i = 0; i < 50 && !captcha.current; i++) {
+      await new Promise((r) => setTimeout(r, 100));
+    }
+    return captcha.current ?? undefined;
+  };
+
+  // a token only works once, so every attempt that sent one asks for a fresh one
+  const nextCaptcha = () => {
+    captcha.current = null;
+    setCaptchaRound((n) => n + 1);
+  };
   const supabase = createClient();
 
   // a few live listings for the left column, from the public discovery feed (no auth)
@@ -91,6 +112,7 @@ export default function LoginView({
   // maps supabase's raw error messages to the plain notices in copy.ts
   const readable = (raw: string): string => {
     const m = raw.toLowerCase();
+    if (m.includes("captcha")) return ERROR.captcha;
     if (m.includes("invalid login credentials") || m.includes("invalid password")) return ERROR.credentials;
     if (m.includes("email not confirmed")) return ERROR.unconfirmed;
     if (m.includes("already registered") || m.includes("already been registered")) return ERROR.registered;
@@ -109,13 +131,14 @@ export default function LoginView({
     setMessage(null);
 
     try {
+      const token = await captchaToken();
       if (isSignUp) {
         // first/last go into user_metadata; the masthead and the account
         // record both read them back from there
         const { data, error } = await supabase.auth.signUp({
           email,
           password,
-          options: { data: { first_name: firstName, last_name: lastName } },
+          options: { data: { first_name: firstName, last_name: lastName }, captchaToken: token },
         });
         if (error) throw error;
         // supabase doesn't error on an address that already has an account. it returns a
@@ -125,15 +148,21 @@ export default function LoginView({
         } else {
           setMessage({ text: AUTH.confirmSent, type: "success" });
         }
+        nextCaptcha();
         setLoading(false);
       } else {
-        const { error } = await supabase.auth.signInWithPassword({ email, password });
+        const { error } = await supabase.auth.signInWithPassword({
+          email,
+          password,
+          options: { captchaToken: token },
+        });
         if (error) throw error;
         // the button stays on "Submitting" until the next page takes over
         router.push(next);
         router.refresh(); // re-render anything that read the session on the server
       }
     } catch (error) {
+      nextCaptcha();
       setMessage({ text: readable(error instanceof Error ? error.message : ""), type: "error" });
       setLoading(false);
     }
@@ -149,6 +178,7 @@ export default function LoginView({
     try {
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
         redirectTo: `${window.location.origin}/auth/callback?next=/auth/reset`,
+        captchaToken: await captchaToken(),
       });
       if (error) throw error;
       setMessage({ text: AUTH.resetSent, type: "success" });
@@ -159,6 +189,7 @@ export default function LoginView({
       const text = readable(e?.message ?? "");
       setMessage({ text: text === ERROR.auth ? ERROR.emailSend : text, type: "error" });
     } finally {
+      nextCaptcha();
       setLoading(false);
     }
   };
@@ -276,9 +307,12 @@ export default function LoginView({
                     className="field pointer-fine:text-[13px]"
                   />
                 </Field>
-                <button type="submit" disabled={loading} className="ctl ctl-primary w-full">
-                  {loading ? AUTH.sending : AUTH.sendReset}
-                </button>
+                <div>
+                  <Turnstile onToken={(t) => { captcha.current = t; }} resetKey={captchaRound} />
+                  <button type="submit" disabled={loading} className="ctl ctl-primary w-full">
+                    {loading ? AUTH.sending : AUTH.sendReset}
+                  </button>
+                </div>
               </form>
 
               <p className="mt-8 text-[13px] text-ink-3">
@@ -347,9 +381,12 @@ export default function LoginView({
                   )}
                 </div>
 
-                <button type="submit" disabled={loading} className="ctl ctl-primary w-full">
-                  {loading ? AUTH.submitting : isSignUp ? AUTH.signUp : AUTH.signIn}
-                </button>
+                <div>
+                  <Turnstile onToken={(t) => { captcha.current = t; }} resetKey={captchaRound} />
+                  <button type="submit" disabled={loading} className="ctl ctl-primary w-full">
+                    {loading ? AUTH.submitting : isSignUp ? AUTH.signUp : AUTH.signIn}
+                  </button>
+                </div>
               </form>
 
               <div className="my-6 flex items-center gap-4">

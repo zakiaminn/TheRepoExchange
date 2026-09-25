@@ -202,6 +202,7 @@ export const ERROR = {
   emailSend: "The email couldn't be sent. Try again in a few minutes.",
   password: "Password must be at least six characters.",
   unexpected: "Request failed.",
+  captcha: "The bot check didn't pass. Wait a moment and try again, or refresh the page.",
 } as const;
 
 export const ORDER = {
