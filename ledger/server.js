@@ -73,6 +73,8 @@ const money = (n) => `$${Number(n).toLocaleString('en-US', { minimumFractionDigi
 // the pricing formula is in ./pricing.js. the ledger only prices a repo itself when someone
 // adds one to their own listings, and it uses the same inputs the worker does
 const { computePrice, PRICING_VERSION } = require('./pricing');
+// older prices scaled to the current formula by data-engine/backfill.py
+const ADJUSTED_VERSION = `${PRICING_VERSION}-adjusted`;
 const calls = require('./calls');
 
 const MAX_USER_LISTINGS = 20;
@@ -608,7 +610,8 @@ app.post('/api/calls/settle', settleLimiter, async (req, res) => {
 });
 
 // price history for the chart on the asset page, plus the metrics behind the current price.
-// public, read-only, and only prices from the current formula version. the chart draws one
+// public and read-only. prices come from the current formula, plus older prices scaled to it,
+// which are marked `adjusted` and come with the ratio they were scaled by. the chart draws one
 // point per day, so this sends the last price of each day
 app.get('/api/history/:owner/:repo', publicLimiter, async (req, res) => {
     const ticker = `${req.params.owner}/${req.params.repo}`;
@@ -628,23 +631,30 @@ app.get('/api/history/:owner/:repo', publicLimiter, async (req, res) => {
         }
 
         const result = await pool.query(
-            `SELECT time, value FROM (
+            `SELECT time, value, adjusted FROM (
                 SELECT DISTINCT ON (created_at::date)
-                       TO_CHAR(created_at, 'YYYY-MM-DD') AS time, price AS value, created_at
+                       TO_CHAR(created_at, 'YYYY-MM-DD') AS time, price AS value, created_at,
+                       pricing_version = $3 AS adjusted
                 FROM price_history
-                WHERE ticker = $1 AND pricing_version = $2
+                WHERE ticker = $1 AND pricing_version IN ($2, $3)
                 ORDER BY created_at::date, created_at DESC
              ) daily
              ORDER BY created_at ASC`,
-            [asset.ticker, PRICING_VERSION]
+            [asset.ticker, PRICING_VERSION, ADJUSTED_VERSION]
         );
+        const history = result.rows.map((row) => ({ time: row.time, value: Number(row.value), adjusted: row.adjusted }));
 
-        res.json({
-            ticker: asset.ticker,
-            pricingVersion: PRICING_VERSION,
-            history: result.rows.map((row) => ({ time: row.time, value: Number(row.value) })),
-            asset,
-        });
+        let adjustment = null;
+        if (history.some((p) => p.adjusted)) {
+            const adj = await pool.query(
+                `SELECT switched_at, ratio FROM price_adjustments
+                 WHERE ticker = $1 AND to_version = $2 ORDER BY switched_at DESC LIMIT 1`,
+                [asset.ticker, PRICING_VERSION]
+            );
+            if (adj.rows[0]) adjustment = { switchedAt: adj.rows[0].switched_at, ratio: Number(adj.rows[0].ratio) };
+        }
+
+        res.json({ ticker: asset.ticker, pricingVersion: PRICING_VERSION, history, adjustment, asset });
     } catch (error) {
         sendError(res, error, 'History query failed');
     }

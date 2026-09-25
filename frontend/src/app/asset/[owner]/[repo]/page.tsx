@@ -12,7 +12,7 @@ import { ListingMorph } from "@/components/ListingMorph";
 import { usd, count, countCompact, change, toneClass } from "@/lib/format";
 import { SECTIONS, LABELS, ERROR, ORDER, NAV, LISTING } from "@/lib/copy";
 import { deriveValuation, type AssetMetrics } from "@/lib/pricing";
-import type { HoldingRow, HistoryPoint } from "@/lib/api";
+import type { HoldingRow, HistoryPoint, HistoryResponse } from "@/lib/api";
 
 interface PageProps {
   params: Promise<{ owner: string; repo: string }>;
@@ -59,6 +59,9 @@ export default function ListingPage(props: PageProps) {
   const [adding, setAdding] = useState(false);
   const [historyVersion, setHistoryVersion] = useState(0);
   const [unavailable, setUnavailable] = useState(false);
+  // days whose price was scaled from the previous formula, and the ratio used
+  const [adjustedDays, setAdjustedDays] = useState<Set<number>>(new Set());
+  const [adjustment, setAdjustment] = useState<HistoryResponse["adjustment"]>(null);
 
   const isDark = usePrefersDark();
   const supabase = createClient();
@@ -131,7 +134,7 @@ export default function ListingPage(props: PageProps) {
           setUnavailable(true);
           return;
         }
-        const data = await res.json();
+        const data: HistoryResponse & { asset: AssetMetrics } = await res.json();
         setUnavailable(false);
         setError(null);
         setAsset(data.asset);
@@ -142,9 +145,15 @@ export default function ListingPage(props: PageProps) {
           // dedupe on the unix timestamp in case the engine ever emits two
           // points for one day, then sort so the series draws left to right
           const byTime = new Map<number, number>();
+          const adjusted = new Set<number>();
           data.history.forEach((item: HistoryPoint) => {
-            byTime.set(Math.floor(new Date(item.time).getTime() / 1000), item.value);
+            const t = Math.floor(new Date(item.time).getTime() / 1000);
+            byTime.set(t, item.value);
+            if (item.adjusted) adjusted.add(t);
+            else adjusted.delete(t);
           });
+          setAdjustedDays(adjusted);
+          setAdjustment(data.adjustment ?? null);
           const series = Array.from(byTime.entries())
             .map(([time, value]) => ({ time: time as Time, value }))
             .sort((a, b) => (a.time as number) - (b.time as number));
@@ -208,8 +217,9 @@ export default function ListingPage(props: PageProps) {
       low: values.length ? Math.min(...values) : null,
       delta: values.length > 1 ? change(values[0], values[values.length - 1]) : null,
       observations: data.length,
+      adjusted: data.some((p) => adjustedDays.has(p.time as number)),
     };
-  }, [history, range]);
+  }, [history, range, adjustedDays]);
 
   // the chart gets rebuilt from scratch when the theme changes, since lightweight-charts
   // doesn't restyle an existing instance cleanly
@@ -468,6 +478,14 @@ export default function ListingPage(props: PageProps) {
                     </div>
                   ))}
                 </dl>
+              )}
+              {listed === true && view.adjusted && adjustment && (
+                <p className="ref mt-3 block leading-relaxed">
+                  {LISTING.adjusted(
+                    new Date(adjustment.switchedAt).toLocaleDateString("en-GB", { day: "numeric", month: "short" }),
+                    `×${adjustment.ratio.toFixed(4)}`
+                  )}
+                </p>
               )}
             </section>
 

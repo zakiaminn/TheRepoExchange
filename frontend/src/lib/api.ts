@@ -24,5 +24,10 @@ export type HoldingRow = {
 export type PortfolioResponse = { portfolio?: HoldingRow[] };
 
 // /api/history/:owner/:repo: the last price of each day under the current formula
-export type HistoryPoint = { time: string; value: number };
-export type HistoryResponse = { ticker?: string; pricingVersion?: string; history?: HistoryPoint[] };
+export type HistoryPoint = { time: string; value: number; adjusted?: boolean };
+export type HistoryResponse = {
+  ticker?: string;
+  pricingVersion?: string;
+  history?: HistoryPoint[];
+  adjustment?: { switchedAt: string; ratio: number } | null;
+};

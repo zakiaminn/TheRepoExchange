@@ -76,7 +76,13 @@ The ledger prices repos people add, the worker prices everything each hour, and 
 
 #### Price history
 
-Every point on a chart is a price the formula actually produced. A new listing starts with a single price and the worker adds one every hour. Each point records which formula version made it, and charts only draw points from the current version, so a chart never mixes two formulas. The catch is that a formula change starts every chart over. The worker also records the star count with each point, and calls are settled against those readings.
+A new listing starts with a single price and the worker adds one every hour. Each point records which formula version made it. From 25 September on, every point is a price PRICING-2 produced.
+
+Before that, the worker ran the previous formula. Its prices from 27 August (when that formula came in) up to the switch are scaled to PRICING-2 by each listing's own price change at the switch, the way stock charts adjust for a split, and the listing page says so under the chart. It's an approximation: one ratio per listing can't account for how its open PRs and issues moved over that month. Open positions' entry prices were scaled the same way, so the switch didn't show up as anyone's gain or loss.
+
+Some history is left out. Before 27 August, a second copy of the worker was writing prices from a different formula at the same time, and the two can't be told apart. A few small repos whose old prices swung with every batch of PRs have no older history either. The ratios are stored with the data, and [data-engine/backfill.py](data-engine/backfill.py) is the script that did it.
+
+The worker also records the star count with each point, and calls are settled against those readings.
 
 #### Polling and the database
 

@@ -107,6 +107,8 @@ export const LISTING = {
   adding: "Adding",
   signIn: "Sign in to add it.",
   chartPending: "The chart starts with the next hourly price.",
+  adjusted: (date: string, ratio: string) =>
+    `Prices before ${date} came from the previous formula. They're scaled by ${ratio}, this listing's price change when the current one came in.`,
 } as const;
 
 // section headings across the product
