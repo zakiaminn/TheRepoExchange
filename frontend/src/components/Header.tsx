@@ -7,7 +7,7 @@ import type { User } from "@supabase/supabase-js";
 import { createClient } from "@/utils/supabase/client";
 import type { DiscoveryResponse } from "@/lib/api";
 import { Wordmark } from "@/components/Logo";
-import { NAV, STATE } from "@/lib/copy";
+import { NAV, STATE, AUTH } from "@/lib/copy";
 
 type TickerSuggestion = { ticker: string; category: string };
 
@@ -121,7 +121,10 @@ export function Header() {
     window.location.href = "/login";
   };
 
-  if (pathname === "/login" || authLoading || !user) return null;
+  // visitors get a bar on the pages they can read without an account. the landing page has
+  // its own, and the other pages need an account
+  const publicPage = pathname === "/listings" || pathname.startsWith("/asset/");
+  if (pathname === "/login" || authLoading || (!user && !publicPage)) return null;
 
   let initials = "-";
   let displayName = "Account";
@@ -200,6 +203,30 @@ export function Header() {
       )}
     </form>
   );
+
+  if (!user) {
+    return (
+      <header className="sticky top-0 z-40 border-b border-rule bg-[var(--paper)]/92 backdrop-blur-md [view-transition-name:site-header]">
+        <div className="mx-auto flex h-14 max-w-[76rem] items-center gap-5 px-5 sm:px-8">
+          <Link href="/" className="shrink-0" aria-label="TRX, The Repo Exchange">
+            <Wordmark size="md" showName="wide" />
+          </Link>
+          <div className="ml-auto hidden max-w-sm flex-1 md:block">{search}</div>
+          <div className="ml-auto flex shrink-0 items-center gap-2 md:ml-0">
+            <Link
+              href={`/login?next=${encodeURIComponent(pathname)}`}
+              className="hidden px-3 py-2 text-[13px] text-ink-2 sig sm:block"
+            >
+              {AUTH.signIn}
+            </Link>
+            <Link href="/login?mode=signup" className="ctl ctl-primary ctl-sm">
+              {AUTH.signUp}
+            </Link>
+          </div>
+        </div>
+      </header>
+    );
+  }
 
   return (
     // named so a navigation leaves the bar in place instead of fading it out

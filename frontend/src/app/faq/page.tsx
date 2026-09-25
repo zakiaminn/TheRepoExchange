@@ -50,7 +50,7 @@ const FAQ: Group[] = [
     items: [
       {
         q: "How are prices set?",
-        a: "A listing's price is derived from the repository's public GitHub activity. Stars, forks, and watchers lift it; open pull requests add; open issues subtract, up to a cap; and the whole figure is aged by how recently the repository was pushed. The feed is polled continuously.",
+        a: "A listing's price is derived from the repository's public GitHub activity. Stars, forks, and watchers lift it; open pull requests add; open issues subtract, up to a cap; pull requests and issues both count on a log scale; and the whole figure is aged by how recently the repository was pushed. Prices are recalculated every hour.",
       },
       {
         q: "Can I check a price myself?",
@@ -67,11 +67,11 @@ const FAQ: Group[] = [
     items: [
       {
         q: "What is a repo call?",
-        a: "A repo call is a simulated prediction: you stake simulated capital on whether a repository's star count will be above or below a target by a chosen deadline. Settlement is even-money.",
+        a: "A repo call is a simulated prediction: you stake simulated capital on a repository's star count reaching a target by a chosen deadline. The target has to clear the repository's recent growth. Settlement is even-money.",
       },
       {
         q: "How does a call settle?",
-        a: "It resolves automatically at its deadline against the repository's public star count, the same figure the price is built from. If you were right you are paid even money; if you were wrong you lose the stake. All of it is simulated.",
+        a: "It's judged on the first star count recorded after its deadline, usually within the hour, the same figure the price is built from. If you were right you are paid even money; if you were wrong you lose the stake. All of it is simulated.",
       },
       {
         q: "What if a repository is delisted before my call resolves?",
@@ -84,7 +84,7 @@ const FAQ: Group[] = [
     items: [
       {
         q: "Where does the data come from?",
-        a: "From public GitHub data, chiefly the GitHub REST API, backfilled with history where it exists. Only public repository activity is used.",
+        a: "From public GitHub data, read from the GitHub REST API once an hour. Only public repository activity is used.",
       },
       {
         q: "Is TRX affiliated with GitHub?",

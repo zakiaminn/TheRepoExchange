@@ -10,7 +10,7 @@ import { ConfirmTradeModal } from "@/components/ConfirmTradeModal";
 import { SectionRule, Panel, Notice, Skeleton, Delta, Segmented } from "@/components/ui";
 import { ListingMorph } from "@/components/ListingMorph";
 import { usd, count, countCompact, change, toneClass } from "@/lib/format";
-import { SECTIONS, LABELS, ERROR, ORDER, NAV, LISTING } from "@/lib/copy";
+import { SECTIONS, LABELS, ERROR, ORDER, NAV, LISTING, AUTH } from "@/lib/copy";
 import { deriveValuation, type AssetMetrics } from "@/lib/pricing";
 import type { HoldingRow, HistoryPoint, HistoryResponse } from "@/lib/api";
 
@@ -49,6 +49,7 @@ export default function ListingPage(props: PageProps) {
   const [range, setRange] = useState<(typeof RANGES)[number]["key"]>("30D");
 
   const [userId, setUserId] = useState<string | null>(null);
+  const [authChecked, setAuthChecked] = useState(false);
   const [balance, setBalance] = useState<number | null>(null);
   const [ownedShares, setOwnedShares] = useState(0);
   const [avgPrice, setAvgPrice] = useState<number | null>(null);
@@ -66,16 +67,17 @@ export default function ListingPage(props: PageProps) {
   const isDark = usePrefersDark();
   const supabase = createClient();
 
-  // unlike the home page, there's no logged-out version of this route. sign-in brings you
-  // back to this listing
+  // anyone can read a listing. trading needs an account, and signing in from here comes back
+  // to this listing
+  const signInHref = `/login?next=${encodeURIComponent(`/asset/${owner}/${repo}`)}`;
   useEffect(() => {
     const check = async () => {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) window.location.href = `/login?next=${encodeURIComponent(`/asset/${owner}/${repo}`)}`;
-      else setUserId(user.id);
+      setUserId(user?.id ?? null);
+      setAuthChecked(true);
     };
     check();
-  }, [supabase, owner, repo]);
+  }, [supabase]);
 
   const fetchBalance = async (uid: string) => {
     try {
@@ -364,7 +366,7 @@ export default function ListingPage(props: PageProps) {
   return (
     <div className="flex-1 pb-20">
       <main className="mx-auto w-full max-w-[64rem] px-5 py-8 sm:px-8 sm:py-10">
-        <Link href="/" className="label inline-block sig">
+        <Link href={userId ? "/" : "/listings"} className="label inline-block sig">
           ← {NAV.back}
         </Link>
 
@@ -445,7 +447,7 @@ export default function ListingPage(props: PageProps) {
                         {adding ? LISTING.adding : LISTING.add}
                       </button>
                     ) : (
-                      <p className="ref mt-4">{LISTING.signIn}</p>
+                      <Link href={signInHref} className="ref link mt-4">{LISTING.signIn}</Link>
                     )}
                     {error && <p role="alert" className="ref mt-4">{error}</p>}
                   </div>
@@ -482,7 +484,8 @@ export default function ListingPage(props: PageProps) {
               {listed === true && view.adjusted && adjustment && (
                 <p className="ref mt-3 block leading-relaxed">
                   {LISTING.adjusted(
-                    new Date(adjustment.switchedAt).toLocaleDateString("en-GB", { day: "numeric", month: "short" }),
+                    // the switch day in utc, the same date the readme gives
+                    `${new Date(adjustment.switchedAt).getUTCDate()} ${new Date(adjustment.switchedAt).toLocaleString("en-US", { month: "short", timeZone: "UTC" })}`,
                     `×${adjustment.ratio.toFixed(4)}`
                   )}
                 </p>
@@ -549,7 +552,7 @@ export default function ListingPage(props: PageProps) {
                         <span className="label label-ink">Recency</span>
                         <span className="ref hidden sm:block">
                           {valuation.recency.implied
-                            ? "implied — push time not yet stored"
+                            ? "implied, push time not stored yet"
                             : `pushed ${valuation.recency.days} days before pricing`}
                         </span>
                       </div>
@@ -569,10 +572,10 @@ export default function ListingPage(props: PageProps) {
                 </Panel>
                 <p className="ref mt-3 block leading-relaxed">
                   {valuation.reconciles === false
-                    ? "This reconstruction does not reconcile to the mark — the mark was struck under a different formula version."
+                    ? "This doesn't add up to the mark because the mark came from an earlier version of the formula."
                     : valuation.recency?.implied
-                    ? "Base, plus each metric’s contribution, less capped issue drag, aged by recency — every line rebuilt from the repository’s public numbers. The recency factor is backed out of the mark until push time is stored; once it is, this line shows the exact age. Reconciles to the mark."
-                    : "Base, plus each metric’s contribution, less capped issue drag, then aged by how recently the repo was pushed — every line rebuilt from the repository’s public numbers, reconciling exactly to the mark."}
+                    ? "Base, plus each metric’s contribution, less capped issue drag, aged by recency. Every line is rebuilt from the repository’s public numbers. The recency factor is backed out of the mark until push time is stored; once it is, this line shows the exact age. Reconciles to the mark."
+                    : "Base, plus each metric’s contribution, less capped issue drag, then aged by how recently the repo was pushed. Every line is rebuilt from the repository’s public numbers and adds up exactly to the mark."}
                 </p>
               </section>
             )}
@@ -582,6 +585,20 @@ export default function ListingPage(props: PageProps) {
           <aside className="lg:sticky lg:top-28">
             <SectionRule label={SECTIONS.ticket} className="mb-5" />
 
+            {authChecked && !userId ? (
+              // a visitor gets the way in instead of an empty position
+              <Panel className="p-4">
+                <p className="text-[13px] leading-relaxed text-ink-2">{LISTING.visitor}</p>
+                <div className="mt-4 grid grid-cols-2 gap-2">
+                  <Link href="/login?mode=signup" className="ctl ctl-primary">
+                    {AUTH.signUp}
+                  </Link>
+                  <Link href={signInHref} className="ctl">
+                    {AUTH.signIn}
+                  </Link>
+                </div>
+              </Panel>
+            ) : (
             <Panel className={listed === false ? "opacity-50" : ""}>
               {/* position stats stacked as rows, since the rail is narrow */}
               <dl>
@@ -627,8 +644,9 @@ export default function ListingPage(props: PageProps) {
                 </p>
               </div>
             </Panel>
+            )}
 
-            {ownedShares === 0 && listed === true && (
+            {userId && ownedShares === 0 && listed === true && (
               <Notice className="mt-5">{ORDER.noPosition} Buy to open one.</Notice>
             )}
             {positionValue !== null && ownedShares > 0 && (

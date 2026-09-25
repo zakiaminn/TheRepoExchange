@@ -10,19 +10,19 @@ export const BRAND = {
 export const HERO = {
   headline: "A market in open source.",
   // what it is, where the prices come from, and that it isn't real
-  dek: "Listings are priced from live GitHub activity. Positions are simulated, and nothing offered here is a security.",
+  dek: "Listings are priced every hour from public GitHub activity. Positions are simulated, and nothing offered here is a security.",
   primary: "Open an account",
   secondary: "Read the mechanics",
 } as const;
 
 // how the market works, one fact per row
 export const MECHANICS: ReadonlyArray<{ term: string; value: string }> = [
-  { term: "Pricing basis", value: "Weighted from live GitHub activity. Stars, forks and watchers lift a listing; open pull requests add and open issues subtract. Polled continuously." },
+  { term: "Pricing basis", value: "Weighted from public GitHub activity. Stars, forks and watchers lift a listing; open pull requests add and open issues subtract, both on a log scale. Recalculated every hour." },
   { term: "Settlement", value: "Immediate. T+0." },
   { term: "Opening capital", value: "$100,000.00, credited once, non-renewable." },
   { term: "Order types", value: "Market only. Slippage is checked at the ledger and rejected, not absorbed." },
   { term: "Hours", value: "Continuous. The exchange does not close." },
-  { term: "Data source", value: "GitHub REST API, backfilled where history exists." },
+  { term: "Data source", value: "The GitHub REST API, read once an hour." },
   { term: "Custody", value: "None. Positions are entries in a ledger, not assets." },
 ];
 
@@ -96,6 +96,7 @@ export const CTA = {
 export const BOARD = {
   columnsNote: "Mark is the price now. Δ is the move across each listing's last ten recorded marks.",
   yours: "Your listings",
+  visitor: "Anyone can browse. Trading needs an account, which starts with $100,000 of simulated cash.",
 } as const;
 
 // a repository that isn't listed yet, and adding it to your own listings
@@ -106,6 +107,7 @@ export const LISTING = {
   add: "Add to your listings",
   adding: "Adding",
   signIn: "Sign in to add it.",
+  visitor: "Anyone can read a listing. Trading needs an account, which starts with $100,000 of simulated cash.",
   chartPending: "The chart starts with the next hourly price.",
   adjusted: (date: string, ratio: string) =>
     `Prices before ${date} came from the previous formula. They're scaled by ${ratio}, this listing's price change when the current one came in.`,

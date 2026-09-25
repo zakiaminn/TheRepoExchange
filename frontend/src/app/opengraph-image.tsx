@@ -35,7 +35,7 @@ export default async function Image() {
             maxWidth: 860,
           }}
         >
-          A market in open source. Listings are priced from live GitHub activity.
+          A market in open source. Listings are priced hourly from GitHub activity.
         </div>
 
         <Footer note="Settlement is simulated" />

@@ -1,8 +1,8 @@
 import type { MetadataRoute } from "next";
 import { abs, SITE_URL } from "@/lib/site";
 
-// the pages with public, indexable content: the homepage, the faq and the legal pages.
-// the app routes are auth-gated and redirect to /login, so they're left out
+// the pages with public, indexable content: the homepage, the listings, the faq and the legal
+// pages. single listings are client-rendered and stay out for now
 export default function sitemap(): MetadataRoute.Sitemap {
   const now = new Date();
   const legal = ["/legal", "/legal/terms", "/legal/privacy", "/legal/disclaimer"];
@@ -12,6 +12,12 @@ export default function sitemap(): MetadataRoute.Sitemap {
       lastModified: now,
       changeFrequency: "daily",
       priority: 1,
+    },
+    {
+      url: abs("/listings"),
+      lastModified: now,
+      changeFrequency: "hourly",
+      priority: 0.8,
     },
     {
       url: abs("/faq"),

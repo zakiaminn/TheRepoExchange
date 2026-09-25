@@ -10,7 +10,7 @@ export const SITE_SHORT = "TRX";
 
 // the default meta description, also used in the json-ld
 export const SITE_DESCRIPTION =
-  "A market in open source. Listings are priced from live GitHub activity. Settlement is simulated.";
+  "A market in open source. Listings are priced every hour from public GitHub activity. Trading is simulated.";
 
 // absolute url for a site-relative path, e.g. `abs("/asset/x/y")`
 export function abs(path = "/"): string {

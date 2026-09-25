@@ -273,7 +273,7 @@ export function LandingPage() {
         <section className="pb-20 sm:pb-28">
           <SectionRule
             label={SECTIONS.board}
-            meta={`${count(board.length)} of ${count(listings.length)} listings`}
+            meta={<Link href="/listings" className="link">All {count(listings.length)} listings</Link>}
             className="mb-6"
           />
 
@@ -294,10 +294,7 @@ export function LandingPage() {
                   return (
                     <tr key={l.ticker} className="stagger-item" style={{ "--i": i } as React.CSSProperties}>
                       <td>
-                        {/* links to /login rather than the asset page: that
-                            route has no logged-out state and hard-redirects,
-                            so pointing at it would flash a page and bounce */}
-                        <Link href="/login" className="group block">
+                        <Link href={`/asset/${owner.toLowerCase()}/${repo.toLowerCase()}`} className="group block">
                           <span className="block text-[13px] font-medium uppercase text-ink sig">
                             {repo}
                           </span>
