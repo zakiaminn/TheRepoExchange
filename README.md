@@ -1,53 +1,123 @@
 # The Repo Exchange (TRX)
 
-A simulated exchange where you trade GitHub repositories like securities. Every listing's price is a fixed, published function of the repo's live GitHub numbers — so any price on the board can be checked, by hand, against the public data it came from.
+TRX is a simulated market where GitHub repositories trade like stocks. Each price comes from six public numbers on the repo (stars, forks, watchers, open pull requests, open issues and the date of the last push) put through one formula that lives in this repo, so you can check any price against GitHub yourself.
 
 **Live:** [therepo.exchange](https://therepo.exchange)
 
-> Entirely simulated. No real money, no securities, nothing to hold. It's a sandbox for market mechanics on real, real-time data.
+> Everything is simulated. Accounts start with $100,000 of play money that can't be deposited, withdrawn or transferred, and no listing is a security.
 
-### What is it?
+## How it works
 
-You open an account, get $100,000 of fictional capital, and buy and sell positions in real repositories. Prices track live GitHub activity. On top of the market sits **Repo Calls** — a prediction market where you stake capital on a repo hitting a star target by a deadline, and the position settles automatically against the public star count.
+You sign up, get $100,000 of simulated cash, and buy and sell shares in repositories. A worker recalculates every price once an hour from the GitHub API. You can also open calls: stake cash on a repo reaching a star count by a date, settled against GitHub's count after the deadline.
 
-The point isn't the money (there isn't any). It's that the whole thing is *verifiable*: no invented numbers, no quotes off a wire, nothing you have to take on faith.
+I built it so every number can be checked. Each listing page shows its price worked out line by line from the public inputs, and the lines add up to the price you trade at.
 
-### Pricing is published, not conjured
+The main listings come from four GitHub searches the worker runs every hour (machine learning, Rust and C++, TypeScript and JavaScript, and repos created in the last 30 days). You can also add any public repo to your own listings. It's priced the same way, and it only shows up on your listings page.
 
-Every mark is a function of six public GitHub metrics — stars, forks, watchers, open PRs, open issues, and last-push recency — combined by one fixed formula, versioned as **PRICING-2**. The exact weights and the formula live in [ledger/pricing.js](ledger/pricing.js), and every listing's page shows its own price derived line by line, reconciling to the mark. Point a second tab at GitHub and you can reproduce any number on the board.
+## Pricing
 
-### Repo Calls (prediction market)
+The formula is versioned (currently PRICING-2):
 
-A repo's price barely moves day to day, but its star count moves a lot over weeks — so the interesting bet is directional and time-boxed. A call is a prediction: *"`oven-sh/bun` reaches 80,000 stars by a given date."* You stake simulated capital, and at the deadline a resolver settles it against the public star count — even-money, so a correct call returns twice the stake and a wrong one forfeits it. Your book of calls builds a forecasting track record over time.
+```
+gross = 5.00
+      + 0.001 × stars
+      + 0.01  × forks
+      + 0.05  × watchers
+      + 1.00  × ln(1 + open PRs)
 
-### The Stack
+issue drag = min(1.00 × ln(1 + open issues), 0.6 × gross)
 
-*   **Frontend:** Next.js + Tailwind (Vercel)
-*   **Backend Ledger:** Node.js + Express (Render)
-*   **Data Engine:** Python worker on an hourly cron (GitHub Actions)
-*   **Database & Auth:** PostgreSQL + Supabase, Resend for email
+price = max(1.00, (gross - issue drag) × recency)
+```
 
-### Under the Hood
+Recency is 1.00 until 30 days after the last push, then falls in a straight line to 0.70 at a year. Prices round to the cent.
 
-Real-time trading sims demand low latency and don't tolerate bad data, which is where most of the engineering went.
+Open PRs and issues are log-scaled so they can't dominate the price. A repo with 5,000 open PRs gets about $8.50 from them, so spamming a repo with PRs or issues barely moves its price.
 
-**The Data Engine & GitHub rate limits.** A Python worker hunts trending repos, ingests their metrics, and computes each mark from the published formula. The hard part is GitHub's rate limits — the worker uses exponential backoff and careful polling intervals to stay inside them. Price history isn't fabricated: a new listing starts at a single real mark and its chart fills in for real as the worker polls, because every point on a chart has to be a price the formula actually produced.
+Worked example: 10,000 stars, 500 forks, 300 watchers, 20 open PRs, 10 open issues, pushed recently.
 
-**One formula, two runtimes, no drift.** The pricing formula lives in both the Node ledger and the Python worker. To stop them diverging, both import a single canonical module in their own language, and both are pinned to a shared fixture of `input → expected price` cases that each side asserts against in its own test. Fixing this also closed two real parity bugs — one pricer measured recency in fractional days while the other floored to whole days, and the two rounded half-cents differently.
+```
+5.00 + 10.00 + 5.00 + 15.00 + ln(21) - ln(11) = 35.65
+```
 
-**Database protection (denial of wallet).** The client polls for live prices every 5 seconds to keep the terminal feeling alive. Left alone, that many clients would hammer the Postgres connection pool, so the Express API sits behind an IP rate-limiter and an in-memory cache: no matter how many clients are polling, the database is queried at most once every 5 seconds.
+The formula is in [ledger/pricing.js](ledger/pricing.js), [data-engine/pricing.py](data-engine/pricing.py) and [frontend/src/lib/pricing.ts](frontend/src/lib/pricing.ts). All three are tested against the same cases in [pricing/fixtures.json](pricing/fixtures.json).
 
-**Server-authoritative trades.** Trade validation is entirely server-side. The client's price is never trusted — the ledger re-reads the live mark, rejects the order if it has drifted beyond tolerance since submission (slippage is rejected, not absorbed), and runs every fill in one transaction with row-level locking so two concurrent orders can't race the same balance.
+## Calls
 
-**Auto-settling calls.** Calls are settled by an idempotent resolver: an hourly job asks the ledger to settle every open call past its deadline, judged against the latest public star count, crediting winners and refunding voids. It locks its working set with `SKIP LOCKED` so overlapping runs divide the work instead of double-paying, and the settlement math is a pure, unit-tested module.
+A repo's price moves slowly, but its star count can move a lot in a few weeks. A call is a bet on that: "facebook/react reaches 260,000 stars by 1 December". It's even money for now, so a correct call pays twice the stake and a wrong one loses it.
 
-**Auth & Row Level Security.** Supabase Auth handles sign-in. PostgreSQL Row Level Security lets the client read its own portfolio, transactions, and calls directly, while the Express backend does the privileged work — order routing, settlement, and market data.
+Even money only works if the target isn't a sure thing, so the ledger sets a floor on it:
 
-### Design
+- Calls are open on the main listings only, for repos with at least 1,000 stars.
+- A repo needs a day of star history first, and its latest star count has to be under two hours old.
+- The target has to be at least today's stars, plus the repo's recent daily growth projected to the deadline, plus 1%. So a call is a bet that the repo beats its own trend.
+- Stakes are capped at $10,000 per call and $10,000 across your open calls.
 
-The interface is deliberately plain: hairline rules instead of cards, and a strict split between text and figures. Words are set in **Bricolage Grotesque**; numbers — every price, count, and delta — in **Spline Sans Mono** with tabular figures and a real typographic minus sign, so columns line up and a falling number reads as one. One accent colour, **Sulfur** (`#DCEC3A`, an acid chartreuse) on **Chalk** (`#FAFAF9`), carries the signal and never competes with the bull/bear pair. The palette reasons explicitly about contrast — text tiers clear WCAG AA on the ground. The voice is plain and exact: it states what's true about the market and stops.
+After the deadline, the call is judged on the first star count the worker records. If none comes in within six hours (the repo went private, or was deleted), it's judged on the last count on record. Hiding a repo can't turn a losing call into a refund.
 
-### Roadmap
+The rules are in [ledger/calls.js](ledger/calls.js), with tests in [ledger/calls.test.js](ledger/calls.test.js).
 
-*   **Derived odds for calls (v2):** even-money is a flat, stated rule, not real odds. The honest version prices each call from the repo's trailing star velocity against the distance-to-target and time-to-deadline — verifiable odds, the same way prices are verifiable. It needs star-velocity history the engine will start recording first.
-*   **WebSockets:** move the live ticker from HTTP polling to a real WebSocket stream.
+## Stack
+
+- **Frontend:** Next.js and Tailwind, on Vercel
+- **Ledger:** Node and Express, on Render
+- **Worker:** Python, run hourly by GitHub Actions
+- **Database and auth:** Postgres and Supabase Auth, with Resend for email
+
+## Engineering notes
+
+#### GitHub rate limits
+
+The worker makes a few hundred GitHub requests per run: one per listing for its metrics and one for its open PR count. It reads the PR count from the pagination header of a one-item page, so a repo with 5,000 open PRs still costs one request. Rate-limited requests, server errors and dropped connections back off exponentially, and GitHub's `Retry-After` or reset time wins when it sends one. Each listing commits on its own, so a run that gets cut off keeps what it already priced.
+
+#### One formula in three places
+
+The ledger prices repos people add, the worker prices everything each hour, and the frontend rebuilds the price on each listing page. All three are tested against the same fixture cases. Setting that up turned up two places where the Node and Python copies disagreed: one measured recency in fractional days and the other in whole days, and they rounded half-cents differently.
+
+#### Price history
+
+Every point on a chart is a price the formula actually produced. A new listing starts with a single price and the worker adds one every hour. Each point records which formula version made it, and charts only draw points from the current version, so a chart never mixes two formulas. The catch is that a formula change starts every chart over. The worker also records the star count with each point, and calls are settled against those readings.
+
+#### Polling and the database
+
+When you're signed in, the listings page asks the ledger for prices every five seconds, and pauses while the tab is hidden. The ledger caches that response for five seconds, and requests that arrive during a refresh wait on the same query. So Postgres sees at most one listings query every five seconds, however many tabs are open. Rate limits count per visitor, using the client address Cloudflare passes along, or per account once you're signed in.
+
+#### Trades are checked on the server
+
+The client's price is never trusted. The ledger re-reads the price, rejects the order if it moved more than 1% since you opened the ticket, and fills it in one transaction. That transaction locks your account row before the holding, so two orders can't spend the same cash, and it retries if Postgres aborts it to break a deadlock. The response carries the price you actually got.
+
+#### Settling calls
+
+An hourly job settles calls past their deadline. It claims rows with `SKIP LOCKED` and only touches calls that are still open, so overlapping runs split the work instead of paying twice. Each call settles inside its own savepoint, so one bad row can't hold up everyone else's.
+
+#### Auth
+
+Supabase handles sign-in. The browser never queries the database: every read and write goes through the ledger, which verifies the Supabase token and uses the user id inside it. Row level security is on for every table as a second layer.
+
+## Design
+
+Words are set in Bricolage Grotesque and numbers in Spline Sans Mono, with tabular figures and a real minus sign so columns line up. There's one accent colour, Sulfur (`#DCEC3A`), on a Chalk ground (`#FAFAF9`), and tables use hairline rules instead of cards.
+
+## Known issues
+
+- A few repos are listed twice, under an old name and the current one (react/react and facebook/react). The listings page hides the duplicate. The proper fix is keying listings on GitHub's node id.
+- Owners can still nudge their own repo's price by opening PRs or issues on it. Log scaling keeps that to a few dollars, which matters most on small repos.
+- Calls use even money. The target floor comes from recent growth, so a repo that suddenly takes off can still beat it.
+- The hourly jobs run on GitHub Actions cron, which sometimes starts late.
+- Listing pages need an account, so search engines can't see them.
+
+## Next
+
+- Odds for calls, priced from each repo's star history instead of a flat even money. The worker records that history now.
+- Listing pages you can read without an account.
+
+## Tests
+
+```
+cd ledger && npm test               # call rules, plus the fixtures in the Node and TypeScript pricers (Node 24)
+python3 data-engine/test_pricing.py # the fixtures in the Python pricer
+```
+
+## License
+
+[AGPL-3.0](LICENSE)
