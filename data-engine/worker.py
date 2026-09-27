@@ -23,16 +23,16 @@ load_dotenv()
 GITHUB_TOKEN = os.getenv("GITHUB_TOKEN")
 DATABASE_URL = os.getenv("DATABASE_URL")
 
-# we only care about repos created in the last 30 days for the "hot ipos" category
+# the "new repos" search only finds repos created in the last 30 days
 thirty_days_ago = (datetime.now() - timedelta(days=30)).strftime('%Y-%m-%d')
 
 # these are literally just github search queries. each key becomes a category on the
 # board, and a new key shows up as a new category with no other code changes
 CATEGORIES = {
-    "AI & Machine Learning": "topic:machine-learning stars:>10000",
-    "Blue Chip Systems": "language:rust language:c++ stars:>20000",
-    "Web Frameworks": "language:typescript language:javascript stars:>30000",
-    "Hot IPOs (Last 30 Days)": f"created:>{thirty_days_ago} stars:>500"
+    "Machine learning": "topic:machine-learning stars:>10000",
+    "Rust and C++": "language:rust language:c++ stars:>20000",
+    "TypeScript and JavaScript": "language:typescript language:javascript stars:>30000",
+    "New repos": f"created:>{thirty_days_ago} stars:>500"
 }
 
 GITHUB_SEARCH_URL = "https://api.github.com/search/repositories"

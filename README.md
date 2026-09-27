@@ -61,7 +61,8 @@ The rules are in [ledger/calls.js](ledger/calls.js), with tests in [ledger/calls
 
 - **Frontend:** Next.js and Tailwind, on Vercel
 - **Ledger:** Node and Express, on Render
-- **Worker:** Python, run hourly by GitHub Actions
+- **Worker:** Python, run on GitHub Actions
+- **Scheduler:** a Cloudflare Worker cron that starts the hourly jobs
 - **Database and auth:** Postgres and Supabase Auth, with Resend for email
 
 ## Engineering notes
@@ -69,6 +70,12 @@ The rules are in [ledger/calls.js](ledger/calls.js), with tests in [ledger/calls
 #### GitHub rate limits
 
 The worker makes a few hundred GitHub requests per run: one per listing for its metrics and one for its open PR count. It reads the PR count from the pagination header of a one-item page, so a repo with 5,000 open PRs still costs one request. Rate-limited requests, server errors and dropped connections back off exponentially, and GitHub's `Retry-After` or reset time wins when it sends one. Each listing commits on its own, so a run that gets cut off keeps what it already priced.
+
+#### Running on the hour
+
+GitHub Actions can run a workflow on a cron schedule, but GitHub delays those runs when Actions is busy. Between 24 and 27 September the hourly pricing job ran 17 times in 58 hours, with a median gap of almost four hours. Calls need a star count under two hours old, so that kept them closed for most of each gap.
+
+A small Cloudflare Worker in [scheduler/](scheduler/) now keeps the schedule. On the hour it starts the pricing workflow through GitHub's API, at half past it starts call settlement, and every ten minutes it pings the ledger's health check.
 
 #### One formula in three places
 
@@ -109,13 +116,11 @@ Words are set in Bricolage Grotesque and numbers in Spline Sans Mono, with tabul
 - A few repos are listed twice, under an old name and the current one (react/react and facebook/react). The listings page hides the duplicate. The proper fix is keying listings on GitHub's node id.
 - Owners can still nudge their own repo's price by opening PRs or issues on it. Log scaling keeps that to a few dollars, which matters most on small repos.
 - Calls use even money. The target floor comes from recent growth, so a repo that suddenly takes off can still beat it.
-- The hourly jobs run on GitHub Actions cron, which sometimes starts late.
-- Listing pages need an account, so search engines can't see them.
+- Listing pages are rendered in the browser and marked noindex, so search engines don't list them.
 
 ## Next
 
 - Odds for calls, priced from each repo's star history instead of a flat even money. The worker records that history now.
-- Listing pages you can read without an account.
 
 ## Tests
 

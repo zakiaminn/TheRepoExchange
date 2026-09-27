@@ -34,3 +34,6 @@ recordings/
 # local notes. the root README is the only markdown file in the repo
 *.md
 !/README.md
+
+# cloudflare wrangler local state
+.wrangler/

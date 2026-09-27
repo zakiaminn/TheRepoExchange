@@ -1,0 +1,22 @@
+{
+  "name": "trx-scheduler",
+  "main": "src/index.js",
+  "compatibility_date": "2026-09-01",
+
+  // cron only, so no public url
+  "workers_dev": false,
+  "preview_urls": false,
+
+  // UTC. each string has to match a case in src/index.js
+  "triggers": {
+    "crons": ["0 * * * *", "30 * * * *", "*/10 * * * *"]
+  },
+
+  // GITHUB_TOKEN is a secret, set with wrangler secret put
+  "vars": {
+    "REPO": "zakiaminn/TheRepoExchange",
+    "LEDGER_URL": "https://trx-ledger.onrender.com"
+  },
+
+  "observability": { "enabled": true }
+}

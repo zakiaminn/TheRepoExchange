@@ -1,12 +1,10 @@
 name: TRX Call Settlement
 
-# hits the ledger's POST /api/calls/settle every hour to settle calls past their deadline.
-# it only touches open calls, so a double run doesn't pay out twice. runs at :30 so it
-# doesn't fire at the same minute as ingestion. the response is just counts
+# hits the ledger's POST /api/calls/settle to settle calls past their deadline. the
+# cloudflare worker in scheduler/ starts it at :30 each hour, away from ingestion. it only
+# touches open calls, so a double run doesn't pay out twice. the response is just counts
 
 on:
-  schedule:
-    - cron: '30 * * * *'
   workflow_dispatch:
 
 permissions:

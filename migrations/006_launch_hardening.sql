@@ -19,7 +19,8 @@ ALTER TABLE repositories ADD CONSTRAINT repositories_source_check CHECK (source 
 UPDATE repositories SET source = 'user'
 WHERE source = 'worker'
   AND (category IS NULL OR category NOT IN (
-    'AI & Machine Learning', 'Blue Chip Systems', 'Web Frameworks', 'Hot IPOs (Last 30 Days)'
+    'AI & Machine Learning', 'Blue Chip Systems', 'Web Frameworks', 'Hot IPOs (Last 30 Days)',
+    'Machine learning', 'Rust and C++', 'TypeScript and JavaScript', 'New repos'
   ));
 
 CREATE TABLE IF NOT EXISTS user_listings (

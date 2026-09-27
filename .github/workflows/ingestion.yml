@@ -1,11 +1,9 @@
 name: TRX Ingestion Engine
 
-# prices every listing and scouts for new ones once an hour. one run at a time, and each run
-# does a single pass and exits
+# prices every listing and scouts for new ones. the cloudflare worker in scheduler/ starts it
+# on the hour. one run at a time, and each run does a single pass and exits
 
 on:
-  schedule:
-    - cron: '0 * * * *'
   workflow_dispatch:
 
 permissions:
