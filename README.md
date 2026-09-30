@@ -4,6 +4,8 @@ TRX is a simulated market where GitHub repositories trade like stocks. Each pric
 
 **Live:** [therepo.exchange](https://therepo.exchange)
 
+![The listings page: every repo with its price, move and star count](docs/listings.png)
+
 > Everything is simulated. Accounts start with $100,000 of play money that can't be deposited, withdrawn or transferred, and no listing is a security.
 
 ## How it works
@@ -11,6 +13,8 @@ TRX is a simulated market where GitHub repositories trade like stocks. Each pric
 You sign up, get $100,000 of simulated cash, and buy and sell shares in repositories. A worker recalculates every price once an hour from the GitHub API. You can also open calls: stake cash on a repo reaching a star count by a date, settled against GitHub's count after the deadline.
 
 I built it so every number can be checked. Each listing page shows its price worked out line by line from the public inputs, and the lines add up to the price you trade at.
+
+<img src="docs/listing-valuation.png" alt="A listing page: price history, then the valuation worked out line by line from stars, forks, watchers, open PRs, open issues and recency" width="640">
 
 The main listings come from four GitHub searches the worker runs every hour (machine learning, Rust and C++, TypeScript and JavaScript, and repos created in the last 30 days). You can also add any public repo to your own listings. It's priced the same way, and it only shows up on your listings page.
 
@@ -115,6 +119,7 @@ Words are set in Bricolage Grotesque and numbers in Spline Sans Mono, with tabul
 
 - A few repos are listed twice, under an old name and the current one (react/react and facebook/react). The listings page hides the duplicate. The proper fix is keying listings on GitHub's node id.
 - Owners can still nudge their own repo's price by opening PRs or issues on it. Log scaling keeps that to a few dollars, which matters most on small repos.
+- Stars can be bought, and nothing here can tell a bought star from a real one. Each star adds $0.001 to a price and stakes are capped, so the most it can win is simulated cash.
 - Calls use even money. The target floor comes from recent growth, so a repo that suddenly takes off can still beat it.
 - Listing pages are rendered in the browser and marked noindex, so search engines don't list them.
 
