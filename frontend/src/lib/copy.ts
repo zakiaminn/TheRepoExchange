@@ -85,8 +85,10 @@ export const LANDING = {
   },
 } as const;
 
+// the sign-up panel at the bottom of the landing page. the headline is split so the
+// amount can carry the accent underline
 export const CTA = {
-  headline: "Start with $100,000 of simulated capital.",
+  headline: { lead: "Start with", mark: "$100,000", tail: "of simulated capital." },
   body: "Sign up with an email address. The capital is credited as soon as you confirm it.",
   action: "Open an account",
 } as const;

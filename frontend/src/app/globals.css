@@ -263,13 +263,6 @@ body::before {
 }
 @keyframes skeleton-sweep { to { transform: translateX(100%); } }
 
-/* radial fade for the engraved backdrop (<SecurityPaper>), so it fades into the page
-   toward its edges */
-.veil {
-  -webkit-mask-image: radial-gradient(closest-side, #000 52%, transparent 100%);
-  mask-image: radial-gradient(closest-side, #000 52%, transparent 100%);
-}
-
 /* night: a dark surface in either theme, for the landing hero and its feature panels.
    it re-points the colour tokens for everything inside it, so the rest of the system
    works on it unchanged. in dark mode it's lifted slightly so it still reads as its own
@@ -563,22 +556,11 @@ body::before {
 .segmented-active[data-ready] { transition: clip-path 220ms var(--ease-move); }
 
 /* the underline under "open source." on the landing headline draws itself in once,
-   left to right, just after the headline lands */
+   left to right, just after the headline lands. further down the page it waits for its
+   <Reveal> so it draws when it comes into view */
 @keyframes swipe-in { from { background-size: 0% 0.24em; } }
 .swipe-in { animation: swipe-in 640ms var(--ease) 360ms both; }
-
-/* .engrave draws the <SecurityPaper> rings in once. every ring is a single path, so a
-   dash offset from 1 to 0 draws it, and the rings start a beat apart, outermost first */
-@keyframes engrave { to { stroke-dashoffset: 0; } }
-.engrave path {
-  stroke-dasharray: 1;
-  stroke-dashoffset: 1;
-  animation: engrave 2400ms var(--ease-move) forwards;
-}
-.engrave path:nth-child(2) { animation-delay: 90ms; }
-.engrave path:nth-child(3) { animation-delay: 180ms; }
-.engrave path:nth-child(4) { animation-delay: 270ms; }
-.engrave path:nth-child(5) { animation-delay: 360ms; }
+.reveal-scroll[data-state="waiting"] .swipe-in { animation: none; }
 
 /* sections below the fold on the landing page (<Reveal>). they're only hidden once js
    has confirmed they're off-screen, so nothing is hidden without js and nothing
@@ -615,7 +597,6 @@ body::before {
   .ctl:active:not(:disabled),
   .press:active:not(:disabled) { transform: none; }
   .skeleton::after, .caret { animation: none; }
-  .engrave path { animation: none; stroke-dashoffset: 0; }
   .swipe-in { animation: none; }
   .reveal-scroll[data-state="waiting"] { transform: none; }
   .reveal-group[data-state="waiting"] .stagger-item { transform: none; }

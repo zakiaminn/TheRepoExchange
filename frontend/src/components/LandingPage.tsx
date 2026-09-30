@@ -6,7 +6,6 @@ import { ArrowRight } from "lucide-react";
 import { Wordmark } from "@/components/Logo";
 import { MiniSparkline } from "@/components/MiniSparkline";
 import { SectionRule, Notice } from "@/components/ui";
-import { SecurityPaper } from "@/components/SecurityPaper";
 import { Reveal } from "@/components/Reveal";
 import { PriceField, type FieldSeries } from "@/components/PriceField";
 import { Footage, FootagePause } from "@/components/Footage";
@@ -35,7 +34,7 @@ const FALLBACK: Listing[] = [
 // the logged-out home page. page.tsx shows this when there's no session, so it has its
 // own nav. it runs in panels alternating dark and light: the market as a field of price
 // lines, an index of what you can do, a panel per feature with a screen recording, then
-// the listings, how it works, the mechanics and the notice
+// the listings, how it works, the mechanics, the notice and a dark sign-up panel
 export function LandingPage() {
   const [listings, setListings] = useState<Listing[]>(FALLBACK);
   const [live, setLive] = useState(false);
@@ -357,40 +356,8 @@ export function LandingPage() {
           </Reveal>
         </section>
 
-        {/* sign-up */}
-        <section className="pb-20 sm:pb-28">
-          <Reveal>
-            <div className="relative overflow-hidden border border-rule-2 bg-paper-2">
-              {/* the engraved rosette, oversized and nearly invisible, behind
-                  the copy side of the block */}
-              <SecurityPaper className="veil pointer-events-none absolute -left-24 top-1/2 z-0 h-[30rem] w-[30rem] -translate-y-1/2 text-brand-ink opacity-[0.06] sm:h-[36rem] sm:w-[36rem] dark:opacity-[0.09]" />
-              <div className="relative z-10 grid items-center gap-10 px-6 py-14 sm:px-12 sm:py-20 lg:grid-cols-12 lg:gap-14">
-                <div className="lg:col-span-5">
-                  <h2 className="display max-w-md text-[clamp(1.85rem,4.5vw,3rem)] text-ink">
-                    {CTA.headline}
-                  </h2>
-                  <p className="mt-5 max-w-sm text-sm leading-relaxed text-ink-2">{CTA.body}</p>
-                  <Link href="/login?mode=signup" className="ctl ctl-primary ctl-lg mt-9">
-                    {CTA.action}
-                  </Link>
-                </div>
-                {/* the name morph, zoomed in on the path the name travels and
-                    slowed to 40% through the flight so it can be followed */}
-                <figure className="lg:col-span-7">
-                  <Footage
-                    label="A listing name carrying into its page"
-                    aspect="800 / 500"
-                    clip={{ mp4: "/landing/morph.mp4", webm: "/landing/morph.webm", poster: "/landing/morph.jpg" }}
-                  />
-                  <figcaption className="mt-3 text-[12px] leading-relaxed text-ink-3">{LANDING.morph}</figcaption>
-                </figure>
-              </div>
-            </div>
-          </Reveal>
-        </section>
-
         {/* notice */}
-        <section className="pb-20 sm:pb-24">
+        <section className="pb-20 sm:pb-28">
           <Reveal>
             <Notice tone="brand">
               {NOTICE.body}
@@ -398,6 +365,34 @@ export function LandingPage() {
           </Reveal>
         </section>
         </div>
+
+        {/* sign-up: a dark panel to close the page the way the hero opens it, with the
+            name morph zoomed in on the path the name travels and slowed to 40% through
+            the flight so it can be followed */}
+        <section className="night">
+          <div className="mx-auto grid max-w-[76rem] items-center gap-12 px-5 py-24 sm:px-8 sm:py-32 lg:grid-cols-12 lg:gap-16">
+            <Reveal className="lg:col-span-5">
+              <h2 className="display text-[clamp(2.25rem,5vw,3.75rem)] text-ink">
+                {CTA.headline.lead} <span className="swipe swipe-in">{CTA.headline.mark}</span>{" "}
+                {CTA.headline.tail}
+              </h2>
+              <p className="prose-measure mt-6 text-base leading-relaxed text-ink-2">{CTA.body}</p>
+              <Link href="/login?mode=signup" className="ctl ctl-primary ctl-lg mt-9">
+                {CTA.action}
+              </Link>
+            </Reveal>
+            <Reveal className="lg:col-span-7">
+              <figure>
+                <Footage
+                  label="A listing name carrying into its page"
+                  aspect="800 / 500"
+                  clip={{ mp4: "/landing/morph.mp4", webm: "/landing/morph.webm", poster: "/landing/morph.jpg" }}
+                />
+                <figcaption className="mt-3 text-[12px] leading-relaxed text-ink-3">{LANDING.morph}</figcaption>
+              </figure>
+            </Reveal>
+          </div>
+        </section>
       </main>
 
       {/* colophon */}
