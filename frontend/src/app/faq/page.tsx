@@ -75,7 +75,11 @@ const FAQ: Group[] = [
       },
       {
         q: "What if a repository is delisted before my call resolves?",
-        a: "The call is voided and your stake is refunded. A call only settles for or against you if the listing is still on the board at the deadline.",
+        a: "The call is judged on the last star count on record, so hiding or deleting a repository can't turn a losing call into a refund. A call is only voided, with the stake refunded, if there's no star data for it at all.",
+      },
+      {
+        q: "Can someone buy stars to win a call or move a price?",
+        a: "Yes, nothing here can tell a bought star from a real one. Each star adds $0.001 to a price, so moving it by a dollar takes a thousand of them. Stakes are capped at $10,000 per call and across your open calls, and all of it is simulated, so buying stars can only win simulated cash.",
       },
     ],
   },
