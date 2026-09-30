@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Board } from "@/components/Board";
+import { discoverySnapshot, hasSessionCookie } from "@/lib/snapshot";
 
 export const metadata: Metadata = {
   title: "Listings",
@@ -8,6 +9,7 @@ export const metadata: Metadata = {
 };
 
 // every listing and its price, readable without an account
-export default function ListingsPage() {
-  return <Board />;
+export default async function ListingsPage() {
+  const [initial, maybeSignedIn] = await Promise.all([discoverySnapshot(), hasSessionCookie()]);
+  return <Board initial={initial} maybeSignedIn={maybeSignedIn} />;
 }

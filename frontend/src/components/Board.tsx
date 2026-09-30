@@ -10,6 +10,7 @@ import { ConfirmTradeModal } from "@/components/ConfirmTradeModal";
 import { MiniSparkline } from "@/components/MiniSparkline";
 import { SectionRule, Empty, Skeleton, SkeletonBoard } from "@/components/ui";
 import { ListingMorph } from "@/components/ListingMorph";
+import type { DiscoveryResponse } from "@/lib/api";
 import { usd, pct, count, countCompact, change, toneClass, tickerParts, plural, clockTime } from "@/lib/format";
 import { SECTIONS, COLUMNS, LABELS, STATE, ERROR, ORDER, BOARD, AUTH } from "@/lib/copy";
 
@@ -30,9 +31,22 @@ const POLL_MS = 5000;
 
 // the listings: the market overview, one board per category, then your positions. anyone can
 // read it, and trading needs an account. on the home page (`landing`) visitors get the landing
-// page instead. each row has one buy button, and quantity gets set in the order ticket
-export function Board({ landing = false }: { landing?: boolean }) {
-  const [discovery, setDiscovery] = useState<Record<string, Repository[]>>({});
+// page instead. each row has one buy button, and quantity gets set in the order ticket.
+// `initial` is the server's snapshot of the listings, so the first paint has prices, and
+// `maybeSignedIn` says whether the request had a session cookie. without one there's no
+// session to wait for, so a visitor gets the page straight away
+export function Board({
+  landing = false,
+  initial = null,
+  maybeSignedIn = true,
+}: {
+  landing?: boolean;
+  initial?: DiscoveryResponse | null;
+  maybeSignedIn?: boolean;
+}) {
+  const [discovery, setDiscovery] = useState<Record<string, Repository[]>>(
+    () => (initial ?? {}) as Record<string, Repository[]>
+  );
   const [message, setMessage] = useState<ToastMessage>(null);
   const [pending, setPending] = useState<PendingTrade>(null);
   const [processing, setProcessing] = useState(false);
@@ -40,13 +54,17 @@ export function Board({ landing = false }: { landing?: boolean }) {
   const [mine, setMine] = useState<Repository[]>([]);
 
   const [userId, setUserId] = useState<string | null>(null);
-  const [initializing, setInitializing] = useState(true);
+  const [initializing, setInitializing] = useState(maybeSignedIn);
   const [balance, setBalance] = useState<number | null>(null);
   const [portfolio, setPortfolio] = useState<Holding[]>([]);
 
   // the tick: last seen mark per listing, so a poll can tell which figures
   // actually moved and flash only those
-  const lastMarks = useRef<Record<string, number>>({});
+  const lastMarks = useRef<Record<string, number>>(
+    Object.fromEntries(
+      Object.values(initial ?? {}).flat().map((r) => [r.ticker, Number(r.current_price)])
+    )
+  );
   const [flash, setFlash] = useState<Record<string, "pos" | "neg">>({});
 
   // when the last poll actually returned prices, and whether the latest one failed
@@ -235,7 +253,7 @@ export function Board({ landing = false }: { landing?: boolean }) {
     );
   }
 
-  if (!userId && landing) return <LandingPage />;
+  if (!userId && landing) return <LandingPage initial={initial} />;
 
   // buying needs an account, so a visitor's buy button goes to sign in and comes back here
   const buy = (trade: NonNullable<PendingTrade>) => {
@@ -307,7 +325,7 @@ export function Board({ landing = false }: { landing?: boolean }) {
             </h1>
             <p className="text-[13px] text-ink-2" aria-live="off">
               {updatedAt === null ? (
-                STATE.quotes
+                categories.length === 0 && STATE.quotes
               ) : (
                 <>
                   {feedDown ? "Price feed unavailable. Last updated " : "Prices updated "}

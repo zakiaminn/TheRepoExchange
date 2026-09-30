@@ -31,13 +31,27 @@ const FALLBACK: Listing[] = [
   { ticker: "denoland/deno",    current_price: 1043.60, raw_stars: 104360, sparkline: [1056.3, 1054.1, 1051.8, 1052.9, 1049.4, 1047.2, 1048.0, 1045.5, 1044.8, 1043.60], category: "runtimes" },
 ];
 
+// discovery's categories flattened into one list of listings
+function flatten(data: DiscoveryResponse): Listing[] {
+  return Object.entries(data).flatMap(([category, repos]) =>
+    repos.map((r) => ({
+      ticker: r.ticker,
+      current_price: Number(r.current_price),
+      raw_stars: Number(r.raw_stars),
+      sparkline: Array.isArray(r.sparkline) ? r.sparkline : [],
+      category,
+    }))
+  );
+}
+
 // the logged-out home page. page.tsx shows this when there's no session, so it has its
 // own nav. it runs in panels alternating dark and light: the market as a field of price
 // lines, an index of what you can do, a panel per feature with a screen recording, then
 // the listings, how it works, the mechanics, the notice and a dark sign-up panel
-export function LandingPage() {
-  const [listings, setListings] = useState<Listing[]>(FALLBACK);
-  const [live, setLive] = useState(false);
+export function LandingPage({ initial = null }: { initial?: DiscoveryResponse | null }) {
+  const seeded = initial ? flatten(initial) : [];
+  const [listings, setListings] = useState<Listing[]>(seeded.length > 0 ? seeded : FALLBACK);
+  const [live, setLive] = useState(seeded.length > 0);
   const [failed, setFailed] = useState(false);
   // the bar floats clear over the dark hero and turns solid once you're past it
   const [overHero, setOverHero] = useState(true);
@@ -50,16 +64,7 @@ export function LandingPage() {
       try {
         const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/discovery`);
         if (!res.ok) throw new Error(String(res.status));
-        const data = await res.json();
-        const flat: Listing[] = Object.entries(data as DiscoveryResponse).flatMap(([category, repos]) =>
-          repos.map((r) => ({
-            ticker: r.ticker,
-            current_price: Number(r.current_price),
-            raw_stars: Number(r.raw_stars),
-            sparkline: Array.isArray(r.sparkline) ? r.sparkline : [],
-            category,
-          }))
-        );
+        const flat = flatten((await res.json()) as DiscoveryResponse);
         if (flat.length > 0) {
           setListings(flat);
           setLive(true);
