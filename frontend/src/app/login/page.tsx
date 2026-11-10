@@ -1,4 +1,21 @@
+import type { Metadata } from "next";
 import LoginView, { type Mode } from "./LoginView";
+import { AUTH } from "@/lib/copy";
+
+type Search = { mode?: string; error?: string; next?: string };
+
+// the tab title follows the form that's open. the page is kept out of search, since
+// the landing page is what a search for the site should find
+export async function generateMetadata({
+  searchParams,
+}: {
+  searchParams: Promise<Search>;
+}): Promise<Metadata> {
+  const { mode } = await searchParams;
+  const title =
+    mode === "signup" ? AUTH.applyTitle : mode === "forgot" ? AUTH.forgotTitle : AUTH.returnTitle;
+  return { title, robots: { index: false, follow: true } };
+}
 
 // only same-site paths, so ?next= can't send anyone off the site after they sign in
 function safeNext(next: string | undefined): string {
@@ -11,7 +28,7 @@ function safeNext(next: string | undefined): string {
 export default async function LoginPage({
   searchParams,
 }: {
-  searchParams: Promise<{ mode?: string; error?: string; next?: string }>;
+  searchParams: Promise<Search>;
 }) {
   const { mode, error, next } = await searchParams;
   const initial: Mode = mode === "signup" || mode === "forgot" ? mode : "signin";

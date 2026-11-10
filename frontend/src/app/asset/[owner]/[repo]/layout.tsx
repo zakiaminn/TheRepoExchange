@@ -25,6 +25,7 @@ export async function generateMetadata({
     robots: { index: false, follow: true },
     openGraph: {
       type: "website",
+      siteName: SITE_NAME,
       url: abs(path),
       title: `${owner}/${repo}`,
       description,

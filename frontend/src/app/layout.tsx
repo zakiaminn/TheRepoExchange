@@ -2,7 +2,15 @@ import type { Metadata } from "next";
 import { Bricolage_Grotesque, Spline_Sans_Mono } from "next/font/google";
 import "./globals.css";
 import { Header } from "@/components/Header";
-import { SITE_URL, SITE_NAME, SITE_SHORT, SITE_DESCRIPTION, abs } from "@/lib/site";
+import {
+  SITE_URL,
+  SITE_NAME,
+  SITE_TAGLINE,
+  SITE_ALIASES,
+  SITE_PROFILES,
+  SITE_DESCRIPTION,
+  abs,
+} from "@/lib/site";
 
 // the fonts: bricolage grotesque for the words (titles, body, labels and the wordmark),
 // spline sans mono for the numbers (figures, reference codes and timestamps)
@@ -23,9 +31,11 @@ export const metadata: Metadata = {
   // resolves every relative og, canonical and image url below (and the og:image that
   // the app/opengraph-image route injects) against the real origin
   metadataBase: new URL(SITE_URL),
+  // the full name leads every title. "TRX" alone is also the ticker of a large
+  // cryptocurrency, so it doesn't identify the site in search results
   title: {
-    default: `${SITE_SHORT} · ${SITE_NAME}`,
-    template: `%s · ${SITE_SHORT}`,
+    default: `${SITE_NAME} · ${SITE_TAGLINE}`,
+    template: `%s · ${SITE_NAME}`,
   },
   description: SITE_DESCRIPTION,
   applicationName: SITE_NAME,
@@ -38,25 +48,21 @@ export const metadata: Metadata = {
     "open source stock market",
     "prediction market open source",
   ],
-  // the homepage is the canonical for the whole site
-  alternates: { canonical: "/" },
+  // each page sets its own canonical. og and twitter titles and descriptions are left
+  // out here so next fills them from each page's own title and description
   openGraph: {
     type: "website",
-    url: SITE_URL,
     siteName: SITE_NAME,
-    title: `${SITE_SHORT} · ${SITE_NAME}`,
-    description: SITE_DESCRIPTION,
     // og:image comes from app/opengraph-image.tsx
   },
   twitter: {
     card: "summary_large_image",
-    title: `${SITE_SHORT} · ${SITE_NAME}`,
-    description: SITE_DESCRIPTION,
   },
 };
 
-// Organization and WebSite structured data for search results. there's no SearchAction
-// since the site has no public search
+// Organization and WebSite structured data for search results. the WebSite name and
+// alternateName are what google shows as the site name. there's no SearchAction since
+// the site has no public search
 const structuredData = {
   "@context": "https://schema.org",
   "@graph": [
@@ -64,16 +70,17 @@ const structuredData = {
       "@type": "Organization",
       "@id": abs("/#organization"),
       name: SITE_NAME,
-      alternateName: SITE_SHORT,
+      alternateName: SITE_ALIASES,
       url: SITE_URL,
       logo: abs("/trx-logo.png"),
       description: SITE_DESCRIPTION,
+      sameAs: SITE_PROFILES,
     },
     {
       "@type": "WebSite",
       "@id": abs("/#website"),
       name: SITE_NAME,
-      alternateName: SITE_SHORT,
+      alternateName: SITE_ALIASES,
       url: SITE_URL,
       publisher: { "@id": abs("/#organization") },
       description: SITE_DESCRIPTION,
